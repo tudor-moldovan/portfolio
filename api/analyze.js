@@ -172,9 +172,8 @@ ${question ? `QUESTION: ${question}` : 'What is your next recommended move?'}`;
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2048,
-        thinking: { type: 'adaptive' },
         system: systemPrompt,
         messages: [{ role: 'user', content: userMsg }],
       }),
