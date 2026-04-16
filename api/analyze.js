@@ -200,7 +200,7 @@ function buildContext(portfolio, quotes, news) {
         .join('\n')
     : '  No sector exposure yet';
 
-  // ── Full market data with technicals + fundamentals ───
+  // ── Market data with technicals ───
   const bySector = {};
   for (const sym of WATCHLIST) {
     const q = quotes[sym];
@@ -325,7 +325,7 @@ export default async function handler(req) {
     });
   }
 
-  // Fetch all data in parallel: charts, news, fundamentals, per-stock news
+  // Fetch chart data + news in parallel
   const holdingSymbols = (portfolio.holdings || []).map(h => h.symbol);
   const allSymbols = [...new Set([...holdingSymbols, ...WATCHLIST])];
 
@@ -411,7 +411,7 @@ ${attributionText}
 ═══ FULL TRADE HISTORY & RATIONALES ═══
 ${tradeMemory}
 
-═══ LIVE MARKET DATA (technicals + fundamentals + news) ═══
+═══ LIVE MARKET DATA ═══
 ${marketText || '(unavailable)'}
 
 ═══ MACRO ENVIRONMENT ═══
@@ -487,7 +487,7 @@ ${question ? `QUESTION: ${question}` : 'Analyze from all 3 perspectives (value, 
       name: q.name,
       prevClose: q.prevClose,
       sector: q.sector,
-      earningsDate: fundamentals[sym]?.earningsDate || null,
+      earningsDate: null,
     };
   }
 

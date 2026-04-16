@@ -1,13 +1,9 @@
 export const config = { runtime: 'edge' };
 
 const UNIVERSE = [
-  'AAPL','MSFT','NVDA','GOOGL','AMZN','META','CRM','AMD','AVGO','ORCL',
-  'JPM','V','BRK-B','GS','MA',
-  'UNH','JNJ','LLY','PFE','ABBV',
-  'XOM','CVX',
-  'WMT','KO','PG','COST',
-  'CAT','GE','HON',
-  'SPY','QQQ','DIA','IWM','^VIX','^TNX',
+  'AAPL','MSFT','NVDA','GOOGL','AMZN','META','ASML','TSM',
+  'NFLX','V','MA','COST','BRK-B','LLY','LVMUY',
+  'SPY','^VIX','^TNX',
 ];
 
 async function fetchQuote(symbol) {
