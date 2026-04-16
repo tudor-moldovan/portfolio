@@ -3,35 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The $50K Portfolio — Managed by Claude</title>
+<title>Moat Portfolio — Elite Compounders</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#080c10;--sf:#0f1419;--sf2:#151c25;
-  --bd:#1e2a38;--bd2:#243346;
-  --tx:#e8edf2;--mu:#7a8fa6;--di:#3d5166;
-  --gr:#00c896;--gr2:#00c89614;
-  --rd:#ff4d6d;--rd2:#ff4d6d14;
-  --pu:#a78bfa;--pu2:#a78bfa12;
-  --go:#f59e0b;--bl:#60a5fa;
+  --bg:#0a0e13;--sf:#12171e;--sf2:#181f28;
+  --bd:#232d3b;--bd2:#2c3847;
+  --tx:#d8dee6;--mu:#6b7d92;--di:#3d5166;
+  --gr:#2ec4a0;--gr2:#2ec4a014;
+  --rd:#e5534b;--rd2:#e5534b14;
+  --pu:#4ea1d3;--pu2:#4ea1d312;
+  --go:#d4a030;--bl:#4ea1d3;
   --mo:'JetBrains Mono',monospace;
 }
 body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh;position:relative}
 body::before{content:'';position:fixed;inset:0;z-index:-1;
-  background:url('img/faget-trail.jpg') center/cover no-repeat fixed,
-    linear-gradient(135deg,#0a1a0d 0%,#0d2818 25%,#0a1f14 50%,#071510 75%,#060d08 100%);
-  filter:brightness(0.25) saturate(0.6);
-}
-body::after{content:'';position:fixed;inset:0;z-index:-1;
-  background:radial-gradient(ellipse at 30% 20%,rgba(0,200,150,0.04) 0%,transparent 60%),
-    radial-gradient(ellipse at 70% 80%,rgba(79,70,229,0.05) 0%,transparent 50%);
+  background:url('img/faget-trail.jpg') center/cover no-repeat;
+  opacity:0.06;
 }
 /* header */
 header{background:rgba(15,20,25,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:99;gap:16px}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.logo-mark{width:30px;height:30px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.logo-mark{width:30px;height:30px;background:#1a6b5a;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px}
 .logo-name{font-weight:700;font-size:14px}.logo-sub{font-size:10px;color:var(--mu);font-weight:400}
 .hc{text-align:center}
 .hc-lbl{font-size:10px;color:var(--di);text-transform:uppercase;letter-spacing:.8px}
@@ -74,8 +69,8 @@ tbody tr:hover td{background:var(--sf2)}
 .empty{padding:44px 20px;text-align:center}
 .ei{font-size:28px;margin-bottom:10px}.em{color:var(--mu);font-size:13px}.es{color:var(--di);font-size:11px;margin-top:5px}
 /* advisor */
-.ask-btn{width:100%;padding:13px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px}
-.ask-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(124,58,237,.4)}
+.ask-btn{width:100%;padding:13px;background:#1a6b5a;border:none;border-radius:8px;color:#d8dee6;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.ask-btn:hover{background:#2ec4a0;color:#0a0e13}
 .ask-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
 .thinking{display:none;align-items:center;gap:10px;padding:13px;background:var(--pu2);border:1px solid rgba(167,139,250,.2);border-radius:10px;font-size:13px;color:var(--pu)}
 .thinking.on{display:flex}
@@ -214,7 +209,13 @@ tbody tr:hover td{background:var(--sf2)}
 /* theme */
 .theme-btn{background:none;border:none;color:var(--di);cursor:pointer;font-size:16px;padding:2px 6px}
 .theme-btn:hover{color:var(--tx)}
-:root.light{--bg:#f0f2f5;--sf:#fff;--sf2:#f5f6f8;--bd:#dde1e6;--bd2:#c4c9d0;--tx:#1a1a2e;--mu:#5a6678;--di:#8a95a6}
+:root.light{--bg:#f2f3f5;--sf:#ffffff;--sf2:#f7f8fa;--bd:#dce0e6;--bd2:#c4c9d0;--tx:#1a1e2a;--mu:#5a6678;--di:#8a95a6;--gr:#1a8a6e;--gr2:#1a8a6e14;--rd:#c44040;--rd2:#c4404014;--pu:#2a7ab5;--pu2:#2a7ab512;--go:#b58a20;--bl:#2a7ab5}
+:root.light body::before{opacity:0.03}
+:root.light .card{background:rgba(255,255,255,0.92)}
+:root.light header{background:rgba(255,255,255,0.95)}
+:root.light .st{background:rgba(255,255,255,0.9)}
+:root.light .wi{background:rgba(255,255,255,0.9)}
+:root.light .ask-btn{background:#1a6b5a;color:#fff}
 /* mobile fixes */
 @media(max-width:600px){
   header{padding:10px 12px;gap:8px;flex-wrap:wrap}
@@ -237,7 +238,7 @@ tbody tr:hover td{background:var(--sf2)}
 <header>
   <div class="logo">
     <div class="logo-mark">⚡</div>
-    <div><div class="logo-name">The $50K Portfolio</div><div class="logo-sub">Managed by Claude</div></div>
+    <div><div class="logo-name">Moat Portfolio</div><div class="logo-sub">15 Elite Compounders</div></div>
   </div>
   <div class="hc">
     <div class="hc-lbl">Portfolio Value</div>
@@ -322,9 +323,9 @@ tbody tr:hover td{background:var(--sf2)}
             <span style="font-size:11px;color:var(--di)" id="rTot"></span>
           </div>
           <div class="persp" id="rPersp" style="display:none">
-            <div class="persp-item"><div class="persp-label val">Value</div><div id="rpVal">—</div></div>
-            <div class="persp-item"><div class="persp-label mom">Momentum</div><div id="rpMom">—</div></div>
-            <div class="persp-item"><div class="persp-label con">Contrarian</div><div id="rpCon">—</div></div>
+            <div class="persp-item"><div class="persp-label val">Moat</div><div id="rpVal">—</div></div>
+            <div class="persp-item"><div class="persp-label mom">Valuation &amp; Catalyst</div><div id="rpMom">—</div></div>
+            <div class="persp-item"><div class="persp-label con">Conviction</div><div id="rpCon">—</div></div>
           </div>
           <div class="divider"></div>
           <div class="rnote" id="rNote"></div>
@@ -335,7 +336,7 @@ tbody tr:hover td{background:var(--sf2)}
 
     <!-- Watchlist -->
     <div class="card">
-      <div class="ch"><div class="ct">Market Prices <span style="color:var(--di);font-weight:400">(33 stocks)</span></div><div class="cb" id="pTime">—</div></div>
+      <div class="ch"><div class="ct">Moat Universe</div><div class="cb" id="pTime">—</div></div>
       <div class="wg" id="wGrid"></div>
     </div>
   </div>
@@ -411,13 +412,14 @@ tbody tr:hover td{background:var(--sf2)}
 <script>
 const START=50000;
 const SECTORS={
-  'ETF':['SPY','QQQ','DIA','IWM'],
-  'Technology':['AAPL','MSFT','NVDA','GOOGL','AMZN','META','CRM','AMD','AVGO','ORCL'],
-  'Financials':['JPM','V','BRK-B','GS','MA'],
-  'Healthcare':['UNH','JNJ','LLY','PFE','ABBV'],
-  'Energy':['XOM','CVX'],
-  'Consumer':['WMT','KO','PG','COST'],
-  'Industrials':['CAT','GE','HON'],
+  'Benchmark':['SPY'],
+  'Tech — Platform':['AAPL','MSFT','GOOGL','AMZN','META'],
+  'Tech — AI/Chips':['NVDA','ASML','TSM'],
+  'Payments':['V','MA'],
+  'Healthcare':['LLY'],
+  'Consumer':['COST','NFLX'],
+  'Conglomerate':['BRK-B'],
+  'Luxury':['LVMUY'],
 };
 const WATCHLIST=Object.values(SECTORS).flat();
 // Reverse lookup: symbol → sector
@@ -744,19 +746,15 @@ function showRec(r){
     const rc={RISK_ON:['#00c896','#00c89620'],NORMAL:['#60a5fa','#60a5fa20'],CAUTIOUS:['#f59e0b','#f59e0b20'],RISK_OFF:['#ff4d6d','#ff4d6d20']}[r.marketRegime]||['#7a8fa6','#151c2520'];
     rb.textContent=r.marketRegime;rb.style.display='inline';rb.style.color=rc[0];rb.style.background=rc[1];
   }else{rb.style.display='none';}
-  // Multi-perspective display
+  // Moat + conviction display
   const pp=document.getElementById('rPersp');
-  if(r.perspectives){
+  if(r.moatRating||r.convictionScore){
     pp.style.display='grid';
-    document.getElementById('rpVal').textContent=r.perspectives.value||'—';
-    document.getElementById('rpMom').textContent=r.perspectives.momentum||'—';
-    document.getElementById('rpCon').textContent=r.perspectives.contrarian||'—';
+    const moatColors={FORTRESS:'var(--gr)',STRONG:'var(--bl)',INTACT:'var(--go)',ERODING:'var(--rd)'};
+    document.getElementById('rpVal').innerHTML='<span style="color:'+(moatColors[r.moatRating]||'var(--mu)')+'">'+( r.moatRating||'—')+'</span>'+(r.moatRationale?' — '+r.moatRationale:'');
+    document.getElementById('rpMom').innerHTML=(r.valuationVerdict||'—')+(r.catalyst?' <span style="color:var(--di);font-size:10px">Trigger: '+r.catalyst+'</span>':'');
+    document.getElementById('rpCon').innerHTML=r.convictionScore?('<span style="font-size:18px;font-weight:700;font-family:var(--mo)">'+r.convictionScore+'</span><span style="color:var(--di)">/10</span>'):'—';
   }else{pp.style.display='none';}
-  // Consensus badge
-  if(r.consensus){
-    const cb=document.getElementById('rConf');
-    cb.innerHTML=(r.confidence||'—')+' <span class="consensus '+(r.consensus||'')+'">'+(r.consensus||'')+'</span>';
-  }
   const eb=document.getElementById('execBtn');
   if(action==='BUY'&&r.symbol&&r.shares){eb.textContent='Buy '+r.shares+' shares of '+r.symbol;eb.className='exec-btn buy';eb.disabled=false;}
   else if(action==='SELL'&&r.symbol&&r.shares){eb.textContent='Sell '+r.shares+' shares of '+r.symbol;eb.className='exec-btn sell';eb.disabled=false;}

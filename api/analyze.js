@@ -6,27 +6,17 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// ── Expanded universe across all major sectors ──────────────────────────
+// ── Elite moat compounders ───────────────────────────────────────────────
 const UNIVERSE = {
-  // Technology
-  AAPL: 'Technology', MSFT: 'Technology', NVDA: 'Technology',
-  GOOGL: 'Technology', AMZN: 'Technology', META: 'Technology',
-  CRM: 'Technology', AMD: 'Technology', AVGO: 'Technology', ORCL: 'Technology',
-  // Financials
-  JPM: 'Financials', V: 'Financials', 'BRK-B': 'Financials',
-  GS: 'Financials', MA: 'Financials',
-  // Healthcare
-  UNH: 'Healthcare', JNJ: 'Healthcare', LLY: 'Healthcare',
-  PFE: 'Healthcare', ABBV: 'Healthcare',
-  // Energy
-  XOM: 'Energy', CVX: 'Energy',
-  // Consumer Defensive
-  WMT: 'Consumer', KO: 'Consumer', PG: 'Consumer', COST: 'Consumer',
-  // Industrials
-  CAT: 'Industrials', GE: 'Industrials', HON: 'Industrials',
-  // ETFs / Benchmarks
-  SPY: 'ETF', QQQ: 'ETF', DIA: 'ETF', IWM: 'ETF',
-  // Macro Indicators
+  AAPL: 'Tech — Ecosystem', MSFT: 'Tech — Enterprise', NVDA: 'Tech — AI Chips',
+  GOOGL: 'Tech — Search/Ads', AMZN: 'Tech — Cloud/Logistics', META: 'Tech — Social',
+  ASML: 'Tech — Semiconductor Equipment', TSM: 'Tech — Chip Fabrication',
+  NFLX: 'Media — Streaming', V: 'Payments', MA: 'Payments',
+  COST: 'Consumer — Membership', 'BRK-B': 'Diversified Conglomerate',
+  LLY: 'Healthcare — GLP-1', LVMUY: 'Luxury',
+  // Benchmarks
+  SPY: 'Benchmark',
+  // Macro
   '^VIX': 'Macro', '^TNX': 'Macro',
 };
 const WATCHLIST = Object.keys(UNIVERSE);
@@ -140,75 +130,6 @@ async function fetchChartData(symbol) {
   }
 }
 
-// ── Fundamentals (Yahoo quoteSummary) ───────────────────────────────────
-async function fetchFundamentals(symbol) {
-  try {
-    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,defaultKeyStatistics,financialData,calendarEvents`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', Accept: 'application/json' },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const r = data.quoteSummary?.result?.[0];
-    if (!r) return null;
-    const ks = r.defaultKeyStatistics || {};
-    const fd = r.financialData || {};
-    const pr = r.price || {};
-    const ce = r.calendarEvents || {};
-    const earningsDate = ce.earnings?.earningsDate?.[0]?.raw;
-    return {
-      trailingPE: pr.trailingPE?.raw ?? ks.trailingPE?.raw ?? null,
-      forwardPE: ks.forwardPE?.raw ?? null,
-      pegRatio: ks.pegRatio?.raw ?? null,
-      priceToBook: ks.priceToBook?.raw ?? null,
-      marketCap: pr.marketCap?.raw ?? null,
-      profitMargins: fd.profitMargins?.raw ?? null,
-      revenueGrowth: fd.revenueGrowth?.raw ?? null,
-      earningsGrowth: fd.earningsGrowth?.raw ?? null,
-      dividendYield: ks.dividendYield?.raw ?? null,
-      earningsDate: earningsDate ? new Date(earningsDate * 1000).toISOString().slice(0, 10) : null,
-      targetMeanPrice: fd.targetMeanPrice?.raw ?? null,
-    };
-  } catch { return null; }
-}
-
-// ── Per-stock news with sentiment keywords ──────────────────────────────
-// ── Sentiment scoring ───────────────────────────────────────────────────
-const POS_WORDS = /\b(beat|beats|surge|surges|upgrade|upgrades|record|growth|rally|bullish|soar|outperform|strong|profit|gain|boost|raise|rises|jumped|positive)\b/i;
-const NEG_WORDS = /\b(miss|misses|downgrade|downgrades|layoff|layoffs|decline|declined|warning|lawsuit|loss|losses|crash|bearish|plunge|cut|cuts|weak|fell|drop|drops|negative|risk|fear)\b/i;
-function scoreSentiment(headlines) {
-  if (!headlines.length) return 0;
-  let score = 0;
-  for (const h of headlines) {
-    const pos = (h.match(POS_WORDS) || []).length;
-    const neg = (h.match(NEG_WORDS) || []).length;
-    score += pos - neg;
-  }
-  return Math.max(-1, Math.min(1, score / headlines.length)); // normalize to [-1, 1]
-}
-
-async function fetchStockNews(symbols) {
-  const top = symbols.slice(0, 8); // limit to avoid timeouts
-  const results = {};
-  const settled = await Promise.allSettled(top.map(async sym => {
-    try {
-      const res = await fetch(
-        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(sym)}&newsCount=3&quotesCount=0`,
-        { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }, signal: AbortSignal.timeout(4000) },
-      );
-      if (!res.ok) return { sym, items: [] };
-      const data = await res.json();
-      const items = (data.news || []).slice(0, 3).map(n => n.title).filter(Boolean);
-      return { sym, items };
-    } catch { return { sym, items: [] }; }
-  }));
-  for (const r of settled) {
-    if (r.status === 'fulfilled' && r.value.items.length) results[r.value.sym] = r.value.items;
-  }
-  return results;
-}
-
 async function fetchMarketNews() {
   try {
     const res = await fetch(
@@ -242,7 +163,7 @@ async function fetchAllData(symbols) {
 }
 
 // ── Build prompt context ────────────────────────────────────────────────
-function buildContext(portfolio, quotes, news, fundamentals, stockNews) {
+function buildContext(portfolio, quotes, news) {
   const holdings = portfolio.holdings || [];
   const holdingsValue = holdings.reduce(
     (s, h) => s + h.shares * (quotes[h.symbol]?.price || h.avgCost), 0,
@@ -290,14 +211,8 @@ function buildContext(portfolio, quotes, news, fundamentals, stockNews) {
     const trend = q.sma20 && q.sma50
       ? (q.price > q.sma20 && q.sma20 > q.sma50 ? ' ↑UPTREND' : q.price < q.sma20 && q.sma20 < q.sma50 ? ' ↓DOWNTREND' : '')
       : '';
-    const f = fundamentals[sym];
-    const fundLine = f ? ` | P/E=${f.trailingPE?.toFixed(1) ?? '?'} FwdPE=${f.forwardPE?.toFixed(1) ?? '?'} PEG=${f.pegRatio?.toFixed(2) ?? '?'} P/B=${f.priceToBook?.toFixed(1) ?? '?'} Margins=${f.profitMargins ? (f.profitMargins * 100).toFixed(0) + '%' : '?'} RevGrowth=${f.revenueGrowth ? (f.revenueGrowth * 100).toFixed(0) + '%' : '?'}${f.earningsDate ? ' Earnings=' + f.earningsDate : ''}${f.targetMeanPrice ? ' Target=$' + f.targetMeanPrice.toFixed(0) : ''}` : '';
-    const sn = stockNews[sym] || [];
-    const sentiment = sn.length ? scoreSentiment(sn) : null;
-    const sentLabel = sentiment != null ? ` Sentiment=${sentiment > 0.3 ? 'POSITIVE' : sentiment < -0.3 ? 'NEGATIVE' : 'NEUTRAL'}(${sentiment.toFixed(1)})` : '';
-    const newsLine = sn.length ? `\n    Headlines: ${sn.slice(0, 2).join(' | ')}${sentLabel}` : '';
     bySector[sec].push(
-      `  ${sym} (${q.name}): $${q.price.toFixed(2)} ${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}% | SMA20=$${q.sma20 ? q.sma20.toFixed(2) : '?'} SMA50=$${q.sma50 ? q.sma50.toFixed(2) : '?'} RSI=${q.rsi14 ? q.rsi14.toFixed(0) : '?'} 52wk=${q.fiftyTwoWeekPosition ? q.fiftyTwoWeekPosition.toFixed(0) + '%' : '?'}${rsiLabel}${trend} | Vol=${q.volatility ? (q.volatility * 100).toFixed(0) + '%' : '?'} VolRatio=${q.volumeRatio ? q.volumeRatio.toFixed(1) + 'x' : '?'}${fundLine}${newsLine}`
+      `  ${sym} (${q.name}): $${q.price.toFixed(2)} ${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}% | SMA20=$${q.sma20 ? q.sma20.toFixed(2) : '?'} SMA50=$${q.sma50 ? q.sma50.toFixed(2) : '?'} RSI=${q.rsi14 ? q.rsi14.toFixed(0) : '?'} 52wk=${q.fiftyTwoWeekPosition ? q.fiftyTwoWeekPosition.toFixed(0) + '%' : '?'}${rsiLabel}${trend} | Vol=${q.volatility ? (q.volatility * 100).toFixed(0) + '%' : '?'}`
     );
   }
   const marketText = Object.entries(bySector)
@@ -413,70 +328,41 @@ export default async function handler(req) {
   // Fetch all data in parallel: charts, news, fundamentals, per-stock news
   const holdingSymbols = (portfolio.holdings || []).map(h => h.symbol);
   const allSymbols = [...new Set([...holdingSymbols, ...WATCHLIST])];
-  // Fetch fundamentals for top stocks (holdings + key names)
-  const fundSymbols = [...new Set([...holdingSymbols, 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'JPM', 'UNH', 'XOM', 'LLY'])].filter(s => s && !s.includes('-'));
-  const newsSymbols = [...new Set([...holdingSymbols, ...WATCHLIST.slice(0, 6)])];
 
-  const [quotes, news, fundResults, stockNews] = await Promise.all([
-    fetchAllData(allSymbols),
-    fetchMarketNews(),
-    Promise.allSettled(fundSymbols.map(s => fetchFundamentals(s).then(f => ({ s, f })))),
-    fetchStockNews(newsSymbols),
-  ]);
-
-  const fundamentals = {};
-  for (const r of fundResults) {
-    if (r.status === 'fulfilled' && r.value?.f) fundamentals[r.value.s] = r.value.f;
-  }
+  const [quotes, news] = await Promise.all([fetchAllData(allSymbols), fetchMarketNews()]);
 
   const { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, macroText, newsText } =
-    buildContext(portfolio, quotes, news, fundamentals, stockNews);
+    buildContext(portfolio, quotes, news);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  const systemPrompt = `You are Claude, an autonomous AI portfolio manager running a real $50,000 portfolio. Goal: outperform S&P 500 long-term.
+  const systemPrompt = `You are Claude, a moat-focused portfolio advisor managing a $50,000 portfolio of elite compounders. Your universe is 15 wide-moat businesses — you think like Munger, not a day trader.
 
-You have live market data with TECHNICALS, FUNDAMENTALS, CORRELATIONS, NEWS, and TRADE HISTORY.
+YOUR FRAMEWORK — for every recommendation, assess three things:
 
-MULTI-PERSPECTIVE ANALYSIS — You MUST analyze from 3 viewpoints before deciding:
+1. MOAT DURABILITY: Is the competitive advantage strengthening or eroding?
+   - FORTRESS: Monopoly/duopoly, no substitute exists (ASML, TSM, V/MA)
+   - STRONG: High switching costs, network effects, brand power (AAPL, MSFT, GOOGL)
+   - INTACT: Moat exists but faces emerging threats (META vs TikTok, NFLX vs streaming wars)
+   - ERODING: Competitive position weakening (flag this clearly)
 
-1. VALUE INVESTOR: Focus on P/E, PEG, P/B, margins, revenue growth. Look for quality companies trading below intrinsic value. Avoid overvalued momentum names. Prefer low PEG (<1.5), strong margins, and earnings growth.
+2. VALUATION ATTRACTIVENESS: Is the price right?
+   - Use 52-week position as a proxy for valuation timing
+   - Near lows (<20%) = potential value. Near highs (>80%) = patience required
+   - RSI <30 on a moat stock = high-conviction entry. RSI >70 = wait for pullback
+   - Compare current setup to the stock's own history, not to other stocks
 
-2. MOMENTUM/TECHNICAL TRADER: Focus on SMA20/50 crossovers, RSI signals, volume spikes, 52-week position. Buy uptrends and oversold bounces. Sell overbought names and broken trends.
+3. CATALYST / TRIGGER: What specific event would change your view?
+   - Name ONE metric or event that would make you upgrade or downgrade
+   - e.g., "If NVDA data center revenue growth drops below 40%, downgrade"
+   - e.g., "If ASML order book accelerates, upgrade to BUY ZONE"
 
-3. CONTRARIAN/MACRO: Look at what everyone else is ignoring. Consider sector rotation, news sentiment shifts, correlation risk. When the market is greedy on tech, look at healthcare/energy. Watch for crowded trades.
-
-TECHNICAL SIGNALS:
-- SMA20/SMA50: Price above both in rising order = uptrend. Below both = downtrend.
-- RSI: <30 = oversold (buy signal). >70 = overbought (sell signal).
-- 52wk position: <20% = near lows (value). >80% = near highs (extended).
-- Volume ratio: >1.5x = unusual activity. <0.5x = low conviction.
-
-FUNDAMENTAL SIGNALS:
-- P/E <15 = cheap, >30 = expensive (sector-dependent)
-- PEG <1 = undervalued growth, >2 = overpriced
-- Revenue growth >20% = high growth
-- Profit margins: compare within sector
-- Analyst target vs current price = upside/downside estimate
-
-VOLATILITY & POSITION SIZING:
-- Each stock has a Vol% (annualized volatility). Use it to scale position sizes.
-- Target risk per position = 1% of portfolio value.
-- Suggested shares = (portfolio × 0.01) / (price × dailyVol). dailyVol = Vol% / √252.
-- High-vol stocks (>50%) get smaller positions. Low-vol stocks (<20%) get larger positions.
-- Always round DOWN to nearest whole share.
-
-CORRELATION & RISK:
-- Pairs with correlation >0.8 are effectively the same bet — diversify away
-- Monitor portfolio beta — if too high, add defensive names (KO, JNJ, PG)
-- Check sector concentration limits
-
-TRADE ATTRIBUTION — Learn from your past:
-- Review which trades made/lost money and why
-- If a thesis was wrong, don't repeat the same mistake
-- If a thesis was right, consider doubling down on similar setups
+TECHNICAL SIGNALS (for timing entries, not for thesis):
+- SMA20/SMA50 trend: confirms momentum direction
+- RSI: oversold bounces on moat stocks are high-conviction entries
+- Volatility: size positions inversely to vol (high vol = fewer shares)
 
 Respond with ONLY valid JSON:
 {
@@ -485,25 +371,23 @@ Respond with ONLY valid JSON:
   "name": "Company Name",
   "shares": <positive integer>,
   "estimatedPrice": <current price>,
-  "rationale": "<2-3 sentences citing specific data points from technicals AND fundamentals>",
+  "moatRating": "FORTRESS | STRONG | INTACT | ERODING",
+  "moatRationale": "<1-2 sentences on why the moat is this rating>",
+  "valuationVerdict": "UNDERVALUED | FAIR | RICH | OVERVALUED",
+  "convictionScore": <1-10 number>,
+  "rationale": "<2-3 sentences: the investment thesis citing specific data>",
   "risks": "<1-2 sentences>",
-  "confidence": "HIGH" | "MEDIUM" | "LOW",
-  "perspectives": {
-    "value": "<1 sentence: what the value investor sees>",
-    "momentum": "<1 sentence: what the technical trader sees>",
-    "contrarian": "<1 sentence: what the contrarian sees>"
-  },
-  "consensus": "<AGREE|SPLIT|DISAGREE — do perspectives align?>",
-  "portfolioNote": "<1 sentence on positioning and next priorities>"
+  "catalyst": "<the ONE thing that would change your recommendation>",
+  "confidence": "HIGH | MEDIUM | LOW",
+  "portfolioNote": "<1 sentence on overall positioning>"
 }
 
 Constraints:
-- BUY: shares × price must not exceed available cash
-- SELL: only sell shares you hold
+- BUY only within the moat universe or current holdings
+- shares × price must not exceed available cash
 - No single position > 30% of portfolio
-- Spread across 3+ sectors. Check correlation data to avoid hidden concentration
-- AVOID buying stocks with earnings within 5 trading days (earnings volatility risk)
-- If recommending HOLD, explain what trigger you're waiting for`;
+- Think in years, not days — recommend 1-2 high-conviction moves, not frequent trades
+- If HOLD, explain exactly what price or event would trigger a BUY`;
 
   const userMsg = `Date: ${today}
 
