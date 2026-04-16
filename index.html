@@ -187,6 +187,49 @@ tbody tr:hover td{background:var(--sf2)}
 .sig-chip.breakdown{background:#f59e0b18;color:var(--go)}
 .sig-dismiss{background:none;border:none;color:var(--di);cursor:pointer;font-size:16px;padding:0 4px}
 .sig-dismiss:hover{color:var(--tx)}
+/* intel panel */
+.intel{max-width:1320px;margin:0 auto;padding:0 24px 24px}
+@media(max-width:900px){.intel{padding:0 16px 16px}}
+.intel-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:18px}
+@media(max-width:700px){.intel-grid{grid-template-columns:1fr}}
+.intel-section{background:var(--sf2);border-radius:8px;padding:14px}
+.intel-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--di);margin-bottom:8px}
+.intel-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--bd)}
+.intel-row:last-child{border-bottom:none}
+.insider-buy{color:var(--gr)}.insider-sell{color:var(--rd)}
+.analyst-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;margin:6px 0}
+.analyst-bar div{height:100%;min-width:2px}
+/* stock lookup */
+.lookup{display:flex;gap:8px;align-items:center;padding:0 18px 14px}
+.lookup input{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:6px 12px;border-radius:6px;font-size:12px;font-family:var(--mo);width:100px;text-transform:uppercase}
+.lookup input::placeholder{color:var(--di);text-transform:none}
+.lookup button{background:var(--pu2);border:1px solid rgba(167,139,250,.3);color:var(--pu);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.lookup button:hover{background:var(--pu);color:#000}
+/* dcf */
+.dcf-inputs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.dcf-inputs label{font-size:10px;color:var(--di);display:flex;flex-direction:column;gap:3px}
+.dcf-inputs input{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:4px;font-size:12px;font-family:var(--mo);width:70px}
+.dcf-result{font-family:var(--mo);font-size:18px;font-weight:700}
+.dcf-result.under{color:var(--gr)}.dcf-result.fair{color:var(--tx)}.dcf-result.over{color:var(--rd)}
+/* theme */
+.theme-btn{background:none;border:none;color:var(--di);cursor:pointer;font-size:16px;padding:2px 6px}
+.theme-btn:hover{color:var(--tx)}
+:root.light{--bg:#f0f2f5;--sf:#fff;--sf2:#f5f6f8;--bd:#dde1e6;--bd2:#c4c9d0;--tx:#1a1a2e;--mu:#5a6678;--di:#8a95a6}
+/* mobile fixes */
+@media(max-width:600px){
+  header{padding:10px 12px;gap:8px;flex-wrap:wrap}
+  .hc-val{font-size:18px}
+  .logo-name{font-size:12px}
+  main{padding:12px;gap:12px}
+  .analytics{padding:0 12px 12px}
+  .intel{padding:0 12px 12px}
+  .cbody{padding:12px}
+  .persp{grid-template-columns:1fr}
+  tbody td{padding:8px 6px;font-size:11px}
+  thead th{padding:6px;font-size:9px}
+  .mbar{grid-template-columns:repeat(2,1fr)}
+  .wg{grid-template-columns:1fr}
+}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 </style>
 </head>
@@ -205,6 +248,7 @@ tbody tr:hover td{background:var(--sf2)}
     <div class="live" title="Live prices"></div>
     <button class="reset-btn" onclick="confirmReset()">Reset</button>
     <button class="sync-btn" onclick="cloudSync()" title="Sync to Vercel KV">Sync</button>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">&#9681;</button>
   </div>
 </header>
 
@@ -334,6 +378,30 @@ tbody tr:hover td{background:var(--sf2)}
         <span style="font-size:11px;color:var(--di)" id="btStatus"></span>
       </div>
       <div id="btResults"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Stock Intel -->
+<section class="intel">
+  <div class="card">
+    <div class="ch"><div class="ct">Stock Intelligence</div><div class="cb">Insiders, Analysts, Earnings, DCF</div></div>
+    <div class="lookup">
+      <input type="text" id="intelSym" placeholder="Ticker" maxlength="6">
+      <button onclick="loadIntel()">Analyze</button>
+      <button onclick="loadDCF()" style="background:var(--sf2);border-color:var(--bd);color:var(--mu)">DCF</button>
+      <span style="font-size:11px;color:var(--di)" id="intelStatus"></span>
+    </div>
+    <div id="intelBody"></div>
+  </div>
+</section>
+
+<!-- Macro Dashboard -->
+<section class="intel">
+  <div class="card">
+    <div class="ch"><div class="ct">Macro Dashboard</div><div class="cb" id="macroTime">—</div></div>
+    <div id="macroBody" style="padding:18px">
+      <div class="empty" style="padding:20px"><div class="em" style="color:var(--di)">Loading macro data...</div><div class="es">Requires FRED_API_KEY env var (free at fred.stlouisfed.org)</div></div>
     </div>
   </div>
 </section>
@@ -849,11 +917,114 @@ function sendNotify(event,message){
     body:JSON.stringify({event,message})}).catch(()=>{});
 }
 
+// ── Stock Intel ─────────────────────────────────────────────────────────
+async function loadIntel(){
+  const sym=(document.getElementById('intelSym').value||'').trim().toUpperCase();
+  if(!sym){toast('Enter a ticker',false);return;}
+  document.getElementById('intelStatus').textContent='Loading...';
+  try{
+    const r=await fetch('/api/intel?symbol='+sym);
+    const d=await r.json();
+    if(!r.ok||d.error){document.getElementById('intelStatus').textContent=d.error||'Failed';return;}
+    document.getElementById('intelStatus').textContent='';
+    let html='<div class="intel-grid">';
+    // Analysts
+    const a=d.analysts||{};
+    const total=a.strongBuy+a.buy+a.hold+a.sell+a.strongSell;
+    html+='<div class="intel-section"><div class="intel-title">Analyst Ratings'+(total?' ('+total+' analysts)':'')+'</div>';
+    if(total){
+      html+=`<div class="analyst-bar"><div style="flex:${a.strongBuy};background:#00c896"></div><div style="flex:${a.buy};background:#60a5fa"></div><div style="flex:${a.hold};background:#f59e0b"></div><div style="flex:${a.sell};background:#ff6b6b"></div><div style="flex:${a.strongSell};background:#ff4d6d"></div></div>`;
+      html+=`<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu)"><span class="up">Buy ${a.strongBuy+a.buy}</span><span>Hold ${a.hold}</span><span class="dn">Sell ${a.sell+a.strongSell}</span></div>`;
+    }
+    if(d.target?.mean)html+=`<div class="intel-row" style="margin-top:8px"><span>Price Target</span><span style="font-family:var(--mo)">$${d.target.mean.toFixed(0)} <span class="${d.target.upside>0?'up':'dn'}" style="font-size:11px">(${d.target.upside>0?'+':''}${d.target.upside.toFixed(0)}%)</span></span></div>`;
+    if(d.bullPct!=null)html+=`<div class="intel-row"><span>Bull %</span><span class="${d.bullPct>60?'up':d.bullPct<40?'dn':'nt'}" style="font-family:var(--mo)">${d.bullPct.toFixed(0)}%</span></div>`;
+    html+='</div>';
+    // Insiders
+    html+='<div class="intel-section"><div class="intel-title">Insider Trading <span style="font-weight:400;color:'+(d.insiderNetSentiment==='NET_BUYING'?'var(--gr)':d.insiderNetSentiment==='NET_SELLING'?'var(--rd)':'var(--mu)')+'">'+d.insiderNetSentiment+'</span></div>';
+    for(const t of(d.insiders||[]).slice(0,5)){
+      const cls=t.type?.includes('Purchase')||t.type?.includes('Buy')?'insider-buy':'insider-sell';
+      html+=`<div class="intel-row"><span>${t.name?.split(' ').slice(0,2).join(' ')||'?'}</span><span class="${cls}" style="font-family:var(--mo)">${t.type?.includes('Purchase')?'BUY':'SELL'} ${t.value?'$'+(t.value/1000).toFixed(0)+'k':''}</span></div>`;
+    }
+    if(!d.insiders?.length)html+='<div style="font-size:11px;color:var(--di)">No recent insider transactions</div>';
+    html+='</div>';
+    // Earnings history
+    html+='<div class="intel-section"><div class="intel-title">Earnings History (last 4Q)</div>';
+    for(const e of(d.earnings||[])){
+      const beat=e.surprise!=null&&e.surprise>0;const miss=e.surprise!=null&&e.surprise<0;
+      html+=`<div class="intel-row"><span>${e.date||e.quarter||'?'}</span><span style="font-family:var(--mo)">EPS $${e.epsActual?.toFixed(2)||'?'} <span class="${beat?'up':miss?'dn':'nt'}" style="font-size:10px">${e.surprise!=null?(e.surprise>0?'+':'')+e.surprise.toFixed(1)+'%':'—'}</span></span></div>`;
+    }
+    if(d.nextEarnings)html+=`<div class="intel-row" style="margin-top:6px;color:var(--go)"><span>Next Earnings</span><span style="font-family:var(--mo)">${d.nextEarnings}</span></div>`;
+    html+='</div>';
+    // Forward estimates
+    html+='<div class="intel-section"><div class="intel-title">Forward Estimates</div>';
+    for(const t of(d.earningsTrend||[])){
+      html+=`<div class="intel-row"><span>${t.period}</span><span style="font-family:var(--mo)">EPS $${t.epsEstimate?.toFixed(2)||'?'} ${t.growth!=null?'<span class="'+(t.growth>0?'up':'dn')+'" style="font-size:10px">'+(t.growth>0?'+':'')+(t.growth*100).toFixed(0)+'% growth</span>':''}</span></div>`;
+    }
+    html+='</div>';
+    html+='</div>';
+    document.getElementById('intelBody').innerHTML=html;
+  }catch(e){document.getElementById('intelStatus').textContent='Error';}
+}
+
+// ── DCF Calculator ──────────────────────────────────────────────────────
+async function loadDCF(){
+  const sym=(document.getElementById('intelSym').value||'').trim().toUpperCase();
+  if(!sym){toast('Enter a ticker',false);return;}
+  document.getElementById('intelStatus').textContent='Running DCF...';
+  try{
+    const r=await fetch('/api/dcf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:sym})});
+    const d=await r.json();
+    if(!r.ok||d.error){document.getElementById('intelStatus').textContent=d.error||'Failed';return;}
+    document.getElementById('intelStatus').textContent='';
+    const vc=d.verdict==='UNDERVALUED'?'under':d.verdict==='OVERVALUED'?'over':'fair';
+    let html='<div style="padding:0 18px 18px">';
+    html+=`<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px"><span style="font-size:12px;color:var(--mu)">${d.name} (${d.symbol})</span><span style="font-size:12px;color:var(--di)">Current: $${d.currentPrice?.toFixed(2)||'?'}</span></div>`;
+    if(d.fairValue){
+      html+=`<div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:11px;color:var(--di)">Fair Value:</span><span class="dcf-result ${vc}">$${d.fairValue.toFixed(2)}</span><span style="font-size:13px" class="${vc==='under'?'up':vc==='over'?'dn':'nt'}">${d.upside} ${d.verdict?.replace('_',' ')}</span></div>`;
+    }else{
+      html+='<div style="color:var(--di);font-size:12px">Could not compute DCF — no free cash flow data available</div>';
+    }
+    html+=`<div style="margin-top:12px;font-size:11px;color:var(--di)">Assumptions: ${(d.assumptions.growthRate*100).toFixed(0)}% growth, ${(d.assumptions.terminalGrowth*100).toFixed(0)}% terminal, ${(d.assumptions.discountRate*100).toFixed(0)}% discount, ${d.assumptions.years}yr</div>`;
+    if(d.freeCashFlow)html+=`<div style="font-size:11px;color:var(--di);margin-top:4px">FCF: $${(d.freeCashFlow/1e9).toFixed(2)}B | Margins: ${d.profitMargins?(d.profitMargins*100).toFixed(0)+'%':'?'} | D/E: ${d.debtToEquity?.toFixed(0)||'?'}</div>`;
+    html+='</div>';
+    document.getElementById('intelBody').innerHTML=html;
+  }catch(e){document.getElementById('intelStatus').textContent='Error';}
+}
+
+// ── Macro Dashboard ─────────────────────────────────────────────────────
+async function loadMacro(){
+  try{
+    const r=await fetch('/api/macro');
+    if(!r.ok)return;
+    const d=await r.json();
+    if(d.error){document.getElementById('macroBody').innerHTML=`<div style="padding:18px;color:var(--di);font-size:12px">${d.error}</div>`;return;}
+    document.getElementById('macroTime').textContent=d.fetchedAt?'Updated '+new Date(d.fetchedAt).toLocaleDateString():'';
+    let html='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--bd);border-radius:8px;overflow:hidden">';
+    for(const[id,m]of Object.entries(d.macro||{})){
+      const tc=m.trend==='RISING'?'up':m.trend==='FALLING'?'dn':'nt';
+      const arrow=m.trend==='RISING'?'&#9650;':m.trend==='FALLING'?'&#9660;':'&#9654;';
+      html+=`<div class="st"><div class="st-lbl">${m.name}</div><div class="st-val ${tc}">${m.latest!=null?m.latest.toFixed(2):'—'}${m.unit?'<span style="font-size:11px;font-weight:400"> '+m.unit+'</span>':''}</div><div class="st-sub">${arrow} ${m.trend||'—'} <span style="color:var(--di)">prev: ${m.previous?.toFixed(2)||'—'}</span></div></div>`;
+    }
+    html+='</div>';
+    if(d.yieldCurveWarning)html+=`<div style="margin-top:12px;padding:10px 14px;background:var(--rd2);border:1px solid rgba(255,77,109,.2);border-radius:8px;color:var(--rd);font-size:12px">Yield Curve: ${d.yieldCurveWarning}</div>`;
+    document.getElementById('macroBody').innerHTML=html;
+  }catch{}
+}
+
+// ── Theme Toggle ────────────────────────────────────────────────────────
+function toggleTheme(){
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('p50k_theme',document.documentElement.classList.contains('light')?'light':'dark');
+}
+function loadTheme(){if(localStorage.getItem('p50k_theme')==='light')document.documentElement.classList.add('light');}
+
 // ── Init ────────────────────────────────────────────────────────────────
 updateStopUI();renderStats();renderHoldings();renderTrades();renderAnalytics();
 fetchPrices();setInterval(fetchPrices,60000);
-cloudLoad(); // attempt to load from Vercel KV on startup
-loadLatestScan(); // show daily cron signals if available
+loadTheme();
+cloudLoad();
+loadLatestScan();
+loadMacro();
 </script>
 </body>
 </html>
