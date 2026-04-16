@@ -81,6 +81,7 @@ function runDCF(fcf, growthRate, terminalGrowth, discountRate, years) {
 
   // Terminal value (Gordon Growth Model)
   const terminalFCF = currentFCF * (1 + terminalGrowth);
+  if (discountRate <= terminalGrowth) return null;
   const terminalValue = terminalFCF / (discountRate - terminalGrowth);
   const terminalPV = terminalValue / Math.pow(1 + discountRate, years);
   const enterpriseValue = totalPV + terminalPV;
