@@ -14,16 +14,27 @@ function sma(arr, i, period) {
   return sum / period;
 }
 
-function rsi(arr, i, period = 14) {
-  if (i < period) return null;
-  let gains = 0, losses = 0;
-  for (let j = i - period + 1; j <= i; j++) {
-    const d = arr[j] - arr[j - 1];
-    if (d >= 0) gains += d; else losses -= d;
+// Precompute Wilder's RSI for entire array
+function precomputeRSI(arr, period = 14) {
+  const result = new Array(arr.length).fill(null);
+  if (arr.length < period + 1) return result;
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = arr[i] - arr[i - 1];
+    if (d >= 0) avgGain += d; else avgLoss -= d;
   }
-  if (losses === 0) return 100;
-  return 100 - 100 / (1 + (gains / period) / (losses / period));
+  avgGain /= period;
+  avgLoss /= period;
+  result[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  for (let i = period + 1; i < arr.length; i++) {
+    const d = arr[i] - arr[i - 1];
+    avgGain = (avgGain * (period - 1) + (d >= 0 ? d : 0)) / period;
+    avgLoss = (avgLoss * (period - 1) + (d < 0 ? -d : 0)) / period;
+    result[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  }
+  return result;
 }
+function rsi(rsiArr, i) { return rsiArr[i]; }
 
 // ── Fetch 1-year daily data ─────────────────────────────────────────────
 async function fetchHistory(symbol) {
@@ -49,12 +60,13 @@ async function fetchHistory(symbol) {
 }
 
 // ── Built-in strategies ─────────────────────────────────────────────────
+// Strategy functions receive (closes, i, ctx) where ctx = { rsi: precomputedRSIArray }
 const STRATEGIES = {
   'rsi-mean-reversion': {
     name: 'RSI Mean Reversion',
     desc: 'Buy when RSI14 < 30 (oversold), sell when RSI14 > 70 (overbought)',
-    entryFn: (closes, i) => rsi(closes, i) !== null && rsi(closes, i) < 30,
-    exitFn: (closes, i) => rsi(closes, i) !== null && rsi(closes, i) > 70,
+    entryFn: (closes, i, ctx) => ctx.rsi[i] !== null && ctx.rsi[i] < 30,
+    exitFn: (closes, i, ctx) => ctx.rsi[i] !== null && ctx.rsi[i] > 70,
   },
   'sma-crossover': {
     name: 'SMA 20/50 Crossover',
@@ -83,12 +95,13 @@ const STRATEGIES = {
 // ── Backtest engine ─────────────────────────────────────────────────────
 function runBacktest(bars, strategy) {
   const closes = bars.map(b => b.close);
+  const ctx = { rsi: precomputeRSI(closes) }; // precomputed indicators
   const trades = [];
   let position = null; // { entryPrice, entryIdx }
   let cash = 10000, shares = 0;
 
   for (let i = 50; i < closes.length; i++) { // start at 50 for SMA warmup
-    if (!position && strategy.entryFn(closes, i)) {
+    if (!position && strategy.entryFn(closes, i, ctx)) {
       // Buy
       shares = Math.floor(cash / closes[i]);
       if (shares > 0) {
@@ -96,7 +109,7 @@ function runBacktest(bars, strategy) {
         cash -= shares * closes[i];
         trades.push({ action: 'BUY', date: bars[i].date, price: closes[i], shares });
       }
-    } else if (position && strategy.exitFn(closes, i)) {
+    } else if (position && strategy.exitFn(closes, i, ctx)) {
       // Sell
       cash += shares * closes[i];
       const ret = (closes[i] - position.entryPrice) / position.entryPrice * 100;
@@ -126,11 +139,12 @@ function runBacktest(bars, strategy) {
     ? roundTrips.filter(t => t.returnPct <= 0).reduce((s, t) => s + t.returnPct, 0) / roundTrips.filter(t => t.returnPct <= 0).length
     : 0;
 
-  // Max drawdown from equity curve
+  // Max drawdown from equity curve (O(n) with Map lookup)
+  const tradeByDate = new Map(trades.map(t => [t.date, t]));
   let peak = 10000, maxDD = 0;
   let eq = 10000, sh = 0, c = 10000;
   for (let i = 50; i < closes.length; i++) {
-    const t = trades.find(tr => tr.date === bars[i].date);
+    const t = tradeByDate.get(bars[i].date);
     if (t?.action === 'BUY') { sh = t.shares; c -= t.shares * t.price; }
     if (t?.action === 'SELL' || t?.action === 'CLOSE') { c += sh * t.price; sh = 0; }
     eq = c + sh * closes[i];

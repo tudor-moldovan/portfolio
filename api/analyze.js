@@ -38,15 +38,21 @@ function sma(arr, period) {
 
 function computeRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
-  const recent = closes.slice(-(period + 1));
-  let gains = 0, losses = 0;
-  for (let i = 1; i < recent.length; i++) {
-    const diff = recent[i] - recent[i - 1];
-    if (diff >= 0) gains += diff; else losses -= diff;
+  // Wilder's smoothed RSI: SMA for first period, then exponential smoothing
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d >= 0) avgGain += d; else avgLoss -= d;
   }
-  if (losses === 0) return 100;
-  const rs = (gains / period) / (losses / period);
-  return 100 - 100 / (1 + rs);
+  avgGain /= period;
+  avgLoss /= period;
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    avgGain = (avgGain * (period - 1) + (d >= 0 ? d : 0)) / period;
+    avgLoss = (avgLoss * (period - 1) + (d < 0 ? -d : 0)) / period;
+  }
+  if (avgLoss === 0) return 100;
+  return 100 - 100 / (1 + avgGain / avgLoss);
 }
 
 // ── Correlation helpers ─────────────────────────────────────────────────
