@@ -93,33 +93,34 @@ const STRATEGIES = {
 };
 
 // ── Backtest engine ─────────────────────────────────────────────────────
-function runBacktest(bars, strategy) {
+function runBacktest(bars, strategy, costModel = {}) {
   const closes = bars.map(b => b.close);
-  const ctx = { rsi: precomputeRSI(closes) }; // precomputed indicators
+  const ctx = { rsi: precomputeRSI(closes) };
+  const commission = costModel.commissionPct || 0.001; // 0.1% default
+  const slippage = costModel.slippagePct || 0.0005;    // 0.05% default
+  const friction = commission + slippage;
   const trades = [];
-  let position = null; // { entryPrice, entryIdx }
+  let position = null;
   let cash = 10000, shares = 0;
 
-  for (let i = 50; i < closes.length; i++) { // start at 50 for SMA warmup
+  for (let i = 50; i < closes.length; i++) {
     if (!position && strategy.entryFn(closes, i, ctx)) {
-      // Buy
-      shares = Math.floor(cash / closes[i]);
+      const buyPrice = closes[i] * (1 + friction); // pay more on buy
+      shares = Math.floor(cash / buyPrice);
       if (shares > 0) {
-        position = { entryPrice: closes[i], entryIdx: i };
-        cash -= shares * closes[i];
-        trades.push({ action: 'BUY', date: bars[i].date, price: closes[i], shares });
+        position = { entryPrice: buyPrice, entryIdx: i };
+        cash -= shares * buyPrice;
+        trades.push({ action: 'BUY', date: bars[i].date, price: buyPrice, shares });
       }
     } else if (position && strategy.exitFn(closes, i, ctx)) {
-      // Sell
-      cash += shares * closes[i];
-      const ret = (closes[i] - position.entryPrice) / position.entryPrice * 100;
-      trades.push({ action: 'SELL', date: bars[i].date, price: closes[i], shares, returnPct: ret });
-      position = null;
-      shares = 0;
+      const sellPrice = closes[i] * (1 - friction); // receive less on sell
+      cash += shares * sellPrice;
+      const ret = (sellPrice - position.entryPrice) / position.entryPrice * 100;
+      trades.push({ action: 'SELL', date: bars[i].date, price: sellPrice, shares, returnPct: ret });
+      position = null; shares = 0;
     }
   }
 
-  // Close any open position at end
   const lastPrice = closes[closes.length - 1];
   const finalValue = cash + shares * lastPrice;
   if (position) {
@@ -127,30 +128,45 @@ function runBacktest(bars, strategy) {
     trades.push({ action: 'CLOSE', date: bars[bars.length - 1].date, price: lastPrice, shares, returnPct: ret });
   }
 
-  // Metrics
+  // Basic metrics
   const totalReturn = (finalValue / 10000 - 1) * 100;
   const roundTrips = trades.filter(t => t.action === 'SELL' || t.action === 'CLOSE');
-  const wins = roundTrips.filter(t => t.returnPct > 0).length;
-  const winRate = roundTrips.length > 0 ? wins / roundTrips.length : null;
-  const avgWin = roundTrips.filter(t => t.returnPct > 0).length
-    ? roundTrips.filter(t => t.returnPct > 0).reduce((s, t) => s + t.returnPct, 0) / roundTrips.filter(t => t.returnPct > 0).length
-    : 0;
-  const avgLoss = roundTrips.filter(t => t.returnPct <= 0).length
-    ? roundTrips.filter(t => t.returnPct <= 0).reduce((s, t) => s + t.returnPct, 0) / roundTrips.filter(t => t.returnPct <= 0).length
-    : 0;
+  const wins = roundTrips.filter(t => t.returnPct > 0);
+  const losses = roundTrips.filter(t => t.returnPct <= 0);
+  const winRate = roundTrips.length > 0 ? wins.length / roundTrips.length : null;
+  const avgWin = wins.length ? wins.reduce((s, t) => s + t.returnPct, 0) / wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((s, t) => s + t.returnPct, 0) / losses.length : 0;
 
-  // Max drawdown from equity curve (O(n) with Map lookup)
+  // Equity curve + drawdown + daily returns for risk metrics
   const tradeByDate = new Map(trades.map(t => [t.date, t]));
   let peak = 10000, maxDD = 0;
   let eq = 10000, sh = 0, c = 10000;
+  const dailyEquity = [];
   for (let i = 50; i < closes.length; i++) {
     const t = tradeByDate.get(bars[i].date);
     if (t?.action === 'BUY') { sh = t.shares; c -= t.shares * t.price; }
     if (t?.action === 'SELL' || t?.action === 'CLOSE') { c += sh * t.price; sh = 0; }
     eq = c + sh * closes[i];
+    dailyEquity.push(eq);
     if (eq > peak) peak = eq;
     const dd = (peak - eq) / peak;
     if (dd > maxDD) maxDD = dd;
+  }
+
+  // Risk-adjusted metrics from daily equity returns
+  let sharpe = null, sortino = null, calmar = null;
+  if (dailyEquity.length >= 10) {
+    const rets = [];
+    for (let i = 1; i < dailyEquity.length; i++) rets.push(Math.log(dailyEquity[i] / dailyEquity[i - 1]));
+    const avg = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const std = Math.sqrt(rets.reduce((s, r) => s + (r - avg) ** 2, 0) / rets.length);
+    const downside = rets.filter(r => r < 0);
+    const downStd = downside.length ? Math.sqrt(downside.reduce((s, r) => s + r ** 2, 0) / downside.length) : 0;
+    const rf = 0.05 / 252;
+    sharpe = std > 0 ? ((avg - rf) / std) * Math.sqrt(252) : 0;
+    sortino = downStd > 0 ? ((avg - rf) / downStd) * Math.sqrt(252) : 0;
+    const annReturn = (Math.pow(finalValue / 10000, 252 / dailyEquity.length) - 1) * 100;
+    calmar = maxDD > 0 ? annReturn / (maxDD * 100) : 0;
   }
 
   return {
@@ -162,7 +178,11 @@ function runBacktest(bars, strategy) {
     avgWin: avgWin.toFixed(2) + '%',
     avgLoss: avgLoss.toFixed(2) + '%',
     maxDrawdown: (maxDD * 100).toFixed(1) + '%',
-    tradeLog: trades.slice(-20), // last 20 trades
+    sharpe: sharpe != null ? sharpe.toFixed(2) : 'N/A',
+    sortino: sortino != null ? sortino.toFixed(2) : 'N/A',
+    calmar: calmar != null ? calmar.toFixed(2) : 'N/A',
+    costModel: `${(friction * 100).toFixed(2)}% per trade`,
+    tradeLog: trades.slice(-20),
   };
 }
 
@@ -176,7 +196,7 @@ export default async function handler(req) {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  const { symbol = 'SPY', strategy: stratKey = 'rsi-mean-reversion' } = body;
+  const { symbol = 'SPY', strategy: stratKey = 'rsi-mean-reversion', commissionPct, slippagePct } = body;
   const strategy = STRATEGIES[stratKey];
   if (!strategy) {
     return new Response(JSON.stringify({ error: 'Unknown strategy', available: Object.keys(STRATEGIES) }), {
@@ -191,7 +211,7 @@ export default async function handler(req) {
     });
   }
 
-  const result = runBacktest(bars, strategy);
+  const result = runBacktest(bars, strategy, { commissionPct, slippagePct });
 
   return new Response(JSON.stringify({
     symbol,
