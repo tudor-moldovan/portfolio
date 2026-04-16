@@ -145,6 +145,28 @@ tbody tr:hover td{background:var(--sf2)}
 .stop-toggle{background:none;border:1px solid var(--bd);color:var(--mu);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:var(--mo)}
 .stop-toggle.active{border-color:var(--go);color:var(--go)}
 .stop-toggle:hover{border-color:var(--go);color:var(--go)}
+/* perspectives */
+.persp{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:2px}
+.persp-item{background:var(--sf2);border-radius:6px;padding:8px 10px;font-size:11px;line-height:1.5}
+.persp-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.persp-label.val{color:var(--bl)}.persp-label.mom{color:var(--go)}.persp-label.con{color:var(--pu)}
+@media(max-width:600px){.persp{grid-template-columns:1fr}}
+.consensus{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:var(--mo)}
+.consensus.AGREE{background:#00c89620;color:var(--gr)}.consensus.SPLIT{background:#f59e0b20;color:var(--go)}.consensus.DISAGREE{background:#ff4d6d20;color:var(--rd)}
+/* backtest */
+.bt-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bt-sel{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:5px 10px;border-radius:6px;font-size:12px;font-family:var(--mo)}
+.bt-btn{background:var(--pu2);border:1px solid rgba(167,139,250,.3);color:var(--pu);padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.bt-btn:hover{background:var(--pu);color:#000}
+.bt-btn:disabled{opacity:.5;cursor:not-allowed}
+.bt-results{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--bd);margin-top:12px;border-radius:8px;overflow:hidden}
+@media(max-width:600px){.bt-results{grid-template-columns:repeat(2,1fr)}}
+.bt-stat{background:rgba(15,20,25,0.85);padding:10px 12px}
+.bt-stat .st-lbl{font-size:9px}.bt-stat .st-val{font-size:14px}
+/* sync */
+.sync-bar{display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid var(--bd);font-size:11px;color:var(--di)}
+.sync-btn{background:none;border:1px solid var(--bd);color:var(--mu);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:var(--mo)}
+.sync-btn:hover{border-color:var(--bl);color:var(--bl)}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 </style>
 </head>
@@ -162,6 +184,7 @@ tbody tr:hover td{background:var(--sf2)}
     <div class="pill fl" id="hRet">+0.00%</div>
     <div class="live" title="Live prices"></div>
     <button class="reset-btn" onclick="confirmReset()">Reset</button>
+    <button class="sync-btn" onclick="cloudSync()" title="Sync to Vercel KV">Sync</button>
   </div>
 </header>
 
@@ -222,6 +245,11 @@ tbody tr:hover td{background:var(--sf2)}
             <span style="flex:1"></span>
             <span style="font-size:11px;color:var(--di)" id="rTot"></span>
           </div>
+          <div class="persp" id="rPersp" style="display:none">
+            <div class="persp-item"><div class="persp-label val">Value</div><div id="rpVal">—</div></div>
+            <div class="persp-item"><div class="persp-label mom">Momentum</div><div id="rpMom">—</div></div>
+            <div class="persp-item"><div class="persp-label con">Contrarian</div><div id="rpCon">—</div></div>
+          </div>
           <div class="divider"></div>
           <div class="rnote" id="rNote"></div>
           <button class="exec-btn hold" id="execBtn" onclick="executeTrade()">Execute Trade</button>
@@ -252,6 +280,29 @@ tbody tr:hover td{background:var(--sf2)}
       </div>
     </div>
     <div class="eq-wrap" id="eqChart"></div>
+  </div>
+</section>
+
+<!-- Backtesting -->
+<section class="analytics">
+  <div class="card">
+    <div class="ch"><div class="ct">Strategy Backtester</div><div class="cb">1-year historical test</div></div>
+    <div class="cbody">
+      <div class="bt-row">
+        <select class="bt-sel" id="btSym">
+          <option>SPY</option><option>AAPL</option><option>MSFT</option><option>NVDA</option><option>GOOGL</option><option>AMZN</option><option>META</option><option>AMD</option>
+          <option>JPM</option><option>UNH</option><option>XOM</option><option>LLY</option><option>GE</option><option>COST</option>
+        </select>
+        <select class="bt-sel" id="btStrat">
+          <option value="rsi-mean-reversion">RSI Mean Reversion</option>
+          <option value="sma-crossover">SMA 20/50 Crossover</option>
+          <option value="buy-and-hold">Buy & Hold</option>
+        </select>
+        <button class="bt-btn" id="btBtn" onclick="runBacktest()">Run Backtest</button>
+        <span style="font-size:11px;color:var(--di)" id="btStatus"></span>
+      </div>
+      <div id="btResults"></div>
+    </div>
   </div>
 </section>
 
@@ -544,6 +595,19 @@ function showRec(r){
   const ct=document.getElementById('rConf');ct.textContent=r.confidence||'—';ct.className='ctag '+(r.confidence||'');
   document.getElementById('rTot').textContent=(r.shares&&r.estimatedPrice)?'Total: '+usd(r.shares*r.estimatedPrice):'';
   document.getElementById('rNote').textContent=r.portfolioNote||'';
+  // Multi-perspective display
+  const pp=document.getElementById('rPersp');
+  if(r.perspectives){
+    pp.style.display='grid';
+    document.getElementById('rpVal').textContent=r.perspectives.value||'—';
+    document.getElementById('rpMom').textContent=r.perspectives.momentum||'—';
+    document.getElementById('rpCon').textContent=r.perspectives.contrarian||'—';
+  }else{pp.style.display='none';}
+  // Consensus badge
+  if(r.consensus){
+    const cb=document.getElementById('rConf');
+    cb.innerHTML=(r.confidence||'—')+' <span class="consensus '+(r.consensus||'')+'">'+(r.consensus||'')+'</span>';
+  }
   const eb=document.getElementById('execBtn');
   if(action==='BUY'&&r.symbol&&r.shares){eb.textContent='Buy '+r.shares+' shares of '+r.symbol;eb.className='exec-btn buy';eb.disabled=false;}
   else if(action==='SELL'&&r.symbol&&r.shares){eb.textContent='Sell '+r.shares+' shares of '+r.symbol;eb.className='exec-btn sell';eb.disabled=false;}
@@ -590,9 +654,60 @@ function toast(msg,ok){
   clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),3000);
 }
 
+// ── Backtesting ─────────────────────────────────────────────────────────
+async function runBacktest(){
+  const sym=document.getElementById('btSym').value;
+  const strat=document.getElementById('btStrat').value;
+  const btn=document.getElementById('btBtn');
+  const st=document.getElementById('btStatus');
+  btn.disabled=true;st.textContent='Running...';
+  try{
+    const r=await fetch('/api/backtest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:sym,strategy:strat})});
+    const d=await r.json();
+    if(!r.ok||d.error){st.textContent=d.error||'Failed';btn.disabled=false;return;}
+    st.textContent=d.period+' ('+d.dataPoints+' days)';
+    const rc=parseFloat(d.totalReturn)>=0?'up':'dn';
+    document.getElementById('btResults').innerHTML=`
+      <div class="bt-results">
+        <div class="bt-stat"><div class="st-lbl">Return</div><div class="st-val ${rc}">${d.totalReturn}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Win Rate</div><div class="st-val nt">${d.winRate}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Max Drawdown</div><div class="st-val dn">-${d.maxDrawdown}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Trades</div><div class="st-val nt">${d.roundTrips} round-trips</div></div>
+        <div class="bt-stat"><div class="st-lbl">Avg Win</div><div class="st-val up">${d.avgWin}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Avg Loss</div><div class="st-val dn">${d.avgLoss}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Final Value</div><div class="st-val ${rc}">$${parseFloat(d.finalValue).toFixed(0)}</div><div class="st-sub">from $10,000</div></div>
+        <div class="bt-stat"><div class="st-lbl">Strategy</div><div class="st-val nt" style="font-size:11px">${d.strategy}</div></div>
+      </div>`;
+  }catch(e){st.textContent='Error: '+e.message;}
+  finally{btn.disabled=false;}
+}
+
+// ── Cloud Sync (Vercel KV) ──────────────────────────────────────────────
+async function cloudSync(){
+  try{
+    const r=await fetch('/api/portfolio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({portfolio,snapshots:getSnapshots()})});
+    const d=await r.json();
+    if(d.ok)toast('Synced to cloud',true);
+    else toast(d.error||'Sync failed',false);
+  }catch{toast('Sync unavailable — add Vercel KV',false);}
+}
+async function cloudLoad(){
+  try{
+    const r=await fetch('/api/portfolio');
+    const d=await r.json();
+    if(d.portfolio&&d.portfolio.trades?.length>0){
+      portfolio=d.portfolio;save();
+      if(d.snapshots)saveSnapshots(d.snapshots);
+      renderStats();renderHoldings();renderTrades();renderAnalytics();
+      toast('Loaded from cloud',true);
+    }
+  }catch{}
+}
+
 // ── Init ────────────────────────────────────────────────────────────────
 updateStopUI();renderStats();renderHoldings();renderTrades();renderAnalytics();
 fetchPrices();setInterval(fetchPrices,60000);
+cloudLoad(); // attempt to load from Vercel KV on startup
 </script>
 </body>
 </html>
