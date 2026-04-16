@@ -6,13 +6,25 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+const YF_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+  Accept: 'application/json',
+};
+
 async function fetchDCFInputs(symbol) {
   try {
-    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,defaultKeyStatistics,financialData,incomeStatementHistory,cashflowStatementHistory`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', Accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
-    });
+    const modules = 'price,defaultKeyStatistics,financialData,incomeStatementHistory,cashflowStatementHistory';
+    // Try query2 first, fall back to query1
+    let res = await fetch(
+      `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`,
+      { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) {
+      res = await fetch(
+        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`,
+        { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) },
+      );
+    }
     if (!res.ok) return null;
     const data = await res.json();
     const r = data.quoteSummary?.result?.[0];
