@@ -37,7 +37,7 @@ header{background:var(--sf);border-bottom:1px solid var(--bd);padding:13px 24px;
 .reset-btn{background:none;border:1px solid var(--bd);color:var(--di);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;transition:.15s}
 .reset-btn:hover{border-color:var(--rd);color:var(--rd)}
 /* layout */
-main{max-width:1240px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 380px;gap:20px}
+main{max-width:1320px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 440px;gap:20px}
 @media(max-width:900px){main{grid-template-columns:1fr;padding:16px}}
 .col{display:flex;flex-direction:column;gap:20px}
 /* card */
@@ -109,7 +109,9 @@ tbody tr:hover td{background:var(--sf2)}
 .tamt{font-family:var(--mo);font-size:13px;font-weight:600;text-align:right}
 .tdate{font-size:10px;color:var(--di);text-align:right;margin-top:2px}
 /* watchlist */
-.wg{display:grid;grid-template-columns:repeat(2,1fr);background:var(--bd);gap:1px}
+.wg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd);gap:1px}
+@media(max-width:900px){.wg{grid-template-columns:repeat(2,1fr)}}
+.sec-hdr{grid-column:1/-1;background:var(--sf2);padding:6px 14px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--di)}
 .wi{background:var(--sf);padding:10px 14px}
 .wn{font-size:10px;color:var(--di);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
 .ws{font-size:12px;font-weight:600;font-family:var(--mo);color:var(--bl)}
@@ -174,7 +176,7 @@ tbody tr:hover td{background:var(--sf2)}
       <div class="ch"><div class="ct">Claude AI Advisor</div><div style="font-size:11px;color:var(--pu)">claude-sonnet-4-6</div></div>
       <div class="cbody" style="display:flex;flex-direction:column;gap:12px">
         <button class="ask-btn" id="askBtn" onclick="askClaude()">⚡ &nbsp;Ask Claude</button>
-        <div class="thinking" id="thinking"><div class="dots"><span></span><span></span><span></span></div><span>Claude is analyzing market conditions…</span></div>
+        <div class="thinking" id="thinking"><div class="dots"><span></span><span></span><span></span></div><span>Claude is analyzing 33 stocks, technicals &amp; news…</span></div>
         <div class="err" id="errMsg"></div>
         <div class="rec" id="rec">
           <div class="rec-top">
@@ -199,7 +201,7 @@ tbody tr:hover td{background:var(--sf2)}
 
     <!-- Watchlist -->
     <div class="card">
-      <div class="ch"><div class="ct">Market Prices</div><div class="cb" id="pTime">—</div></div>
+      <div class="ch"><div class="ct">Market Prices <span style="color:var(--di);font-weight:400">(33 stocks)</span></div><div class="cb" id="pTime">—</div></div>
       <div class="wg" id="wGrid"></div>
     </div>
   </div>
@@ -208,7 +210,17 @@ tbody tr:hover td{background:var(--sf2)}
 <div class="toast" id="toast"></div>
 
 <script>
-const START=50000,WATCHLIST=['SPY','AAPL','MSFT','NVDA','GOOGL','AMZN','META','TSLA','JPM','V','BRK-B','QQQ'];
+const START=50000;
+const SECTORS={
+  'ETF':['SPY','QQQ','DIA','IWM'],
+  'Technology':['AAPL','MSFT','NVDA','GOOGL','AMZN','META','CRM','AMD','AVGO','ORCL'],
+  'Financials':['JPM','V','BRK-B','GS','MA'],
+  'Healthcare':['UNH','JNJ','LLY','PFE','ABBV'],
+  'Energy':['XOM','CVX'],
+  'Consumer':['WMT','KO','PG','COST'],
+  'Industrials':['CAT','GE','HON'],
+};
+const WATCHLIST=Object.values(SECTORS).flat();
 let portfolio=load(),quotes={},pendingRec=null;
 
 function load(){try{const s=localStorage.getItem('p50k_v1');if(s)return JSON.parse(s);}catch{}return{cash:START,holdings:[],trades:[],createdAt:new Date().toISOString()};}
@@ -258,12 +270,17 @@ function renderTrades(){
 }
 
 function renderWatchlist(){
-  document.getElementById('wGrid').innerHTML=WATCHLIST.map(sym=>{
-    const q=quotes[sym];
-    if(!q)return`<div class="wi"><div class="wn">${sym}</div><div class="ws">${sym}</div><div class="wp" style="color:var(--di)">—</div></div>`;
-    const cls=q.changePercent>=0?'up':'dn';
-    return`<div class="wi"><div class="wn">${q.name||sym}</div><div style="display:flex;align-items:baseline;gap:6px"><div class="ws">${sym}</div><div class="wc ${cls}" style="font-size:10px">${pct(q.changePercent)}</div></div><div class="wp">$${q.price.toFixed(2)}</div></div>`;
-  }).join('');
+  let html='';
+  for(const[sec,syms]of Object.entries(SECTORS)){
+    html+=`<div class="sec-hdr">${sec}</div>`;
+    html+=syms.map(sym=>{
+      const q=quotes[sym];
+      if(!q)return`<div class="wi"><div class="wn">${sym}</div><div class="ws">${sym}</div><div class="wp" style="color:var(--di)">—</div></div>`;
+      const cls=q.changePercent>=0?'up':'dn';
+      return`<div class="wi"><div class="wn">${q.name||sym}</div><div style="display:flex;align-items:baseline;gap:6px"><div class="ws">${sym}</div><div class="wc ${cls}" style="font-size:10px">${pct(q.changePercent)}</div></div><div class="wp">$${q.price.toFixed(2)}</div></div>`;
+    }).join('');
+  }
+  document.getElementById('wGrid').innerHTML=html;
   document.getElementById('pTime').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 }
 
