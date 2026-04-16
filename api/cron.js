@@ -34,16 +34,21 @@ async function fetchQuote(symbol) {
     const sma20 = closes.length >= 20
       ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20
       : null;
-    // RSI14
+    // RSI14 (Wilder's smoothing)
     let rsi = null;
     if (closes.length >= 15) {
-      const recent = closes.slice(-15);
-      let gains = 0, losses = 0;
-      for (let i = 1; i < recent.length; i++) {
-        const d = recent[i] - recent[i - 1];
-        if (d >= 0) gains += d; else losses -= d;
+      let avgGain = 0, avgLoss = 0;
+      for (let i = 1; i <= 14; i++) {
+        const d = closes[i] - closes[i - 1];
+        if (d >= 0) avgGain += d; else avgLoss -= d;
       }
-      rsi = losses === 0 ? 100 : 100 - 100 / (1 + gains / 14 / (losses / 14));
+      avgGain /= 14; avgLoss /= 14;
+      for (let i = 15; i < closes.length; i++) {
+        const d = closes[i] - closes[i - 1];
+        avgGain = (avgGain * 13 + (d >= 0 ? d : 0)) / 14;
+        avgLoss = (avgLoss * 13 + (d < 0 ? -d : 0)) / 14;
+      }
+      rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
     }
 
     return {

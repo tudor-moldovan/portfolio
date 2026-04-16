@@ -347,10 +347,11 @@ function recordSnapshot(){
 function calcMetrics(){
   const snaps=getSnapshots();
   const trades=portfolio.trades||[];
+  // Sharpe ratio using log returns (more accurate for compounding)
   let sharpe=null;
   if(snaps.length>=3){
     const rets=[];
-    for(let i=1;i<snaps.length;i++)rets.push((snaps[i].v-snaps[i-1].v)/snaps[i-1].v);
+    for(let i=1;i<snaps.length;i++)rets.push(Math.log(snaps[i].v/snaps[i-1].v));
     const avg=rets.reduce((a,b)=>a+b,0)/rets.length;
     const std=Math.sqrt(rets.reduce((s,r)=>s+(r-avg)**2,0)/rets.length);
     sharpe=std>0?((avg-0.05/252)/std)*Math.sqrt(252):0;
@@ -379,7 +380,13 @@ function calcMetrics(){
       let cov=0,mV=0;
       for(let i=0;i<pRets.length;i++){cov+=(pRets[i]-pA)*(mRets[i]-mA);mV+=(mRets[i]-mA)**2;}
       beta=mV>0?cov/mV:0;
-      alpha=(snaps[snaps.length-1].v/snaps[0].v-1)-(beta*(snaps[snaps.length-1].s/snaps[0].s-1));
+      // Annualize alpha: convert total returns to annualized, then compute alpha
+      const days=pRets.length;
+      const pTotal=snaps[snaps.length-1].v/snaps[0].v-1;
+      const mTotal=snaps[snaps.length-1].s/snaps[0].s-1;
+      const pAnn=Math.pow(1+pTotal,252/days)-1;
+      const mAnn=Math.pow(1+mTotal,252/days)-1;
+      alpha=pAnn-(beta*mAnn);
     }
   }
   return{sharpe,maxDD,winRate,avgGain,avgLoss,alpha,beta,snaps,totalTrades:trades.length};
