@@ -11,10 +11,33 @@ const YF_HEADERS = {
   Accept: 'application/json',
 };
 
+async function fetchCrumb() {
+  try {
+    const res = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+      headers: { ...YF_HEADERS, 'Cookie': 'A3=d=AQABBCYwKmcCEFoo' },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) return await res.text();
+  } catch {}
+  return null;
+}
+
 async function fetchInsiders(symbol) {
   try {
-    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=insiderTransactions,recommendationTrend,earningsHistory,earningsTrend,calendarEvents,financialData`;
-    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(6000) });
+    // Try v10 quoteSummary with query2 endpoint
+    const modules = 'insiderTransactions,recommendationTrend,earningsHistory,earningsTrend,calendarEvents,financialData';
+    let url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
+    const crumb = await fetchCrumb();
+    if (crumb) url += '&crumb=' + encodeURIComponent(crumb);
+
+    let res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) });
+
+    // Fallback to query1 if query2 fails
+    if (!res.ok) {
+      const url2 = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
+      res = await fetch(url2, { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) });
+    }
+
     if (!res.ok) return null;
     const data = await res.json();
     const r = data.quoteSummary?.result?.[0];
@@ -91,6 +114,37 @@ async function fetchInsiders(symbol) {
       nextEarnings,
       target: { high: targetHigh, low: targetLow, mean: targetMean, upside },
     };
+  } catch (e) { return { _error: e.message }; }
+}
+
+// Fallback: build partial data from the chart endpoint (always works)
+async function fetchFallbackData(symbol) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y&includePrePost=false`;
+    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const meta = data.chart?.result?.[0]?.meta;
+    if (!meta) return null;
+    return {
+      insiders: [],
+      insiderNetSentiment: 'UNAVAILABLE',
+      insiderBuyValue: 0, insiderSellValue: 0,
+      analysts: { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 },
+      bullPct: null,
+      earnings: [],
+      earningsTrend: [],
+      nextEarnings: null,
+      target: { high: null, low: null, mean: null, upside: null },
+      _note: 'Detailed data unavailable — Yahoo Finance quoteSummary API restricted. Showing basic data only.',
+      _basic: {
+        price: meta.regularMarketPrice,
+        name: meta.shortName || meta.longName || symbol,
+        fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh,
+        fiftyTwoWeekLow: meta.fiftyTwoWeekLow,
+        marketCap: meta.marketCap,
+      },
+    };
   } catch { return null; }
 }
 
@@ -105,10 +159,17 @@ export default async function handler(req) {
     });
   }
 
-  const data = await fetchInsiders(symbol.toUpperCase());
+  const sym = symbol.toUpperCase();
+  let data = await fetchInsiders(sym);
+
+  // If quoteSummary failed, try fallback
+  if (!data || data._error) {
+    data = await fetchFallbackData(sym);
+  }
+
   if (!data) {
-    return new Response(JSON.stringify({ error: 'Could not fetch data for ' + symbol }), {
-      status: 404, headers: { 'Content-Type': 'application/json', ...CORS },
+    return new Response(JSON.stringify({ error: 'Could not fetch data for ' + sym + '. Yahoo Finance may be rate-limiting.' }), {
+      status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
     });
   }
 
