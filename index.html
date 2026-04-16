@@ -167,6 +167,10 @@ tbody tr:hover td{background:var(--sf2)}
 .sync-bar{display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid var(--bd);font-size:11px;color:var(--di)}
 .sync-btn{background:none;border:1px solid var(--bd);color:var(--mu);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:var(--mo)}
 .sync-btn:hover{border-color:var(--bl);color:var(--bl)}
+/* drawdown banner */
+.dd-banner{display:none;max-width:1320px;margin:0 auto;padding:0 24px}
+.dd-banner.on{display:block}
+.dd-inner{background:var(--rd2);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:12px 18px;color:var(--rd);font-size:13px;font-weight:500;text-align:center}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 </style>
 </head>
@@ -187,6 +191,8 @@ tbody tr:hover td{background:var(--sf2)}
     <button class="sync-btn" onclick="cloudSync()" title="Sync to Vercel KV">Sync</button>
   </div>
 </header>
+
+<div class="dd-banner" id="ddBanner"><div class="dd-inner" id="ddMsg"></div></div>
 
 <main>
   <div class="col">
@@ -320,6 +326,8 @@ const SECTORS={
   'Industrials':['CAT','GE','HON'],
 };
 const WATCHLIST=Object.values(SECTORS).flat();
+// Reverse lookup: symbol → sector
+const SYM_SECTOR={};for(const[sec,syms]of Object.entries(SECTORS))for(const s of syms)SYM_SECTOR[s]=sec;
 let portfolio=load(),quotes={},pendingRec=null,lastAskTime=0;
 
 function load(){try{const s=localStorage.getItem('p50k_v1');if(s)return JSON.parse(s);}catch{}return{cash:START,holdings:[],trades:[],createdAt:new Date().toISOString(),stopEnabled:false,stopPct:0.08};}
@@ -512,6 +520,7 @@ async function checkStopLosses(){
 }
 
 // ── Render Functions ────────────────────────────────────────────────────
+let drawdownBreaker=false;
 function renderStats(){
   const tv=totalValue(),gain=tv-START,gp=gain/START*100,cp=portfolio.cash/tv*100,spy=quotes['SPY'];
   document.getElementById('hVal').textContent=usd(tv);
@@ -522,6 +531,15 @@ function renderStats(){
   document.getElementById('sCash').textContent=usd(portfolio.cash);
   document.getElementById('sCashP').textContent=cp.toFixed(0)+'% liquid';
   if(spy){document.getElementById('sSpy').textContent='$'+spy.price.toFixed(2);const sp=document.getElementById('sSpyP');sp.textContent=pct(spy.changePercent)+' today';sp.className='st-sub '+(spy.changePercent>=0?'up':'dn');}
+  // Drawdown circuit breaker: track peak, warn at -15%
+  if(!portfolio.peakValue||tv>portfolio.peakValue){portfolio.peakValue=tv;save();}
+  const dd=(portfolio.peakValue-tv)/portfolio.peakValue;
+  const banner=document.getElementById('ddBanner');
+  if(dd>=0.15&&portfolio.holdings.length>0){
+    drawdownBreaker=true;
+    document.getElementById('ddMsg').textContent='CIRCUIT BREAKER: Portfolio is down '+(dd*100).toFixed(1)+'% from peak ($'+portfolio.peakValue.toFixed(0)+'). BUY orders require confirmation.';
+    banner.classList.add('on');
+  }else{drawdownBreaker=false;banner.classList.remove('on');}
 }
 
 function renderHoldings(){
@@ -652,6 +670,31 @@ function executeTrade(){
   if(!price){toast('Cannot get live price for '+r.symbol,false);return;}
   if(r.action==='BUY'){
     if(r.shares*price>portfolio.cash+0.01){toast('Insufficient cash',false);return;}
+    // Circuit breaker check
+    if(drawdownBreaker&&!confirm('CIRCUIT BREAKER ACTIVE: Portfolio is in significant drawdown. Are you sure you want to BUY?'))return;
+    // Earnings proximity warning
+    const ed=quotes[r.symbol]?.earningsDate;
+    if(ed){const daysToEarnings=Math.floor((new Date(ed)-new Date())/(86400000));
+      if(daysToEarnings>=0&&daysToEarnings<=5&&!confirm(`${r.symbol} has earnings in ${daysToEarnings} day${daysToEarnings!==1?'s':''}! High volatility risk. Proceed?`))return;}
+    // Constraint: max 30% in any single position
+    const tv=totalValue();
+    const existingVal=(portfolio.holdings.find(h=>h.symbol===r.symbol)?.shares||0)*(quotes[r.symbol]?.price||price);
+    const postTradeVal=existingVal+r.shares*price;
+    if(postTradeVal/tv>0.30){
+      if(!confirm(`This would put ${(postTradeVal/tv*100).toFixed(0)}% in ${r.symbol} (limit: 30%). Proceed anyway?`))return;
+    }
+    // Constraint: max 40% in any sector
+    const buySector=SYM_SECTOR[r.symbol]||quotes[r.symbol]?.sector||'Unknown';
+    if(buySector&&buySector!=='ETF'&&buySector!=='Unknown'){
+      let sectorVal=r.shares*price;
+      for(const h of portfolio.holdings){
+        const hs=SYM_SECTOR[h.symbol]||quotes[h.symbol]?.sector;
+        if(hs===buySector)sectorVal+=h.shares*(quotes[h.symbol]?.price||h.avgCost);
+      }
+      if(sectorVal/tv>0.40){
+        if(!confirm(`${buySector} sector would be ${(sectorVal/tv*100).toFixed(0)}% of portfolio (limit: 40%). Proceed anyway?`))return;
+      }
+    }
     const ex=portfolio.holdings.find(h=>h.symbol===r.symbol);
     if(ex){const tot=ex.shares+r.shares;ex.avgCost=(ex.shares*ex.avgCost+r.shares*price)/tot;ex.shares=tot;ex.name=r.name||ex.name;ex.hwm=Math.max(ex.hwm||0,price);}
     else portfolio.holdings.push({symbol:r.symbol,name:r.name,shares:r.shares,avgCost:price,hwm:price,purchasedAt:new Date().toISOString()});

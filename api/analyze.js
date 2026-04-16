@@ -55,6 +55,17 @@ function computeRSI(closes, period = 14) {
   return 100 - 100 / (1 + avgGain / avgLoss);
 }
 
+function computeVolatility(closes, period = 20) {
+  if (closes.length < period + 1) return null;
+  const rets = [];
+  for (let i = closes.length - period; i < closes.length; i++) {
+    rets.push(Math.log(closes[i] / closes[i - 1]));
+  }
+  const avg = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const variance = rets.reduce((s, r) => s + (r - avg) ** 2, 0) / rets.length;
+  return Math.sqrt(variance) * Math.sqrt(252); // annualized
+}
+
 // ── Correlation helpers ─────────────────────────────────────────────────
 function computeReturns(closes) {
   const r = [];
@@ -119,7 +130,7 @@ async function fetchChartData(symbol) {
       volume: meta.regularMarketVolume,
       avgVolume: avgVol,
       volumeRatio: (meta.regularMarketVolume && avgVol) ? meta.regularMarketVolume / avgVol : null,
-      // Raw closes for correlation computation
+      volatility: computeVolatility(closes),
       _closes: closes,
     };
   } catch {
@@ -267,7 +278,7 @@ function buildContext(portfolio, quotes, news, fundamentals, stockNews) {
     const fundLine = f ? ` | P/E=${f.trailingPE?.toFixed(1) ?? '?'} FwdPE=${f.forwardPE?.toFixed(1) ?? '?'} PEG=${f.pegRatio?.toFixed(2) ?? '?'} P/B=${f.priceToBook?.toFixed(1) ?? '?'} Margins=${f.profitMargins ? (f.profitMargins * 100).toFixed(0) + '%' : '?'} RevGrowth=${f.revenueGrowth ? (f.revenueGrowth * 100).toFixed(0) + '%' : '?'}${f.earningsDate ? ' Earnings=' + f.earningsDate : ''}${f.targetMeanPrice ? ' Target=$' + f.targetMeanPrice.toFixed(0) : ''}` : '';
     const newsLine = stockNews[sym] ? `\n    Headlines: ${stockNews[sym].slice(0, 2).join(' | ')}` : '';
     bySector[sec].push(
-      `  ${sym} (${q.name}): $${q.price.toFixed(2)} ${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}% | SMA20=$${q.sma20 ? q.sma20.toFixed(2) : '?'} SMA50=$${q.sma50 ? q.sma50.toFixed(2) : '?'} RSI=${q.rsi14 ? q.rsi14.toFixed(0) : '?'} 52wk=${q.fiftyTwoWeekPosition ? q.fiftyTwoWeekPosition.toFixed(0) + '%' : '?'}${rsiLabel}${trend} | VolRatio=${q.volumeRatio ? q.volumeRatio.toFixed(1) + 'x' : '?'}${fundLine}${newsLine}`
+      `  ${sym} (${q.name}): $${q.price.toFixed(2)} ${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}% | SMA20=$${q.sma20 ? q.sma20.toFixed(2) : '?'} SMA50=$${q.sma50 ? q.sma50.toFixed(2) : '?'} RSI=${q.rsi14 ? q.rsi14.toFixed(0) : '?'} 52wk=${q.fiftyTwoWeekPosition ? q.fiftyTwoWeekPosition.toFixed(0) + '%' : '?'}${rsiLabel}${trend} | Vol=${q.volatility ? (q.volatility * 100).toFixed(0) + '%' : '?'} VolRatio=${q.volumeRatio ? q.volumeRatio.toFixed(1) + 'x' : '?'}${fundLine}${newsLine}`
     );
   }
   const marketText = Object.entries(bySector)
@@ -413,6 +424,13 @@ FUNDAMENTAL SIGNALS:
 - Profit margins: compare within sector
 - Analyst target vs current price = upside/downside estimate
 
+VOLATILITY & POSITION SIZING:
+- Each stock has a Vol% (annualized volatility). Use it to scale position sizes.
+- Target risk per position = 1% of portfolio value.
+- Suggested shares = (portfolio × 0.01) / (price × dailyVol). dailyVol = Vol% / √252.
+- High-vol stocks (>50%) get smaller positions. Low-vol stocks (<20%) get larger positions.
+- Always round DOWN to nearest whole share.
+
 CORRELATION & RISK:
 - Pairs with correlation >0.8 are effectively the same bet — diversify away
 - Monitor portfolio beta — if too high, add defensive names (KO, JNJ, PG)
@@ -447,6 +465,7 @@ Constraints:
 - SELL: only sell shares you hold
 - No single position > 30% of portfolio
 - Spread across 3+ sectors. Check correlation data to avoid hidden concentration
+- AVOID buying stocks with earnings within 5 trading days (earnings volatility risk)
 - If recommending HOLD, explain what trigger you're waiting for`;
 
   const userMsg = `Date: ${today}
@@ -544,6 +563,7 @@ ${question ? `QUESTION: ${question}` : 'Analyze from all 3 perspectives (value, 
       name: q.name,
       prevClose: q.prevClose,
       sector: q.sector,
+      earningsDate: fundamentals[sym]?.earningsDate || null,
     };
   }
 
