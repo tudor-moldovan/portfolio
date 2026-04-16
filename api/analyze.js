@@ -26,6 +26,8 @@ const UNIVERSE = {
   CAT: 'Industrials', GE: 'Industrials', HON: 'Industrials',
   // ETFs / Benchmarks
   SPY: 'ETF', QQQ: 'ETF', DIA: 'ETF', IWM: 'ETF',
+  // Macro Indicators
+  '^VIX': 'Macro', '^TNX': 'Macro',
 };
 const WATCHLIST = Object.keys(UNIVERSE);
 
@@ -172,6 +174,20 @@ async function fetchFundamentals(symbol) {
 }
 
 // ── Per-stock news with sentiment keywords ──────────────────────────────
+// ── Sentiment scoring ───────────────────────────────────────────────────
+const POS_WORDS = /\b(beat|beats|surge|surges|upgrade|upgrades|record|growth|rally|bullish|soar|outperform|strong|profit|gain|boost|raise|rises|jumped|positive)\b/i;
+const NEG_WORDS = /\b(miss|misses|downgrade|downgrades|layoff|layoffs|decline|declined|warning|lawsuit|loss|losses|crash|bearish|plunge|cut|cuts|weak|fell|drop|drops|negative|risk|fear)\b/i;
+function scoreSentiment(headlines) {
+  if (!headlines.length) return 0;
+  let score = 0;
+  for (const h of headlines) {
+    const pos = (h.match(POS_WORDS) || []).length;
+    const neg = (h.match(NEG_WORDS) || []).length;
+    score += pos - neg;
+  }
+  return Math.max(-1, Math.min(1, score / headlines.length)); // normalize to [-1, 1]
+}
+
 async function fetchStockNews(symbols) {
   const top = symbols.slice(0, 8); // limit to avoid timeouts
   const results = {};
@@ -276,7 +292,10 @@ function buildContext(portfolio, quotes, news, fundamentals, stockNews) {
       : '';
     const f = fundamentals[sym];
     const fundLine = f ? ` | P/E=${f.trailingPE?.toFixed(1) ?? '?'} FwdPE=${f.forwardPE?.toFixed(1) ?? '?'} PEG=${f.pegRatio?.toFixed(2) ?? '?'} P/B=${f.priceToBook?.toFixed(1) ?? '?'} Margins=${f.profitMargins ? (f.profitMargins * 100).toFixed(0) + '%' : '?'} RevGrowth=${f.revenueGrowth ? (f.revenueGrowth * 100).toFixed(0) + '%' : '?'}${f.earningsDate ? ' Earnings=' + f.earningsDate : ''}${f.targetMeanPrice ? ' Target=$' + f.targetMeanPrice.toFixed(0) : ''}` : '';
-    const newsLine = stockNews[sym] ? `\n    Headlines: ${stockNews[sym].slice(0, 2).join(' | ')}` : '';
+    const sn = stockNews[sym] || [];
+    const sentiment = sn.length ? scoreSentiment(sn) : null;
+    const sentLabel = sentiment != null ? ` Sentiment=${sentiment > 0.3 ? 'POSITIVE' : sentiment < -0.3 ? 'NEGATIVE' : 'NEUTRAL'}(${sentiment.toFixed(1)})` : '';
+    const newsLine = sn.length ? `\n    Headlines: ${sn.slice(0, 2).join(' | ')}${sentLabel}` : '';
     bySector[sec].push(
       `  ${sym} (${q.name}): $${q.price.toFixed(2)} ${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}% | SMA20=$${q.sma20 ? q.sma20.toFixed(2) : '?'} SMA50=$${q.sma50 ? q.sma50.toFixed(2) : '?'} RSI=${q.rsi14 ? q.rsi14.toFixed(0) : '?'} 52wk=${q.fiftyTwoWeekPosition ? q.fiftyTwoWeekPosition.toFixed(0) + '%' : '?'}${rsiLabel}${trend} | Vol=${q.volatility ? (q.volatility * 100).toFixed(0) + '%' : '?'} VolRatio=${q.volumeRatio ? q.volumeRatio.toFixed(1) + 'x' : '?'}${fundLine}${newsLine}`
     );
@@ -336,12 +355,30 @@ function buildContext(portfolio, quotes, news, fundamentals, stockNews) {
       }).join('\n')
     : '  None yet';
 
+  // ── Macro environment + regime detection ───
+  const vix = quotes['^VIX'];
+  const tnx = quotes['^TNX'];
+  const spyAboveSma50 = quotes['SPY']?.sma50 ? quotes['SPY'].price > quotes['SPY'].sma50 : null;
+  let marketRegime = 'UNKNOWN';
+  let macroText = '';
+  if (vix) {
+    if (vix.price < 15) marketRegime = spyAboveSma50 ? 'RISK_ON' : 'NORMAL';
+    else if (vix.price < 25) marketRegime = 'NORMAL';
+    else if (vix.price < 35) marketRegime = 'CAUTIOUS';
+    else marketRegime = 'RISK_OFF';
+    const regimeGuide = { RISK_ON: 'aggressive — full position sizes', NORMAL: 'standard — normal sizing', CAUTIOUS: 'reduce positions 50%, favor defensive', RISK_OFF: 'defensive only — raise cash, no new buys' };
+    macroText += `  VIX: ${vix.price.toFixed(1)} | SPY trend: ${spyAboveSma50 ? 'above' : 'below'} SMA50\n`;
+    macroText += `  MARKET REGIME: ${marketRegime} — ${regimeGuide[marketRegime] || ''}\n`;
+  }
+  if (tnx) macroText += `  10Y Treasury Yield: ${tnx.price.toFixed(2)}%\n`;
+  if (!macroText) macroText = '  (unavailable)';
+
   // ── News ───
   const newsText = news.length > 0
     ? news.map(h => `  • ${h}`).join('\n')
     : '  (unavailable)';
 
-  return { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, newsText };
+  return { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, macroText, newsText };
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────
@@ -392,7 +429,7 @@ export default async function handler(req) {
     if (r.status === 'fulfilled' && r.value?.f) fundamentals[r.value.s] = r.value.f;
   }
 
-  const { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, newsText } =
+  const { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, macroText, newsText } =
     buildContext(portfolio, quotes, news, fundamentals, stockNews);
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -493,6 +530,9 @@ ${tradeMemory}
 ═══ LIVE MARKET DATA (technicals + fundamentals + news) ═══
 ${marketText || '(unavailable)'}
 
+═══ MACRO ENVIRONMENT ═══
+${macroText}
+
 ═══ TODAY'S MARKET NEWS ═══
 ${newsText}
 
@@ -570,6 +610,7 @@ ${question ? `QUESTION: ${question}` : 'Analyze from all 3 perspectives (value, 
   recommendation.quotes = frontendQuotes;
   recommendation.portfolioValue = totalValue;
   recommendation.portfolioReturn = totalReturn;
+  recommendation.marketRegime = marketRegime;
 
   return new Response(JSON.stringify(recommendation), {
     headers: { 'Content-Type': 'application/json', ...CORS },

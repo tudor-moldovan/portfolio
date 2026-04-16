@@ -232,7 +232,7 @@ tbody tr:hover td{background:var(--sf2)}
   <div class="col">
     <!-- AI Advisor -->
     <div class="card">
-      <div class="ch"><div class="ct">Claude AI Advisor</div><div style="font-size:11px;color:var(--pu)">claude-sonnet-4-6</div></div>
+      <div class="ch"><div class="ct">Claude AI Advisor</div><div style="display:flex;gap:8px;align-items:center"><span id="regimeBadge" style="display:none;font-size:10px;font-weight:700;font-family:var(--mo);padding:2px 8px;border-radius:4px"></span><span style="font-size:11px;color:var(--pu)">claude-sonnet-4-6</span></div></div>
       <div class="cbody" style="display:flex;flex-direction:column;gap:12px">
         <button class="ask-btn" id="askBtn" onclick="askClaude()">⚡ &nbsp;Ask Claude</button>
         <div class="thinking" id="thinking"><div class="dots"><span></span><span></span><span></span></div><span>Claude is analyzing 33 stocks, technicals &amp; news…</span></div>
@@ -341,7 +341,7 @@ function getSnapshots(){try{return JSON.parse(localStorage.getItem('p50k_snaps')
 function saveSnapshots(snaps){localStorage.setItem('p50k_snaps',JSON.stringify(snaps));}
 function recordSnapshot(){
   const snaps=getSnapshots();
-  const today=new Date().toISOString().slice(0,10);
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
   const tv=totalValue();
   const spy=quotes['SPY']?.price||null;
   const entry={d:today,v:tv,c:portfolio.cash,s:spy};
@@ -643,6 +643,12 @@ function showRec(r){
   const ct=document.getElementById('rConf');ct.textContent=r.confidence||'—';ct.className='ctag '+(r.confidence||'');
   document.getElementById('rTot').textContent=(r.shares&&r.estimatedPrice)?'Total: '+usd(r.shares*r.estimatedPrice):'';
   document.getElementById('rNote').textContent=r.portfolioNote||'';
+  // Market regime badge
+  const rb=document.getElementById('regimeBadge');
+  if(r.marketRegime&&r.marketRegime!=='UNKNOWN'){
+    const rc={RISK_ON:['#00c896','#00c89620'],NORMAL:['#60a5fa','#60a5fa20'],CAUTIOUS:['#f59e0b','#f59e0b20'],RISK_OFF:['#ff4d6d','#ff4d6d20']}[r.marketRegime]||['#7a8fa6','#151c2520'];
+    rb.textContent=r.marketRegime;rb.style.display='inline';rb.style.color=rc[0];rb.style.background=rc[1];
+  }else{rb.style.display='none';}
   // Multi-perspective display
   const pp=document.getElementById('rPersp');
   if(r.perspectives){
@@ -710,6 +716,12 @@ function executeTrade(){
     portfolio.trades.push({date:new Date().toISOString(),action:'SELL',symbol:r.symbol,name:r.name,shares:r.shares,price,avgCostAtSell,rationale:r.rationale});
     toast('Sold '+r.shares+' shares of '+r.symbol,true);
   }
+  // Audit trail: save full decision context
+  try{const log=JSON.parse(localStorage.getItem('p50k_audit')||'[]');
+    log.push({ts:new Date().toISOString(),rec:pendingRec,portfolio:{cash:portfolio.cash,holdings:[...portfolio.holdings]},tv:totalValue()});
+    if(log.length>100)log.splice(0,log.length-100);
+    localStorage.setItem('p50k_audit',JSON.stringify(log));
+  }catch{}
   save();cloudSync();pendingRec=null;document.getElementById('rec').classList.remove('on');
   recordSnapshot();renderStats();renderHoldings();renderTrades();renderAnalytics();
 }
@@ -740,16 +752,19 @@ async function runBacktest(){
     if(!r.ok||d.error){st.textContent=d.error||'Failed';btn.disabled=false;return;}
     st.textContent=d.period+' ('+d.dataPoints+' days)';
     const rc=parseFloat(d.totalReturn)>=0?'up':'dn';
+    const sc=v=>parseFloat(v)>1?'up':parseFloat(v)>0?'nt':'dn';
     document.getElementById('btResults').innerHTML=`
       <div class="bt-results">
-        <div class="bt-stat"><div class="st-lbl">Return</div><div class="st-val ${rc}">${d.totalReturn}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Return</div><div class="st-val ${rc}">${d.totalReturn}</div><div class="st-sub">${d.costModel}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Sharpe</div><div class="st-val ${sc(d.sharpe)}">${d.sharpe}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Sortino</div><div class="st-val ${sc(d.sortino)}">${d.sortino}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Calmar</div><div class="st-val ${sc(d.calmar)}">${d.calmar}</div></div>
         <div class="bt-stat"><div class="st-lbl">Win Rate</div><div class="st-val nt">${d.winRate}</div></div>
         <div class="bt-stat"><div class="st-lbl">Max Drawdown</div><div class="st-val dn">-${d.maxDrawdown}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Trades</div><div class="st-val nt">${d.roundTrips} round-trips</div></div>
         <div class="bt-stat"><div class="st-lbl">Avg Win</div><div class="st-val up">${d.avgWin}</div></div>
         <div class="bt-stat"><div class="st-lbl">Avg Loss</div><div class="st-val dn">${d.avgLoss}</div></div>
         <div class="bt-stat"><div class="st-lbl">Final Value</div><div class="st-val ${rc}">$${parseFloat(d.finalValue).toFixed(0)}</div><div class="st-sub">from $10,000</div></div>
-        <div class="bt-stat"><div class="st-lbl">Strategy</div><div class="st-val nt" style="font-size:11px">${d.strategy}</div></div>
+        <div class="bt-stat"><div class="st-lbl">Trades</div><div class="st-val nt">${d.roundTrips} round-trips</div></div>
       </div>`;
   }catch(e){st.textContent='Error: '+e.message;}
   finally{btn.disabled=false;}
