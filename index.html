@@ -18,9 +18,18 @@
   --go:#f59e0b;--bl:#60a5fa;
   --mo:'JetBrains Mono',monospace;
 }
-body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh}
+body{background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh;position:relative}
+body::before{content:'';position:fixed;inset:0;z-index:-1;
+  background:url('img/faget-trail.jpg') center/cover no-repeat fixed,
+    linear-gradient(135deg,#0a1a0d 0%,#0d2818 25%,#0a1f14 50%,#071510 75%,#060d08 100%);
+  filter:brightness(0.25) saturate(0.6);
+}
+body::after{content:'';position:fixed;inset:0;z-index:-1;
+  background:radial-gradient(ellipse at 30% 20%,rgba(0,200,150,0.04) 0%,transparent 60%),
+    radial-gradient(ellipse at 70% 80%,rgba(79,70,229,0.05) 0%,transparent 50%);
+}
 /* header */
-header{background:var(--sf);border-bottom:1px solid var(--bd);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:99;gap:16px}
+header{background:rgba(15,20,25,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:99;gap:16px}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .logo-mark{width:30px;height:30px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
 .logo-name{font-weight:700;font-size:14px}.logo-sub{font-size:10px;color:var(--mu);font-weight:400}
@@ -41,7 +50,7 @@ main{max-width:1320px;margin:0 auto;padding:24px;display:grid;grid-template-colu
 @media(max-width:900px){main{grid-template-columns:1fr;padding:16px}}
 .col{display:flex;flex-direction:column;gap:20px}
 /* card */
-.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.card{background:rgba(15,20,25,0.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
 .ch{padding:13px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
 .ct{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)}
 .cb{font-size:11px;color:var(--di)}
@@ -49,7 +58,7 @@ main{max-width:1320px;margin:0 auto;padding:24px;display:grid;grid-template-colu
 /* stats */
 .sbar{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bd)}
 @media(max-width:600px){.sbar{grid-template-columns:repeat(2,1fr)}}
-.st{background:var(--sf);padding:14px 18px}
+.st{background:rgba(15,20,25,0.85);padding:14px 18px}
 .st-lbl{font-size:10px;color:var(--di);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
 .st-val{font-family:var(--mo);font-size:17px;font-weight:600}
 .st-sub{font-size:11px;color:var(--mu);margin-top:2px}
@@ -112,7 +121,7 @@ tbody tr:hover td{background:var(--sf2)}
 .wg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd);gap:1px}
 @media(max-width:900px){.wg{grid-template-columns:repeat(2,1fr)}}
 .sec-hdr{grid-column:1/-1;background:var(--sf2);padding:6px 14px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--di)}
-.wi{background:var(--sf);padding:10px 14px}
+.wi{background:rgba(15,20,25,0.85);padding:10px 14px}
 .wn{font-size:10px;color:var(--di);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
 .ws{font-size:12px;font-weight:600;font-family:var(--mo);color:var(--bl)}
 .wp{font-size:14px;font-weight:600;font-family:var(--mo)}
@@ -121,6 +130,21 @@ tbody tr:hover td{background:var(--sf2)}
 .toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;transform:translateY(80px);opacity:0;transition:.3s;pointer-events:none}
 .toast.on{transform:translateY(0);opacity:1}
 .toast.ok{background:var(--gr);color:#000}.toast.fail{background:var(--rd);color:#fff}
+/* analytics */
+.analytics{max-width:1320px;margin:0 auto;padding:0 24px 24px}
+@media(max-width:900px){.analytics{padding:0 16px 16px}}
+.mbar{display:grid;grid-template-columns:repeat(6,1fr);background:var(--bd);gap:1px}
+@media(max-width:900px){.mbar{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:500px){.mbar{grid-template-columns:repeat(2,1fr)}}
+.eq-wrap{padding:18px;min-height:120px}
+.eq-legend{display:flex;gap:16px;justify-content:center;padding:6px 0 0;font-size:10px}
+.eq-legend span{display:flex;align-items:center;gap:4px}
+/* stop loss */
+.sl-warn{color:var(--go)}.sl-danger{color:var(--rd)}
+.stop-hdr{display:flex;align-items:center;gap:8px;padding:0 18px 12px}
+.stop-toggle{background:none;border:1px solid var(--bd);color:var(--mu);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:var(--mo)}
+.stop-toggle.active{border-color:var(--go);color:var(--go)}
+.stop-toggle:hover{border-color:var(--go);color:var(--go)}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 </style>
 </head>
@@ -154,8 +178,14 @@ tbody tr:hover td{background:var(--sf2)}
     </div>
 
     <!-- Holdings -->
-    <div class="card"> 
+    <div class="card">
       <div class="ch"><div class="ct">Holdings</div><div class="cb" id="hCnt">0 positions</div></div>
+      <div class="stop-hdr" id="stopHdr" style="display:none;padding-top:10px">
+        <button class="stop-toggle" id="stopBtn" onclick="toggleStopLoss()">Trailing Stop: OFF</button>
+        <select id="stopPct" style="background:var(--sf2);border:1px solid var(--bd);color:var(--mu);padding:2px 6px;border-radius:4px;font-size:10px;font-family:var(--mo)" onchange="updateStopPct()">
+          <option value="0.05">5%</option><option value="0.08" selected>8%</option><option value="0.10">10%</option><option value="0.12">12%</option><option value="0.15">15%</option><option value="0.20">20%</option>
+        </select>
+      </div>
       <div id="hBody">
         <div class="empty"><div class="ei">📊</div><div class="em">No positions yet</div><div class="es">Ask Claude to recommend the first trade →</div></div>
       </div>
@@ -207,6 +237,24 @@ tbody tr:hover td{background:var(--sf2)}
   </div>
 </main>
 
+<!-- Performance Analytics -->
+<section class="analytics">
+  <div class="card">
+    <div class="ch"><div class="ct">Performance Analytics</div><div class="cb" id="aDays">—</div></div>
+    <div style="padding:0;overflow:hidden">
+      <div class="mbar">
+        <div class="st"><div class="st-lbl">Sharpe Ratio</div><div class="st-val nt" id="mSharpe">—</div><div class="st-sub">Annualized</div></div>
+        <div class="st"><div class="st-lbl">Max Drawdown</div><div class="st-val nt" id="mDD">0%</div><div class="st-sub">Peak to trough</div></div>
+        <div class="st"><div class="st-lbl">Win Rate</div><div class="st-val nt" id="mWin">—</div><div class="st-sub" id="mWinSub">Closed trades</div></div>
+        <div class="st"><div class="st-lbl">Alpha vs SPY</div><div class="st-val nt" id="mAlpha">—</div><div class="st-sub" id="mBetaSub">—</div></div>
+        <div class="st"><div class="st-lbl">Avg Win</div><div class="st-val up" id="mAvgW">—</div><div class="st-sub">Per winning trade</div></div>
+        <div class="st"><div class="st-lbl">Avg Loss</div><div class="st-val dn" id="mAvgL">—</div><div class="st-sub">Per losing trade</div></div>
+      </div>
+    </div>
+    <div class="eq-wrap" id="eqChart"></div>
+  </div>
+</section>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -223,12 +271,172 @@ const SECTORS={
 const WATCHLIST=Object.values(SECTORS).flat();
 let portfolio=load(),quotes={},pendingRec=null;
 
-function load(){try{const s=localStorage.getItem('p50k_v1');if(s)return JSON.parse(s);}catch{}return{cash:START,holdings:[],trades:[],createdAt:new Date().toISOString()};}
+function load(){try{const s=localStorage.getItem('p50k_v1');if(s)return JSON.parse(s);}catch{}return{cash:START,holdings:[],trades:[],createdAt:new Date().toISOString(),stopEnabled:false,stopPct:0.08};}
 function save(){localStorage.setItem('p50k_v1',JSON.stringify(portfolio));}
 const usd=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2}).format(n);
 const pct=n=>(n>=0?'+':'')+n.toFixed(2)+'%';
 function totalValue(){return portfolio.holdings.reduce((s,h)=>s+h.shares*(quotes[h.symbol]?.price||h.avgCost),0)+portfolio.cash;}
 
+// ── Snapshots (daily equity curve data) ─────────────────────────────────
+function getSnapshots(){try{return JSON.parse(localStorage.getItem('p50k_snaps'))||[];}catch{return[];}}
+function saveSnapshots(snaps){localStorage.setItem('p50k_snaps',JSON.stringify(snaps));}
+function recordSnapshot(){
+  const snaps=getSnapshots();
+  const today=new Date().toISOString().slice(0,10);
+  const tv=totalValue();
+  const spy=quotes['SPY']?.price||null;
+  const entry={d:today,v:tv,c:portfolio.cash,s:spy};
+  const idx=snaps.findIndex(s=>s.d===today);
+  if(idx>=0)snaps[idx]=entry;else snaps.push(entry);
+  saveSnapshots(snaps);
+  return snaps;
+}
+
+// ── Performance Analytics ───────────────────────────────────────────────
+function calcMetrics(){
+  const snaps=getSnapshots();
+  const trades=portfolio.trades||[];
+  let sharpe=null;
+  if(snaps.length>=3){
+    const rets=[];
+    for(let i=1;i<snaps.length;i++)rets.push((snaps[i].v-snaps[i-1].v)/snaps[i-1].v);
+    const avg=rets.reduce((a,b)=>a+b,0)/rets.length;
+    const std=Math.sqrt(rets.reduce((s,r)=>s+(r-avg)**2,0)/rets.length);
+    sharpe=std>0?((avg-0.05/252)/std)*Math.sqrt(252):0;
+  }
+  let maxDD=0,peak=-Infinity;
+  for(const s of snaps){if(s.v>peak)peak=s.v;const dd=(peak-s.v)/peak;if(dd>maxDD)maxDD=dd;}
+  const sells=trades.filter(t=>t.action==='SELL'&&t.avgCostAtSell!=null);
+  const wins=sells.filter(t=>t.price>t.avgCostAtSell).length;
+  const winRate=sells.length>0?wins/sells.length:null;
+  const gainTrades=sells.filter(t=>t.price>=t.avgCostAtSell);
+  const lossTrades=sells.filter(t=>t.price<t.avgCostAtSell);
+  const avgGain=gainTrades.length>0?gainTrades.reduce((s,t)=>s+(t.price-t.avgCostAtSell)*t.shares,0)/gainTrades.length:null;
+  const avgLoss=lossTrades.length>0?lossTrades.reduce((s,t)=>s+(t.avgCostAtSell-t.price)*t.shares,0)/lossTrades.length:null;
+  let alpha=null,beta=null;
+  if(snaps.length>=5&&snaps[0].s&&snaps[snaps.length-1].s){
+    const pRets=[],mRets=[];
+    for(let i=1;i<snaps.length;i++){
+      if(snaps[i].s&&snaps[i-1].s){
+        pRets.push((snaps[i].v-snaps[i-1].v)/snaps[i-1].v);
+        mRets.push((snaps[i].s-snaps[i-1].s)/snaps[i-1].s);
+      }
+    }
+    if(pRets.length>=2){
+      const pA=pRets.reduce((a,b)=>a+b,0)/pRets.length;
+      const mA=mRets.reduce((a,b)=>a+b,0)/mRets.length;
+      let cov=0,mV=0;
+      for(let i=0;i<pRets.length;i++){cov+=(pRets[i]-pA)*(mRets[i]-mA);mV+=(mRets[i]-mA)**2;}
+      beta=mV>0?cov/mV:0;
+      alpha=(snaps[snaps.length-1].v/snaps[0].v-1)-(beta*(snaps[snaps.length-1].s/snaps[0].s-1));
+    }
+  }
+  return{sharpe,maxDD,winRate,avgGain,avgLoss,alpha,beta,snaps,totalTrades:trades.length};
+}
+
+function renderAnalytics(){
+  const m=calcMetrics();
+  const el=document.getElementById('mSharpe');if(!el)return;
+  el.textContent=m.sharpe!=null?m.sharpe.toFixed(2):'—';
+  el.className='st-val '+(m.sharpe!=null?(m.sharpe>1?'up':m.sharpe<0?'dn':'nt'):'nt');
+  const dd=document.getElementById('mDD');
+  dd.textContent=m.maxDD>0?'-'+(m.maxDD*100).toFixed(1)+'%':'0%';
+  dd.className='st-val '+(m.maxDD>0.1?'dn':m.maxDD>0.05?'nt':'up');
+  document.getElementById('mWin').textContent=m.winRate!=null?(m.winRate*100).toFixed(0)+'%':'—';
+  document.getElementById('mWinSub').textContent=m.totalTrades+' total trades';
+  const al=document.getElementById('mAlpha');
+  al.textContent=m.alpha!=null?(m.alpha>=0?'+':'')+(m.alpha*100).toFixed(1)+'%':'—';
+  al.className='st-val '+(m.alpha!=null?(m.alpha>0?'up':m.alpha<0?'dn':'nt'):'nt');
+  document.getElementById('mBetaSub').textContent=m.beta!=null?'Beta: '+m.beta.toFixed(2):'Needs 5+ days';
+  document.getElementById('mAvgW').textContent=m.avgGain!=null?'+'+usd(m.avgGain):'—';
+  document.getElementById('mAvgL').textContent=m.avgLoss!=null?'-'+usd(m.avgLoss):'—';
+  document.getElementById('aDays').textContent=m.snaps.length+' day'+(m.snaps.length!==1?'s':'');
+  renderEquityCurve(m.snaps);
+}
+
+function renderEquityCurve(snaps){
+  const c=document.getElementById('eqChart');if(!c)return;
+  if(snaps.length<2){
+    c.innerHTML='<div class="empty" style="padding:20px"><div class="em" style="color:var(--di)">Equity curve appears after 2+ daily snapshots</div><div class="es">Portfolio value is recorded once per day on page load</div></div>';
+    return;
+  }
+  const W=c.clientWidth||700,H=200,P={t:20,r:65,b:28,l:60},cw=W-P.l-P.r,ch=H-P.t-P.b;
+  const vals=snaps.map(s=>s.v);
+  const hasSpy=snaps.every(s=>s.s!=null);
+  const spyNorm=hasSpy?snaps.map(s=>START*(s.s/snaps[0].s)):[];
+  const all=[...vals,START,...spyNorm];
+  const mn=Math.min(...all)*0.998,mx=Math.max(...all)*1.002;
+  const x=i=>P.l+(i/(snaps.length-1))*cw;
+  const y=v=>P.t+ch-((v-mn)/(mx-mn))*ch;
+  const pts=vals.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const spyPts=hasSpy?spyNorm.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' '):'';
+  const fill=`${x(0).toFixed(1)},${y(mn).toFixed(1)} ${pts} ${x(snaps.length-1).toFixed(1)},${y(mn).toFixed(1)}`;
+  const lastV=vals[vals.length-1],lastC=lastV>=START?'#a78bfa':'#ff4d6d';
+  const startY=y(START);
+  const fd=snaps[0].d.slice(5),ld=snaps[snaps.length-1].d.slice(5);
+  let svg=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <defs><linearGradient id="pfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lastC}" stop-opacity="0.15"/><stop offset="100%" stop-color="${lastC}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${P.l}" y1="${startY}" x2="${W-P.r}" y2="${startY}" stroke="#3d5166" stroke-width="1" stroke-dasharray="4,4"/>
+    <text x="${W-P.r+4}" y="${startY}" fill="#3d5166" font-size="9" font-family="JetBrains Mono,monospace" dominant-baseline="middle">$50k</text>`;
+  if(spyPts)svg+=`<polyline points="${spyPts}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>`;
+  svg+=`<polygon points="${fill}" fill="url(#pfill)"/>
+    <polyline points="${pts}" fill="none" stroke="${lastC}" stroke-width="2"/>
+    <circle cx="${x(snaps.length-1).toFixed(1)}" cy="${y(lastV).toFixed(1)}" r="3.5" fill="${lastC}"/>
+    <text x="${W-P.r+4}" y="${y(lastV).toFixed(1)}" fill="${lastC}" font-size="10" font-family="JetBrains Mono,monospace" dominant-baseline="middle">${usd(lastV)}</text>
+    <text x="${P.l}" y="${H-4}" fill="#3d5166" font-size="9" font-family="JetBrains Mono,monospace">${fd}</text>
+    <text x="${W-P.r}" y="${H-4}" fill="#3d5166" font-size="9" font-family="JetBrains Mono,monospace" text-anchor="end">${ld}</text>
+  </svg>`;
+  const legend=`<div class="eq-legend"><span><span style="color:#a78bfa">━━</span> Portfolio</span>${hasSpy?'<span><span style="color:#f59e0b">╌╌</span> SPY (normalized)</span>':''}</div>`;
+  c.innerHTML=svg+legend;
+}
+
+// ── Stop-Loss System ────────────────────────────────────────────────────
+function toggleStopLoss(){
+  portfolio.stopEnabled=!portfolio.stopEnabled;save();updateStopUI();
+  if(portfolio.stopEnabled){
+    for(const h of portfolio.holdings){
+      if(!h.hwm){const p=quotes[h.symbol]?.price||h.avgCost;h.hwm=Math.max(p,h.avgCost);}
+    }
+    save();toast('Trailing stop-loss enabled ('+((portfolio.stopPct||0.08)*100)+'%)',true);
+  }else{toast('Stop-loss disabled',true);}
+}
+function updateStopPct(){
+  portfolio.stopPct=parseFloat(document.getElementById('stopPct').value)||0.08;
+  save();updateStopUI();
+}
+function updateStopUI(){
+  const btn=document.getElementById('stopBtn');
+  btn.textContent='Trailing Stop: '+(portfolio.stopEnabled?'ON':'OFF');
+  btn.className='stop-toggle'+(portfolio.stopEnabled?' active':'');
+  document.getElementById('stopPct').value=portfolio.stopPct||0.08;
+  renderHoldings();
+}
+function checkStopLosses(){
+  if(!portfolio.stopEnabled||!portfolio.holdings.length)return;
+  const sp=portfolio.stopPct||0.08;
+  const toSell=[];
+  for(const h of portfolio.holdings){
+    const price=quotes[h.symbol]?.price;if(!price)continue;
+    if(!h.hwm||price>h.hwm)h.hwm=price;
+    const stopPrice=h.hwm*(1-sp);
+    if(price<=stopPrice)toSell.push({sym:h.symbol,shares:h.shares,price,hwm:h.hwm,avgCost:h.avgCost,name:h.name,stopPrice});
+  }
+  for(const s of toSell){
+    const h=portfolio.holdings.find(x=>x.symbol===s.sym);if(!h)continue;
+    portfolio.cash+=h.shares*s.price;
+    portfolio.trades.push({
+      date:new Date().toISOString(),action:'SELL',symbol:s.sym,name:s.name,
+      shares:s.shares,price:s.price,avgCostAtSell:s.avgCost,
+      rationale:'Stop-loss triggered at $'+s.price.toFixed(2)+' ('+((sp)*100).toFixed(0)+'% trailing stop from high of $'+s.hwm.toFixed(2)+')',
+      confidence:'HIGH'
+    });
+    portfolio.holdings=portfolio.holdings.filter(x=>x.symbol!==s.sym);
+    toast('Stop-loss: Sold '+s.shares+' '+s.sym+' @ $'+s.price.toFixed(2),false);
+  }
+  if(toSell.length){save();renderStats();renderHoldings();renderTrades();renderAnalytics();}
+}
+
+// ── Render Functions ────────────────────────────────────────────────────
 function renderStats(){
   const tv=totalValue(),gain=tv-START,gp=gain/START*100,cp=portfolio.cash/tv*100,spy=quotes['SPY'];
   document.getElementById('hVal').textContent=usd(tv);
@@ -243,15 +451,30 @@ function renderStats(){
 
 function renderHoldings(){
   const el=document.getElementById('hBody');
+  const sh=document.getElementById('stopHdr');
   document.getElementById('hCnt').textContent=portfolio.holdings.length+' position'+(portfolio.holdings.length!==1?'s':'');
-  if(!portfolio.holdings.length){el.innerHTML='<div class="empty"><div class="ei">📊</div><div class="em">No positions yet</div><div class="es">Ask Claude to recommend the first trade →</div></div>';return;}
+  if(!portfolio.holdings.length){
+    el.innerHTML='<div class="empty"><div class="ei">📊</div><div class="em">No positions yet</div><div class="es">Ask Claude to recommend the first trade</div></div>';
+    sh.style.display='none';return;
+  }
+  sh.style.display='flex';
+  const se=portfolio.stopEnabled,sp=portfolio.stopPct||0.08;
   const rows=portfolio.holdings.map(h=>{
     const q=quotes[h.symbol]||{};const price=q.price||h.avgCost;
     const mv=h.shares*price,cb=h.shares*h.avgCost,pnl=mv-cb,pp=pnl/cb*100;
     const pc=pnl>=0?'up':'dn',dc=(q.changePercent??0)>=0?'up':'dn';
-    return`<tr><td class="tsym">${h.symbol}</td><td class="tname">${q.name||h.name||''}</td><td>${h.shares}</td><td>$${h.avgCost.toFixed(2)}</td><td>$${price.toFixed(2)}</td><td class="${dc}" style="font-size:11px">${q.changePercent!=null?pct(q.changePercent):'—'}</td><td>${usd(mv)}</td><td class="${pc}">${(pnl>=0?'+':'')+usd(pnl)}</td><td class="${pc}">${pct(pp)}</td></tr>`;
+    let stopCell='<td style="color:var(--di);font-size:11px">—</td><td>—</td>';
+    if(se){
+      const hwm=h.hwm||Math.max(price,h.avgCost);
+      const stopP=hwm*(1-sp);
+      const dist=((price-stopP)/price*100);
+      const dcls=dist<3?'sl-danger':dist<6?'sl-warn':'';
+      stopCell=`<td style="font-size:11px">$${stopP.toFixed(2)}</td><td class="${dcls}" style="font-size:11px">${dist.toFixed(1)}%</td>`;
+    }
+    return`<tr><td class="tsym">${h.symbol}</td><td class="tname">${q.name||h.name||''}</td><td>${h.shares}</td><td>$${h.avgCost.toFixed(2)}</td><td>$${price.toFixed(2)}</td><td class="${dc}" style="font-size:11px">${q.changePercent!=null?pct(q.changePercent):'—'}</td><td>${usd(mv)}</td><td class="${pc}">${(pnl>=0?'+':'')+usd(pnl)}</td><td class="${pc}">${pct(pp)}</td>${stopCell}</tr>`;
   }).join('');
-  el.innerHTML=`<table><thead><tr><th>Ticker</th><th>Name</th><th>Shares</th><th>Avg Cost</th><th>Price</th><th>Day</th><th>Value</th><th>P&L</th><th>Return</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const stopHeaders=se?'<th>Stop</th><th>Dist</th>':'<th></th><th></th>';
+  el.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>Ticker</th><th>Name</th><th>Shares</th><th>Avg Cost</th><th>Price</th><th>Day</th><th>Value</th><th>P&L</th><th>Return</th>${stopHeaders}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function renderTrades(){
@@ -263,7 +486,7 @@ function renderTrades(){
     const ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const ts=d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
     const ac=t.action==='SELL'?'up':'';
-    const reason=t.rationale?`<div class="treason">"${t.rationale.slice(0,110)}${t.rationale.length>110?'…':''}"</div>`:'';
+    const reason=t.rationale?`<div class="treason">"${t.rationale.slice(0,140)}${t.rationale.length>140?'…':''}"</div>`:'';
     return`<div class="ti"><div><span class="ttag ${t.action}">${t.action}</span></div><div><div class="tsym2">${t.symbol}</div><div class="tmeta">${t.shares} shares @ $${t.price.toFixed(2)}${t.name?' · '+t.name:''}</div>${reason}</div><div><div class="tamt ${ac}">${t.action==='BUY'?'-':'+'}${usd(tot)}</div><div class="tdate">${ds}<br>${ts}</div></div></div>`;
   }).join('');
   el.innerHTML=items;
@@ -284,9 +507,17 @@ function renderWatchlist(){
   document.getElementById('pTime').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 }
 
+// ── Data & Actions ──────────────────────────────────────────────────────
 async function fetchPrices(){
   const syms=[...new Set([...WATCHLIST,...portfolio.holdings.map(h=>h.symbol)])];
-  try{const r=await fetch('/api/quote?symbols='+syms.join(','));if(!r.ok)return;Object.assign(quotes,await r.json());renderWatchlist();renderStats();renderHoldings();}catch{}
+  try{
+    const r=await fetch('/api/quote?symbols='+syms.join(','));
+    if(!r.ok)return;
+    Object.assign(quotes,await r.json());
+    renderWatchlist();renderStats();renderHoldings();
+    checkStopLosses();
+    recordSnapshot();renderAnalytics();
+  }catch{}
 }
 
 async function askClaude(){
@@ -298,7 +529,7 @@ async function askClaude(){
     if(!r.ok||d.error)throw new Error(d.error||'Analysis failed');
     if(d.quotes){Object.assign(quotes,d.quotes);renderWatchlist();renderStats();renderHoldings();}
     pendingRec=d;showRec(d);
-  }catch(e){er.textContent='⚠ '+e.message;er.classList.add('on');}
+  }catch(e){er.textContent=e.message;er.classList.add('on');}
   finally{btn.disabled=false;th.classList.remove('on');}
 }
 
@@ -314,8 +545,8 @@ function showRec(r){
   document.getElementById('rTot').textContent=(r.shares&&r.estimatedPrice)?'Total: '+usd(r.shares*r.estimatedPrice):'';
   document.getElementById('rNote').textContent=r.portfolioNote||'';
   const eb=document.getElementById('execBtn');
-  if(action==='BUY'&&r.symbol&&r.shares){eb.textContent=`Buy ${r.shares} shares of ${r.symbol}`;eb.className='exec-btn buy';eb.disabled=false;}
-  else if(action==='SELL'&&r.symbol&&r.shares){eb.textContent=`Sell ${r.shares} shares of ${r.symbol}`;eb.className='exec-btn sell';eb.disabled=false;}
+  if(action==='BUY'&&r.symbol&&r.shares){eb.textContent='Buy '+r.shares+' shares of '+r.symbol;eb.className='exec-btn buy';eb.disabled=false;}
+  else if(action==='SELL'&&r.symbol&&r.shares){eb.textContent='Sell '+r.shares+' shares of '+r.symbol;eb.className='exec-btn sell';eb.disabled=false;}
   else{eb.textContent='Hold — No Trade';eb.className='exec-btn hold';eb.disabled=true;}
   document.getElementById('rec').classList.add('on');
   document.getElementById('rec').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -328,28 +559,30 @@ function executeTrade(){
   if(r.action==='BUY'){
     if(r.shares*price>portfolio.cash+0.01){toast('Insufficient cash',false);return;}
     const ex=portfolio.holdings.find(h=>h.symbol===r.symbol);
-    if(ex){const tot=ex.shares+r.shares;ex.avgCost=(ex.shares*ex.avgCost+r.shares*price)/tot;ex.shares=tot;ex.name=r.name||ex.name;}
-    else portfolio.holdings.push({symbol:r.symbol,name:r.name,shares:r.shares,avgCost:price,purchasedAt:new Date().toISOString()});
+    if(ex){const tot=ex.shares+r.shares;ex.avgCost=(ex.shares*ex.avgCost+r.shares*price)/tot;ex.shares=tot;ex.name=r.name||ex.name;ex.hwm=Math.max(ex.hwm||0,price);}
+    else portfolio.holdings.push({symbol:r.symbol,name:r.name,shares:r.shares,avgCost:price,hwm:price,purchasedAt:new Date().toISOString()});
     portfolio.cash-=r.shares*price;
     portfolio.trades.push({date:new Date().toISOString(),action:'BUY',symbol:r.symbol,name:r.name,shares:r.shares,price,rationale:r.rationale,confidence:r.confidence});
-    toast(`Bought ${r.shares} shares of ${r.symbol}`,true);
+    toast('Bought '+r.shares+' shares of '+r.symbol,true);
   }else if(r.action==='SELL'){
     const h=portfolio.holdings.find(h=>h.symbol===r.symbol);
     if(!h||h.shares<r.shares){toast('Not enough shares to sell',false);return;}
+    const avgCostAtSell=h.avgCost;
     h.shares-=r.shares;if(h.shares===0)portfolio.holdings=portfolio.holdings.filter(x=>x.symbol!==r.symbol);
     portfolio.cash+=r.shares*price;
-    portfolio.trades.push({date:new Date().toISOString(),action:'SELL',symbol:r.symbol,name:r.name,shares:r.shares,price,rationale:r.rationale});
-    toast(`Sold ${r.shares} shares of ${r.symbol}`,true);
+    portfolio.trades.push({date:new Date().toISOString(),action:'SELL',symbol:r.symbol,name:r.name,shares:r.shares,price,avgCostAtSell,rationale:r.rationale});
+    toast('Sold '+r.shares+' shares of '+r.symbol,true);
   }
   save();pendingRec=null;document.getElementById('rec').classList.remove('on');
-  renderStats();renderHoldings();renderTrades();
+  recordSnapshot();renderStats();renderHoldings();renderTrades();renderAnalytics();
 }
 
 function confirmReset(){
   if(!confirm('Reset portfolio to $50,000 cash? All holdings and trades will be lost.'))return;
-  portfolio={cash:START,holdings:[],trades:[],createdAt:new Date().toISOString()};save();
+  portfolio={cash:START,holdings:[],trades:[],createdAt:new Date().toISOString(),stopEnabled:false,stopPct:0.08};save();
+  localStorage.removeItem('p50k_snaps');
   pendingRec=null;document.getElementById('rec').classList.remove('on');
-  renderStats();renderHoldings();renderTrades();toast('Portfolio reset to $50,000',true);
+  renderStats();renderHoldings();renderTrades();renderAnalytics();toast('Portfolio reset to $50,000',true);
 }
 
 function toast(msg,ok){
@@ -357,7 +590,8 @@ function toast(msg,ok){
   clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),3000);
 }
 
-renderStats();renderHoldings();renderTrades();
+// ── Init ────────────────────────────────────────────────────────────────
+updateStopUI();renderStats();renderHoldings();renderTrades();renderAnalytics();
 fetchPrices();setInterval(fetchPrices,60000);
 </script>
 </body>
