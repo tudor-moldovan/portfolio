@@ -58,7 +58,7 @@ function computeReturns(closes) {
 
 function pearson(a, b) {
   const n = Math.min(a.length, b.length);
-  if (n < 5) return null;
+  if (n < 30) return null;
   const x = a.slice(-n), y = b.slice(-n);
   const mx = x.reduce((s, v) => s + v, 0) / n;
   const my = y.reduce((s, v) => s + v, 0) / n;
