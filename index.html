@@ -116,7 +116,8 @@ tbody tr:hover td{background:var(--sf2)}
 .wg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd);gap:1px}
 @media(max-width:900px){.wg{grid-template-columns:repeat(2,1fr)}}
 .sec-hdr{grid-column:1/-1;background:var(--sf2);padding:6px 14px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--di)}
-.wi{background:rgba(15,20,25,0.85);padding:10px 14px}
+.wi{background:rgba(15,20,25,0.85);padding:10px 14px;cursor:pointer;transition:.1s}
+.wi:hover{background:rgba(78,161,211,0.08)}
 .wn{font-size:10px;color:var(--di);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
 .ws{font-size:12px;font-weight:600;font-family:var(--mo);color:var(--bl)}
 .wp{font-size:14px;font-weight:600;font-family:var(--mo)}
@@ -217,6 +218,7 @@ tbody tr:hover td{background:var(--sf2)}
 :root.light .wi{background:rgba(255,255,255,0.9)}
 :root.light .ask-btn{background:#1a6b5a;color:#fff}
 /* mobile fixes */
+.collapsed{display:none}
 @media(max-width:600px){
   header{padding:10px 12px;gap:8px;flex-wrap:wrap}
   .hc-val{font-size:18px}
@@ -237,19 +239,18 @@ tbody tr:hover td{background:var(--sf2)}
 <body>
 <header>
   <div class="logo">
-    <div class="logo-mark">⚡</div>
+    <div class="logo-mark" aria-label="Moat Portfolio">M</div>
     <div><div class="logo-name">Moat Portfolio</div><div class="logo-sub">15 Elite Compounders</div></div>
   </div>
   <div class="hc">
-    <div class="hc-lbl">Portfolio Value</div>
-    <div class="hc-val" id="hVal">$50,000.00</div>
+    <div class="hc-lbl">S&amp;P 500</div>
+    <div class="hc-val" id="sSpy">—</div>
   </div>
   <div class="hr">
-    <div class="pill fl" id="hRet">+0.00%</div>
-    <div class="live" title="Live prices"></div>
-    <button class="reset-btn" onclick="confirmReset()">Reset</button>
-    <button class="sync-btn" onclick="cloudSync()" title="Sync to Vercel KV">Sync</button>
-    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">&#9681;</button>
+    <div class="pill fl" id="sSpyP" style="font-size:11px">Loading…</div>
+    <div class="live" title="Live prices" aria-label="Live data indicator"></div>
+    <button class="sync-btn" onclick="cloudSync()" title="Sync to Vercel KV" aria-label="Sync">Sync</button>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">&#9681;</button>
   </div>
 </header>
 
@@ -267,45 +268,31 @@ tbody tr:hover td{background:var(--sf2)}
 
 <main>
   <div class="col">
-    <!-- Stats -->
-    <div class="card" style="padding:0;overflow:hidden">
-      <div class="sbar">
-        <div class="st"><div class="st-lbl">Total Value</div><div class="st-val nt" id="sVal">$50,000</div><div class="st-sub">Started $50,000</div></div>
-        <div class="st"><div class="st-lbl">Total Return</div><div class="st-val nt" id="sRet">+$0.00</div><div class="st-sub" id="sRetP">0.00%</div></div>
-        <div class="st"><div class="st-lbl">Cash</div><div class="st-val nt" id="sCash">$50,000</div><div class="st-sub" id="sCashP">100% liquid</div></div>
-        <div class="st"><div class="st-lbl">S&amp;P 500 (SPY)</div><div class="st-val nt" id="sSpy">—</div><div class="st-sub" id="sSpyP">Loading…</div></div>
-      </div>
+    <!-- Moat Universe (PRIMARY) -->
+    <div class="card">
+      <div class="ch"><div class="ct">Moat Universe</div><div class="cb" id="pTime">—</div></div>
+      <div class="wg" id="wGrid"></div>
     </div>
 
-    <!-- Holdings -->
-    <div class="card">
-      <div class="ch"><div class="ct">Holdings</div><div class="cb" id="hCnt">0 positions</div></div>
-      <div class="stop-hdr" id="stopHdr" style="display:none;padding-top:10px">
-        <button class="stop-toggle" id="stopBtn" onclick="toggleStopLoss()">Trailing Stop: OFF</button>
-        <select id="stopPct" style="background:var(--sf2);border:1px solid var(--bd);color:var(--mu);padding:2px 6px;border-radius:4px;font-size:10px;font-family:var(--mo)" onchange="updateStopPct()">
-          <option value="0.05">5%</option><option value="0.08" selected>8%</option><option value="0.10">10%</option><option value="0.12">12%</option><option value="0.15">15%</option><option value="0.20">20%</option>
-        </select>
+    <!-- Stock Intel (appears when you click a stock) -->
+    <div class="card" id="intelCard">
+      <div class="ch"><div class="ct">Stock Intelligence</div><div class="cb">Click a stock above or search below</div></div>
+      <div class="lookup">
+        <input type="text" id="intelSym" placeholder="Ticker" maxlength="6" onkeydown="if(event.key==='Enter')loadIntel()">
+        <button onclick="loadIntel()">Analyze</button>
+        <button onclick="loadDCF()" style="background:var(--sf2);border-color:var(--bd);color:var(--mu)">DCF</button>
+        <span style="font-size:11px;color:var(--di)" id="intelStatus"></span>
       </div>
-      <div id="hBody">
-        <div class="empty"><div class="ei">📊</div><div class="em">No positions yet</div><div class="es">Ask Claude to recommend the first trade →</div></div>
-      </div>
-    </div>
-
-    <!-- Trades -->
-    <div class="card">
-      <div class="ch"><div class="ct">Trade History</div><div class="cb" id="tCnt">0 trades</div></div>
-      <div id="tBody">
-        <div class="empty" style="padding:32px 20px"><div class="ei">📋</div><div class="em">No trades executed yet</div></div>
-      </div>
+      <div id="intelBody"></div>
     </div>
   </div>
 
   <div class="col">
-    <!-- AI Advisor -->
+    <!-- Claude Advisor -->
     <div class="card">
-      <div class="ch"><div class="ct">Claude AI Advisor</div><div style="display:flex;gap:8px;align-items:center"><span id="regimeBadge" style="display:none;font-size:10px;font-weight:700;font-family:var(--mo);padding:2px 8px;border-radius:4px"></span><span style="font-size:11px;color:var(--pu)">claude-sonnet-4-6</span></div></div>
+      <div class="ch"><div class="ct">Claude Moat Advisor</div><div style="display:flex;gap:8px;align-items:center"><span id="regimeBadge" style="display:none;font-size:10px;font-weight:700;font-family:var(--mo);padding:2px 8px;border-radius:4px"></span><span style="font-size:11px;color:var(--pu)">claude-sonnet-4-6</span></div></div>
       <div class="cbody" style="display:flex;flex-direction:column;gap:12px">
-        <button class="ask-btn" id="askBtn" onclick="askClaude()">⚡ &nbsp;Ask Claude</button>
+        <button class="ask-btn" id="askBtn" onclick="askClaude()">Analyze Portfolio</button>
         <div class="thinking" id="thinking"><div class="dots"><span></span><span></span><span></span></div><span>Claude is analyzing 15 elite compounders…</span></div>
         <div class="err" id="errMsg"></div>
         <div class="rec" id="rec">
@@ -334,75 +321,69 @@ tbody tr:hover td{background:var(--sf2)}
       </div>
     </div>
 
-    <!-- Watchlist -->
+    <!-- Backtester -->
     <div class="card">
-      <div class="ch"><div class="ct">Moat Universe</div><div class="cb" id="pTime">—</div></div>
-      <div class="wg" id="wGrid"></div>
+      <div class="ch"><div class="ct">Strategy Backtester</div><div class="cb">1-year test with costs</div></div>
+      <div class="cbody">
+        <div class="bt-row">
+          <select class="bt-sel" id="btSym">
+            <option>SPY</option><option>AAPL</option><option>MSFT</option><option>NVDA</option><option>GOOGL</option><option>AMZN</option><option>META</option><option>ASML</option>
+            <option>TSM</option><option>NFLX</option><option>V</option><option>MA</option><option>COST</option><option>BRK-B</option><option>LLY</option>
+          </select>
+          <select class="bt-sel" id="btStrat">
+            <option value="rsi-mean-reversion">RSI Mean Reversion</option>
+            <option value="sma-crossover">SMA 20/50 Crossover</option>
+            <option value="buy-and-hold">Buy &amp; Hold</option>
+          </select>
+          <button class="bt-btn" id="btBtn" onclick="runBacktest()">Run</button>
+          <span style="font-size:11px;color:var(--di)" id="btStatus"></span>
+        </div>
+        <div id="btResults"></div>
+      </div>
     </div>
   </div>
 </main>
 
-<!-- Performance Analytics -->
+<!-- Portfolio (collapsible) -->
 <section class="analytics">
   <div class="card">
-    <div class="ch"><div class="ct">Performance Analytics</div><div class="cb" id="aDays">—</div></div>
-    <div style="padding:0;overflow:hidden">
-      <div class="mbar">
-        <div class="st"><div class="st-lbl">Sharpe Ratio</div><div class="st-val nt" id="mSharpe">—</div><div class="st-sub">Annualized</div></div>
-        <div class="st"><div class="st-lbl">Max Drawdown</div><div class="st-val nt" id="mDD">0%</div><div class="st-sub">Peak to trough</div></div>
-        <div class="st"><div class="st-lbl">Win Rate</div><div class="st-val nt" id="mWin">—</div><div class="st-sub" id="mWinSub">Closed trades</div></div>
-        <div class="st"><div class="st-lbl">Alpha vs SPY</div><div class="st-val nt" id="mAlpha">—</div><div class="st-sub" id="mBetaSub">—</div></div>
-        <div class="st"><div class="st-lbl">Avg Win</div><div class="st-val up" id="mAvgW">—</div><div class="st-sub">Per winning trade</div></div>
-        <div class="st"><div class="st-lbl">Avg Loss</div><div class="st-val dn" id="mAvgL">—</div><div class="st-sub">Per losing trade</div></div>
+    <div class="ch" style="cursor:pointer" onclick="document.getElementById('pfBody').classList.toggle('collapsed')">
+      <div class="ct">Portfolio &amp; Trades</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="cb" id="hCnt">0 positions</span>
+        <span style="font-size:11px;color:var(--di)">click to expand</span>
       </div>
     </div>
-    <div class="eq-wrap" id="eqChart"></div>
-  </div>
-</section>
-
-<!-- Backtesting -->
-<section class="analytics">
-  <div class="card">
-    <div class="ch"><div class="ct">Strategy Backtester</div><div class="cb">1-year historical test</div></div>
-    <div class="cbody">
-      <div class="bt-row">
-        <select class="bt-sel" id="btSym">
-          <option>SPY</option><option>AAPL</option><option>MSFT</option><option>NVDA</option><option>GOOGL</option><option>AMZN</option><option>META</option><option>AMD</option>
-          <option>JPM</option><option>UNH</option><option>XOM</option><option>LLY</option><option>GE</option><option>COST</option>
-        </select>
-        <select class="bt-sel" id="btStrat">
-          <option value="rsi-mean-reversion">RSI Mean Reversion</option>
-          <option value="sma-crossover">SMA 20/50 Crossover</option>
-          <option value="buy-and-hold">Buy & Hold</option>
-        </select>
-        <button class="bt-btn" id="btBtn" onclick="runBacktest()">Run Backtest</button>
-        <span style="font-size:11px;color:var(--di)" id="btStatus"></span>
+    <div id="pfBody">
+      <div style="padding:0;overflow:hidden">
+        <div class="sbar">
+          <div class="st"><div class="st-lbl">Total Value</div><div class="st-val nt" id="sVal">$50,000</div><div class="st-sub">Started $50,000</div></div>
+          <div class="st"><div class="st-lbl">Total Return</div><div class="st-val nt" id="sRet">+$0.00</div><div class="st-sub" id="sRetP">0.00%</div></div>
+          <div class="st"><div class="st-lbl">Cash</div><div class="st-val nt" id="sCash">$50,000</div><div class="st-sub" id="sCashP">100% liquid</div></div>
+          <div class="st"><div class="st-lbl">S&amp;P 500 (SPY)</div><div class="st-val nt" id="sSpy">—</div><div class="st-sub" id="sSpyP">Loading…</div></div>
+        </div>
       </div>
-      <div id="btResults"></div>
+      <div class="stop-hdr" id="stopHdr" style="display:none;padding-top:10px">
+        <button class="stop-toggle" id="stopBtn" onclick="toggleStopLoss()">Trailing Stop: OFF</button>
+        <select id="stopPct" style="background:var(--sf2);border:1px solid var(--bd);color:var(--mu);padding:2px 6px;border-radius:4px;font-size:10px;font-family:var(--mo)" onchange="updateStopPct()">
+          <option value="0.05">5%</option><option value="0.08" selected>8%</option><option value="0.10">10%</option><option value="0.12">12%</option><option value="0.15">15%</option><option value="0.20">20%</option>
+        </select>
+      </div>
+      <div id="hBody"></div>
+      <div style="border-top:1px solid var(--bd)">
+        <div class="ch"><div class="ct">Trade History</div><div class="cb" id="tCnt">0 trades</div></div>
+        <div id="tBody"></div>
+      </div>
     </div>
-  </div>
-</section>
-
-<!-- Stock Intel -->
-<section class="intel">
-  <div class="card">
-    <div class="ch"><div class="ct">Stock Intelligence</div><div class="cb">Insiders, Analysts, Earnings, DCF</div></div>
-    <div class="lookup">
-      <input type="text" id="intelSym" placeholder="Ticker" maxlength="6">
-      <button onclick="loadIntel()">Analyze</button>
-      <button onclick="loadDCF()" style="background:var(--sf2);border-color:var(--bd);color:var(--mu)">DCF</button>
-      <span style="font-size:11px;color:var(--di)" id="intelStatus"></span>
-    </div>
-    <div id="intelBody"></div>
   </div>
 </section>
 
 <!-- Macro Dashboard -->
-<section class="intel">
+<section class="analytics">
   <div class="card">
     <div class="ch"><div class="ct">Macro Dashboard</div><div class="cb" id="macroTime">—</div></div>
     <div id="macroBody" style="padding:18px">
-      <div class="empty" style="padding:20px"><div class="em" style="color:var(--di)">Loading macro data...</div><div class="es">Requires FRED_API_KEY env var (free at fred.stlouisfed.org)</div></div>
+      <div class="empty" style="padding:20px"><div class="em" style="color:var(--di)">Loading macro data...</div><div class="es">Requires FRED_API_KEY env var</div></div>
     </div>
   </div>
 </section>
@@ -621,21 +602,21 @@ async function checkStopLosses(){
 let drawdownBreaker=false;
 function renderStats(){
   const tv=totalValue(),gain=tv-START,gp=gain/START*100,cp=portfolio.cash/tv*100,spy=quotes['SPY'];
-  document.getElementById('hVal').textContent=usd(tv);
-  const rp=document.getElementById('hRet');rp.textContent=pct(gp);rp.className='pill '+(gain>0?'up':gain<0?'dn':'fl');
-  const sv=document.getElementById('sVal');sv.textContent=usd(tv);sv.className='st-val '+(gain>0?'up':gain<0?'dn':'nt');
-  const sr=document.getElementById('sRet');sr.textContent=(gain>=0?'+':'')+usd(gain);sr.className='st-val '+(gain>0?'up':gain<0?'dn':'nt');
-  const srp=document.getElementById('sRetP');srp.textContent=pct(gp);srp.className='st-sub '+(gain>0?'up':gain<0?'dn':'');
-  document.getElementById('sCash').textContent=usd(portfolio.cash);
-  document.getElementById('sCashP').textContent=cp.toFixed(0)+'% liquid';
-  if(spy){document.getElementById('sSpy').textContent='$'+spy.price.toFixed(2);const sp=document.getElementById('sSpyP');sp.textContent=pct(spy.changePercent)+' today';sp.className='st-sub '+(spy.changePercent>=0?'up':'dn');}
-  // Drawdown circuit breaker: track peak, warn at -15%
+  // Header SPY display
+  if(spy){document.getElementById('sSpy').textContent='$'+spy.price.toFixed(2);const sp=document.getElementById('sSpyP');sp.textContent=pct(spy.changePercent);sp.className='pill '+(spy.changePercent>=0?'up':'dn');}
+  // Portfolio section stats
+  const sv=document.getElementById('sVal');if(sv){sv.textContent=usd(tv);sv.className='st-val '+(gain>0?'up':gain<0?'dn':'nt');}
+  const sr=document.getElementById('sRet');if(sr){sr.textContent=(gain>=0?'+':'')+usd(gain);sr.className='st-val '+(gain>0?'up':gain<0?'dn':'nt');}
+  const srp=document.getElementById('sRetP');if(srp){srp.textContent=pct(gp);srp.className='st-sub '+(gain>0?'up':gain<0?'dn':'');}
+  const sc=document.getElementById('sCash');if(sc)sc.textContent=usd(portfolio.cash);
+  const scp=document.getElementById('sCashP');if(scp)scp.textContent=cp.toFixed(0)+'% liquid';
+  // Drawdown circuit breaker
   if(!portfolio.peakValue||tv>portfolio.peakValue){portfolio.peakValue=tv;save();}
   const dd=(portfolio.peakValue-tv)/portfolio.peakValue;
   const banner=document.getElementById('ddBanner');
   if(dd>=0.15&&portfolio.holdings.length>0){
     drawdownBreaker=true;
-    document.getElementById('ddMsg').textContent='CIRCUIT BREAKER: Portfolio is down '+(dd*100).toFixed(1)+'% from peak ($'+portfolio.peakValue.toFixed(0)+'). BUY orders require confirmation.';
+    document.getElementById('ddMsg').textContent='CIRCUIT BREAKER: Portfolio down '+(dd*100).toFixed(1)+'% from peak. BUY orders require confirmation.';
     banner.classList.add('on');
   }else{drawdownBreaker=false;banner.classList.remove('on');}
 }
@@ -689,13 +670,19 @@ function renderWatchlist(){
     html+=`<div class="sec-hdr">${sec}</div>`;
     html+=syms.map(sym=>{
       const q=quotes[sym];
-      if(!q)return`<div class="wi"><div class="wn">${sym}</div><div class="ws">${sym}</div><div class="wp" style="color:var(--di)">—</div></div>`;
+      const click=` onclick="analyzeStock('${sym}')"`;
+      if(!q)return`<div class="wi"${click}><div class="wn">${sym}</div><div class="ws">${sym}</div><div class="wp" style="color:var(--di)">—</div></div>`;
       const cls=q.changePercent>=0?'up':'dn';
-      return`<div class="wi"><div class="wn">${q.name||sym}</div><div style="display:flex;align-items:baseline;gap:6px"><div class="ws">${sym}</div><div class="wc ${cls}" style="font-size:10px">${pct(q.changePercent)}</div></div><div class="wp">$${q.price.toFixed(2)}</div></div>`;
+      return`<div class="wi"${click}><div class="wn">${q.name||sym}</div><div style="display:flex;align-items:baseline;gap:6px"><div class="ws">${sym}</div><div class="wc ${cls}" style="font-size:10px">${pct(q.changePercent)}</div></div><div class="wp">$${q.price.toFixed(2)}</div></div>`;
     }).join('');
   }
   document.getElementById('wGrid').innerHTML=html;
   document.getElementById('pTime').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+function analyzeStock(sym){
+  document.getElementById('intelSym').value=sym;
+  loadIntel();
+  document.getElementById('intelCard').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 // ── Data & Actions ──────────────────────────────────────────────────────
