@@ -171,6 +171,22 @@ tbody tr:hover td{background:var(--sf2)}
 .dd-banner{display:none;max-width:1320px;margin:0 auto;padding:0 24px}
 .dd-banner.on{display:block}
 .dd-inner{background:var(--rd2);border:1px solid rgba(255,77,109,.3);border-radius:10px;padding:12px 18px;color:var(--rd);font-size:13px;font-weight:500;text-align:center}
+/* signals panel */
+.sig-panel{max-width:1320px;margin:0 auto;padding:0 24px 12px;display:none}
+.sig-panel.on{display:block}
+@media(max-width:900px){.sig-panel{padding:0 16px 12px}}
+.sig-inner{background:rgba(15,20,25,0.88);backdrop-filter:blur(12px);border:1px solid var(--bd);border-radius:10px;padding:14px 18px}
+.sig-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sig-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--go)}
+.sig-time{font-size:10px;color:var(--di)}
+.sig-grid{display:flex;gap:8px;flex-wrap:wrap}
+.sig-chip{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;font-family:var(--mo)}
+.sig-chip.oversold{background:#00c89618;color:var(--gr)}
+.sig-chip.overbought{background:#ff4d6d18;color:var(--rd)}
+.sig-chip.breakout{background:#60a5fa18;color:var(--bl)}
+.sig-chip.breakdown{background:#f59e0b18;color:var(--go)}
+.sig-dismiss{background:none;border:none;color:var(--di);cursor:pointer;font-size:16px;padding:0 4px}
+.sig-dismiss:hover{color:var(--tx)}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 </style>
 </head>
@@ -193,6 +209,16 @@ tbody tr:hover td{background:var(--sf2)}
 </header>
 
 <div class="dd-banner" id="ddBanner"><div class="dd-inner" id="ddMsg"></div></div>
+
+<div class="sig-panel" id="sigPanel">
+  <div class="sig-inner">
+    <div class="sig-head">
+      <span class="sig-title">Daily Market Scan</span>
+      <span><span class="sig-time" id="sigTime"></span> <button class="sig-dismiss" onclick="document.getElementById('sigPanel').classList.remove('on')">&times;</button></span>
+    </div>
+    <div class="sig-grid" id="sigGrid"></div>
+  </div>
+</div>
 
 <main>
   <div class="col">
@@ -515,6 +541,7 @@ async function checkStopLosses(){
     });
     portfolio.holdings=portfolio.holdings.filter(x=>x.symbol!==s.sym);
     toast('Stop-loss: Sold '+s.shares+' '+s.sym+' @ $'+s.price.toFixed(2),false);
+    sendNotify('stop-loss','Sold '+s.shares+' '+s.sym+' @ $'+s.price.toFixed(2)+' (trailing stop from $'+s.hwm.toFixed(2)+')');
   }
   if(toSell.length){save();cloudSync();renderStats();renderHoldings();renderTrades();renderAnalytics();}
 }
@@ -707,6 +734,7 @@ function executeTrade(){
     portfolio.cash-=r.shares*price;
     portfolio.trades.push({date:new Date().toISOString(),action:'BUY',symbol:r.symbol,name:r.name,shares:r.shares,price,rationale:r.rationale,confidence:r.confidence});
     toast('Bought '+r.shares+' shares of '+r.symbol,true);
+    sendNotify('trade-executed','Bought '+r.shares+' '+r.symbol+' @ $'+price.toFixed(2)+' — '+usd(r.shares*price));
   }else if(r.action==='SELL'){
     const h=portfolio.holdings.find(h=>h.symbol===r.symbol);
     if(!h||h.shares<r.shares){toast('Not enough shares to sell',false);return;}
@@ -715,6 +743,7 @@ function executeTrade(){
     portfolio.cash+=r.shares*price;
     portfolio.trades.push({date:new Date().toISOString(),action:'SELL',symbol:r.symbol,name:r.name,shares:r.shares,price,avgCostAtSell,rationale:r.rationale});
     toast('Sold '+r.shares+' shares of '+r.symbol,true);
+    sendNotify('trade-executed','Sold '+r.shares+' '+r.symbol+' @ $'+price.toFixed(2)+' — '+usd(r.shares*price));
   }
   // Audit trail: save full decision context
   try{const log=JSON.parse(localStorage.getItem('p50k_audit')||'[]');
@@ -792,10 +821,39 @@ async function cloudLoad(){
   }catch{}
 }
 
+// ── Daily Scan Results ──────────────────────────────────────────────────
+async function loadLatestScan(){
+  try{
+    const r=await fetch('/api/scan');
+    if(!r.ok)return;
+    const d=await r.json();
+    if(!d.latest)return;
+    const scan=d.latest;
+    const sigs=scan.signals;
+    const chips=[];
+    for(const s of(sigs.oversold||[]))chips.push(`<span class="sig-chip oversold">${s.symbol} RSI=${s.rsi}</span>`);
+    for(const s of(sigs.overbought||[]))chips.push(`<span class="sig-chip overbought">${s.symbol} RSI=${s.rsi}</span>`);
+    for(const s of(sigs.breakouts||[]))chips.push(`<span class="sig-chip breakout">${s.symbol} ${s.change}</span>`);
+    for(const s of(sigs.breakdowns||[]))chips.push(`<span class="sig-chip breakdown">${s.symbol} ${s.change}</span>`);
+    if(!chips.length)return;
+    document.getElementById('sigGrid').innerHTML=chips.join('');
+    const ts=new Date(scan.timestamp);
+    document.getElementById('sigTime').textContent=ts.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+(scan.regime?' · '+scan.regime:'');
+    document.getElementById('sigPanel').classList.add('on');
+  }catch{}
+}
+
+// ── Webhook Notifications ───────────────────────────────────────────────
+function sendNotify(event,message){
+  fetch('/api/notify',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({event,message})}).catch(()=>{});
+}
+
 // ── Init ────────────────────────────────────────────────────────────────
 updateStopUI();renderStats();renderHoldings();renderTrades();renderAnalytics();
 fetchPrices();setInterval(fetchPrices,60000);
 cloudLoad(); // attempt to load from Vercel KV on startup
+loadLatestScan(); // show daily cron signals if available
 </script>
 </body>
 </html>
