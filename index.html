@@ -320,7 +320,7 @@ const SECTORS={
   'Industrials':['CAT','GE','HON'],
 };
 const WATCHLIST=Object.values(SECTORS).flat();
-let portfolio=load(),quotes={},pendingRec=null;
+let portfolio=load(),quotes={},pendingRec=null,lastAskTime=0;
 
 function load(){try{const s=localStorage.getItem('p50k_v1');if(s)return JSON.parse(s);}catch{}return{cash:START,holdings:[],trades:[],createdAt:new Date().toISOString(),stopEnabled:false,stopPct:0.08};}
 function save(){localStorage.setItem('p50k_v1',JSON.stringify(portfolio));}
@@ -462,15 +462,32 @@ function updateStopUI(){
   document.getElementById('stopPct').value=portfolio.stopPct||0.08;
   renderHoldings();
 }
-function checkStopLosses(){
+async function checkStopLosses(){
   if(!portfolio.stopEnabled||!portfolio.holdings.length)return;
   const sp=portfolio.stopPct||0.08;
-  const toSell=[];
+  // First pass: identify candidates using cached prices
+  const candidates=[];
   for(const h of portfolio.holdings){
     const price=quotes[h.symbol]?.price;if(!price)continue;
     if(!h.hwm||price>h.hwm)h.hwm=price;
     const stopPrice=h.hwm*(1-sp);
-    if(price<=stopPrice)toSell.push({sym:h.symbol,shares:h.shares,price,hwm:h.hwm,avgCost:h.avgCost,name:h.name,stopPrice});
+    if(price<=stopPrice)candidates.push(h.symbol);
+  }
+  if(!candidates.length)return;
+  // Re-fetch FRESH prices for candidates before executing
+  let freshPrices={};
+  try{
+    const r=await fetch('/api/quote?symbols='+candidates.join(','));
+    if(r.ok)freshPrices=await r.json();
+  }catch{}
+  // Second pass: re-evaluate with fresh prices, execute confirmed stops
+  const toSell=[];
+  for(const sym of candidates){
+    const h=portfolio.holdings.find(x=>x.symbol===sym);if(!h)continue;
+    const freshPrice=freshPrices[sym]?.price||quotes[sym]?.price;if(!freshPrice)continue;
+    if(freshPrice>h.hwm)h.hwm=freshPrice; // update HWM with fresh data
+    const stopPrice=h.hwm*(1-sp);
+    if(freshPrice<=stopPrice)toSell.push({sym,shares:h.shares,price:freshPrice,hwm:h.hwm,avgCost:h.avgCost,name:h.name});
   }
   for(const s of toSell){
     const h=portfolio.holdings.find(x=>x.symbol===s.sym);if(!h)continue;
@@ -484,7 +501,7 @@ function checkStopLosses(){
     portfolio.holdings=portfolio.holdings.filter(x=>x.symbol!==s.sym);
     toast('Stop-loss: Sold '+s.shares+' '+s.sym+' @ $'+s.price.toFixed(2),false);
   }
-  if(toSell.length){save();renderStats();renderHoldings();renderTrades();renderAnalytics();}
+  if(toSell.length){save();cloudSync();renderStats();renderHoldings();renderTrades();renderAnalytics();}
 }
 
 // ── Render Functions ────────────────────────────────────────────────────
@@ -573,6 +590,8 @@ async function fetchPrices(){
 
 async function askClaude(){
   const btn=document.getElementById('askBtn'),th=document.getElementById('thinking'),re=document.getElementById('rec'),er=document.getElementById('errMsg');
+  const cooldown=30000,remaining=cooldown-(Date.now()-lastAskTime);
+  if(remaining>0){toast('Cooldown: wait '+Math.ceil(remaining/1000)+'s',false);return;}
   btn.disabled=true;th.classList.add('on');re.classList.remove('on');er.classList.remove('on');
   try{
     const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({portfolio})});
@@ -581,7 +600,11 @@ async function askClaude(){
     if(d.quotes){Object.assign(quotes,d.quotes);renderWatchlist();renderStats();renderHoldings();}
     pendingRec=d;showRec(d);
   }catch(e){er.textContent=e.message;er.classList.add('on');}
-  finally{btn.disabled=false;th.classList.remove('on');}
+  finally{
+    th.classList.remove('on');lastAskTime=Date.now();
+    btn.disabled=true;btn.textContent='Wait 30s...';
+    let t=30;const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);btn.disabled=false;btn.innerHTML='&#9889; &nbsp;Ask Claude';}else{btn.textContent='Wait '+t+'s...';}},1000);
+  }
 }
 
 function showRec(r){
@@ -637,13 +660,13 @@ function executeTrade(){
     portfolio.trades.push({date:new Date().toISOString(),action:'SELL',symbol:r.symbol,name:r.name,shares:r.shares,price,avgCostAtSell,rationale:r.rationale});
     toast('Sold '+r.shares+' shares of '+r.symbol,true);
   }
-  save();pendingRec=null;document.getElementById('rec').classList.remove('on');
+  save();cloudSync();pendingRec=null;document.getElementById('rec').classList.remove('on');
   recordSnapshot();renderStats();renderHoldings();renderTrades();renderAnalytics();
 }
 
 function confirmReset(){
   if(!confirm('Reset portfolio to $50,000 cash? All holdings and trades will be lost.'))return;
-  portfolio={cash:START,holdings:[],trades:[],createdAt:new Date().toISOString(),stopEnabled:false,stopPct:0.08};save();
+  portfolio={cash:START,holdings:[],trades:[],createdAt:new Date().toISOString(),stopEnabled:false,stopPct:0.08};save();cloudSync();
   localStorage.removeItem('p50k_snaps');
   pendingRec=null;document.getElementById('rec').classList.remove('on');
   renderStats();renderHoldings();renderTrades();renderAnalytics();toast('Portfolio reset to $50,000',true);
