@@ -1,5 +1,14 @@
 export const config = { maxDuration: 60 };
 
+// Static import so waitUntil is available synchronously when the POST
+// handler returns. Falls back to a no-op if the package isn't present
+// (keeps local dev / non-Vercel envs working).
+let _waitUntil = null;
+try {
+  _waitUntil = (await import('@vercel/functions')).waitUntil;
+} catch {}
+const waitUntil = _waitUntil || (() => {});
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -409,24 +418,47 @@ async function getStatus(kv) {
   } catch { return null; }
 }
 
-async function runAndCache(reqUrl, kv) {
-  try {
+// ── Fire background work: kick off KV + pipeline without awaiting.
+// Called synchronously from the POST handler so it returns immediately.
+function fireBackgroundRefresh(reqUrl) {
+  const work = (async () => {
+    const kv = await getKV();
+    if (!kv) return;
     await setStatus(kv, { state: 'running' });
-    const output = await runScreener(reqUrl);
-    await setCached(kv, output);
-    await setStatus(kv, { state: 'idle', lastSuccessAt: output.timestamp });
-  } catch (e) {
-    await setStatus(kv, { state: 'error', error: e.message || String(e) });
-  }
+    try {
+      const output = await runScreener(reqUrl);
+      await setCached(kv, output);
+      await setStatus(kv, { state: 'idle', lastSuccessAt: output.timestamp });
+    } catch (e) {
+      await setStatus(kv, { state: 'error', error: e.message || String(e) });
+    }
+  })();
+  // Hand the promise to waitUntil so the function stays alive until it
+  // completes (up to maxDuration). Synchronous because waitUntil is
+  // already imported.
+  try { waitUntil(work); } catch {}
+  work.catch(() => {});
 }
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
-  const kv = await getKV();
+  // POST — fire background refresh and return IMMEDIATELY.
+  // No awaits on the request path — this makes 504 impossible.
+  if (req.method === 'POST') {
+    fireBackgroundRefresh(req.url);
+    return new Response(JSON.stringify({
+      refreshStatus: { state: 'running' },
+      message: 'Refresh started. Poll GET /api/screen for updates.',
+    }), {
+      status: 202,
+      headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  }
 
-  // GET — return cached (instant)
+  // GET — return cached + current status (also quick, but does await KV)
   if (req.method === 'GET') {
+    const kv = await getKV();
     const [cached, status] = await Promise.all([getCached(kv), getStatus(kv)]);
     const body = {
       ...(cached || {}),
@@ -443,44 +475,5 @@ export default async function handler(req) {
     });
   }
 
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405, headers: CORS });
-  }
-
-  // POST — fire refresh in background via waitUntil, return immediately
-  const current = await getStatus(kv);
-  if (current?.state === 'running') {
-    // Already running — don't queue duplicate
-    const cached = await getCached(kv);
-    return new Response(JSON.stringify({
-      ...(cached || {}),
-      cached: !!cached,
-      refreshStatus: current,
-      message: 'Refresh already in progress.',
-    }), { headers: { 'Content-Type': 'application/json', ...CORS } });
-  }
-
-  // Mark running immediately so concurrent POSTs see it
-  await setStatus(kv, { state: 'running' });
-
-  // Start the heavy pipeline. We try waitUntil first (guarantees the
-  // function stays alive until the work completes), and fall back to
-  // fire-and-forget if the package isn't available in this runtime.
-  // Either way, we return the current cached state immediately — we
-  // never await the pipeline on the request path.
-  const work = runAndCache(req.url, kv).catch(() => {});
-  try {
-    const mod = await import('@vercel/functions');
-    if (typeof mod.waitUntil === 'function') mod.waitUntil(work);
-  } catch {
-    // No @vercel/functions in this runtime — work continues best-effort
-  }
-
-  const cached = await getCached(kv);
-  return new Response(JSON.stringify({
-    ...(cached || {}),
-    cached: !!cached,
-    refreshStatus: { state: 'running' },
-    message: 'Refresh started in background. Poll GET /api/screen for updates.',
-  }), { headers: { 'Content-Type': 'application/json', ...CORS } });
+  return new Response('Method not allowed', { status: 405, headers: CORS });
 }
