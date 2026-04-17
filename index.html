@@ -958,6 +958,28 @@ async function loadIntel(){
     html+=dataCell('RSI',d.rsi?.toFixed(0)||'—',d.rsi>70?'overbought':d.rsi<30?'oversold':'neutral');
     html+=dataCell('Mkt Cap',d.marketCap?'$'+(d.marketCap/1e9).toFixed(0)+'B':'—','');
     html+='</div>';
+    // Moat score breakdown (from real data)
+    if(d.moatScore!=null){
+      html+='<div class="intel-section" style="margin-top:14px"><div class="intel-title">Moat Score Breakdown <span style="font-weight:400;font-size:12px;color:'+mc+'">'+d.moatScore+'/100 '+d.moatRating+'</span></div>';
+      const mc2=d.moatComponents||{};
+      const bar=(label,score,detail)=>`<div class="intel-row"><span>${label}</span><span style="font-family:var(--mo);font-size:11px"><span style="display:inline-block;width:60px;height:6px;background:var(--bd);border-radius:3px;vertical-align:middle;margin-right:6px"><span style="display:block;height:100%;width:${(score*100).toFixed(0)}%;background:${score>0.7?'var(--gr)':score>0.4?'var(--go)':'var(--rd)'};border-radius:3px"></span></span>${detail}</span></div>`;
+      if(mc2.grossMargin)html+=bar('Gross Margin',mc2.grossMargin.score,'avg '+mc2.grossMargin.avg?.toFixed(0)+'%');
+      if(mc2.revenueGrowth)html+=bar('Revenue Growth',mc2.revenueGrowth.score,'CAGR '+mc2.revenueGrowth.cagr?.toFixed(1)+'%');
+      if(mc2.roic)html+=bar((mc2.roic.metric||'ROIC'),mc2.roic.score,'avg '+mc2.roic.avg?.toFixed(0)+'%');
+      if(mc2.fcf)html+=bar('FCF Margin',mc2.fcf.score,'avg '+mc2.fcf.avgMargin?.toFixed(0)+'%');
+      if(mc2.health)html+=bar('Financial Health',mc2.health.score,'D/E '+mc2.health.debtToEquity?.toFixed(1));
+      html+='</div>';
+    }
+    // Financials trend table
+    if(d.fundamentals?.incomeStatement?.length>=2){
+      const inc=d.fundamentals.incomeStatement.slice(-5);
+      html+='<div class="intel-section" style="margin-top:10px"><div class="intel-title">Revenue &amp; Margin Trends ('+d.fundamentals.source+')</div>';
+      html+='<div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Year</th><th>Revenue</th><th>Gross %</th><th>Net %</th><th>EPS</th></tr></thead><tbody>';
+      for(const y of inc){
+        html+=`<tr><td>${y.year}</td><td style="font-family:var(--mo)">$${y.revenue?(y.revenue/1e9).toFixed(1)+'B':'—'}</td><td style="font-family:var(--mo)">${y.grossMargin?(y.grossMargin*100).toFixed(0)+'%':'—'}</td><td style="font-family:var(--mo)">${y.netMargin?(y.netMargin*100).toFixed(0)+'%':'—'}</td><td style="font-family:var(--mo)">${y.eps?'$'+y.eps.toFixed(2):'—'}</td></tr>`;
+      }
+      html+='</tbody></table></div></div>';
+    }
     html+='</div>';
     document.getElementById('intelBody').innerHTML=html;
   }catch(e){
