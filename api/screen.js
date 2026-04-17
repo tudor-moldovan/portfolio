@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge' };
+export const config = { maxDuration: 60 };
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -206,12 +206,12 @@ Return JSON for all stocks in this batch.`;
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 4000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMsg }],
     }),
-    signal: AbortSignal.timeout(22000),
+    signal: AbortSignal.timeout(45000),
   });
 
   if (!res.ok) {
