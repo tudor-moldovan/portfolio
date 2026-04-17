@@ -169,62 +169,34 @@ function buildStockBlock(s, peerAvg) {
   return lines.join('\n');
 }
 
-// ── Claude call: rank all 12 stocks ─────────────────────────────────────
-async function rankUniverse(stocks, macroContext, apiKey) {
-  const peerAvg = computePeerContext(stocks);
-  const blocks = stocks.map(s => buildStockBlock(s, peerAvg)).join('\n\n');
+// ── Claude call for a batch of stocks ───────────────────────────────────
+const SYSTEM_PROMPT = `You are a senior equity analyst covering elite moat compounders. For each stock in the batch, produce a concise research assessment.
 
-  const systemPrompt = `You are a senior equity analyst covering a universe of 12 elite moat compounders. Your job: screen the universe and produce a ranked research report.
-
-For EACH stock, assess:
-1. MOAT HEALTH — is the competitive advantage STRENGTHENING, STABLE, or WEAKENING? Use the quant moat score as baseline (don't override it) but explain WHY the data supports it. Name the specific moat type (scale economies / network effect / switching costs / regulatory / brand).
-2. FUNDAMENTALS — are revenue/margins/FCF growing, stable, or deteriorating? Cite specific numbers.
-3. VALUATION — use both the vs-history and vs-peers signals provided. Is it CHEAP, FAIR, or EXPENSIVE relative to its OWN past and to its peers?
-4. VERDICT — combine all three: BUY_ZONE (strong moat + cheap) / ACCUMULATE (strong moat, fair price) / HOLD (neutral) / WATCH (weakening or expensive) / AVOID (broken).
-5. ENTRY ZONE — the $price range where this stock is a clear buy given your analysis.
+For EACH stock, decide:
+1. MOAT HEALTH — STRENGTHENING, STABLE, or WEAKENING. Use the quant moat score as baseline. Name the moat type (scale economies / network effect / switching costs / regulatory / brand).
+2. FUNDAMENTALS — IMPROVING / STABLE / DETERIORATING. Cite specific numbers.
+3. VALUATION — use vs-history and vs-peers signals. UNDERVALUED / FAIR / RICH / OVERVALUED.
+4. VERDICT — combine: BUY_ZONE / ACCUMULATE / HOLD / WATCH / AVOID.
+5. ENTRY ZONE — $X - $Y price range where this is a clear buy.
 
 RULES:
-- Never invent numbers. Only cite what's in the data.
-- Be specific: "AAPL gross margin expanded from 38% to 44% over 5 years" not "strong margins".
-- BUY_ZONE requires: moat STRENGTHENING or STABLE + valuation CHEAP_VS_HISTORY or CHEAPER than peers.
-- Rank by convictionScore (1-10) descending.
+- Never invent numbers. Cite only what's in the data.
+- Be specific: "gross margin expanded from 38% to 44%" not "strong margins".
+- BUY_ZONE requires: moat STRENGTHENING or STABLE + valuation cheap vs history or peers.
 
-Respond with ONLY valid JSON:
-{
-  "regime": "RISK_ON | NORMAL | CAUTIOUS | RISK_OFF",
-  "regimeNote": "<1 sentence on macro context>",
-  "stocks": [
-    {
-      "symbol": "TICKER",
-      "moatRating": "FORTRESS | STRONG | INTACT | ERODING",
-      "moatType": "<1-3 word moat type, e.g. 'Network effect'>",
-      "moatHealth": "STRENGTHENING | STABLE | WEAKENING",
-      "moatThesis": "<1 sentence citing specific margins/ROIC/growth>",
-      "fundamentalsVerdict": "IMPROVING | STABLE | DETERIORATING",
-      "fundamentalsNote": "<1 sentence citing revenue/margin/FCF trend>",
-      "valuationVerdict": "UNDERVALUED | FAIR | RICH | OVERVALUED",
-      "valuationNote": "<1-2 sentences: P/E vs history, P/E vs peers, FCF yield>",
-      "verdict": "BUY_ZONE | ACCUMULATE | HOLD | WATCH | AVOID",
-      "convictionScore": <1-10 integer>,
-      "thesis": "<2 sentences — the big-picture take>",
-      "bullCase": "<1 sentence>",
-      "bearCase": "<1 sentence>",
-      "entryZone": "$X - $Y",
-      "keyRisk": "<1 sentence>",
-      "catalyst": "<the ONE thing that would change your rating>"
-    }
-  ]
-}`;
+Respond with ONLY valid JSON matching this schema exactly:
+{"stocks":[{"symbol":"TICKER","moatRating":"FORTRESS|STRONG|INTACT|ERODING","moatType":"<1-3 words>","moatHealth":"STRENGTHENING|STABLE|WEAKENING","moatThesis":"<1 sentence with numbers>","fundamentalsVerdict":"IMPROVING|STABLE|DETERIORATING","fundamentalsNote":"<1 sentence with numbers>","valuationVerdict":"UNDERVALUED|FAIR|RICH|OVERVALUED","valuationNote":"<1-2 sentences>","verdict":"BUY_ZONE|ACCUMULATE|HOLD|WATCH|AVOID","convictionScore":<1-10>,"thesis":"<2 sentences>","bullCase":"<1 sentence>","bearCase":"<1 sentence>","entryZone":"$X - $Y","keyRisk":"<1 sentence>","catalyst":"<1 sentence>"}]}`;
 
-  const userMsg = `Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
+async function analyzeBatch(stockBlocks, macroContext, apiKey) {
+  const userMsg = `Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
 
-═══ MACRO CONTEXT ═══
+MACRO:
 ${macroContext}
 
-═══ UNIVERSE DATA ═══
-${blocks}
+STOCKS:
+${stockBlocks.join('\n\n')}
 
-Produce the ranked screening report now.`;
+Return JSON for all stocks in this batch.`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -235,22 +207,59 @@ Produce the ranked screening report now.`;
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
-      system: systemPrompt,
+      max_tokens: 4000,
+      system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMsg }],
     }),
-    signal: AbortSignal.timeout(55000),
+    signal: AbortSignal.timeout(22000),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Claude API ${res.status}: ${err.slice(0, 300)}`);
+    throw new Error(`Claude API ${res.status}: ${err.slice(0, 200)}`);
   }
   const data = await res.json();
   const text = data.content?.find(b => b.type === 'text')?.text?.trim() || '';
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('No JSON in Claude response');
   return JSON.parse(match[0]);
+}
+
+// ── Derive macro regime from VIX/SPY (no extra Claude call) ─────────────
+function deriveRegime(macroContext) {
+  const vixMatch = macroContext.match(/VIX:\s*([\d.]+)/);
+  const spyAbove = /above 50-day/.test(macroContext);
+  if (!vixMatch) return { regime: 'UNKNOWN', note: 'Macro data unavailable.' };
+  const vix = parseFloat(vixMatch[1]);
+  let regime, note;
+  if (vix < 15) { regime = spyAbove ? 'RISK_ON' : 'NORMAL'; note = `VIX calm at ${vix.toFixed(1)}; SPY ${spyAbove ? 'above' : 'below'} 50-day SMA.`; }
+  else if (vix < 25) { regime = 'NORMAL'; note = `VIX at ${vix.toFixed(1)} — normal volatility regime.`; }
+  else if (vix < 35) { regime = 'CAUTIOUS'; note = `VIX elevated at ${vix.toFixed(1)} — reduce position sizes.`; }
+  else { regime = 'RISK_OFF'; note = `VIX at ${vix.toFixed(1)} — defensive posture, raise cash.`; }
+  return { regime, note };
+}
+
+// ── Rank universe: split into batches, run Claude in parallel ──────────
+async function rankUniverse(stocks, macroContext, apiKey) {
+  const peerAvg = computePeerContext(stocks);
+  const blocks = stocks.map(s => buildStockBlock(s, peerAvg));
+
+  // Split into 2 batches of ~6 each (parallel Claude calls → fits in 25s)
+  const mid = Math.ceil(blocks.length / 2);
+  const batch1 = blocks.slice(0, mid);
+  const batch2 = blocks.slice(mid);
+
+  const [r1, r2] = await Promise.all([
+    analyzeBatch(batch1, macroContext, apiKey),
+    batch2.length ? analyzeBatch(batch2, macroContext, apiKey) : Promise.resolve({ stocks: [] }),
+  ]);
+
+  const { regime, note } = deriveRegime(macroContext);
+  return {
+    regime,
+    regimeNote: note,
+    stocks: [...(r1.stocks || []), ...(r2.stocks || [])],
+  };
 }
 
 // ── Macro snapshot (VIX, 10Y, SPY trend) ────────────────────────────────

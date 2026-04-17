@@ -351,12 +351,15 @@ async function fetchPrices(){
 }
 
 async function runScreener(){
-  const btn=document.getElementById('screenBtn'),th=document.getElementById('screenThinking'),er=document.getElementById('screenErr'),res=document.getElementById('screenResults');
+  const btn=document.getElementById('screenBtn'),th=document.getElementById('screenThinking'),er=document.getElementById('screenErr');
   btn.disabled=true;th.classList.add('on');er.classList.remove('on');
   try{
     const r=await fetch('/api/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-    const d=await r.json();
-    if(!r.ok||d.error)throw new Error(d.error||'Screen failed');
+    const text=await r.text();
+    let d;
+    try{d=JSON.parse(text);}
+    catch{throw new Error(r.ok?'Server returned non-JSON: '+text.slice(0,200):'HTTP '+r.status+' — '+text.slice(0,200));}
+    if(!r.ok||d.error)throw new Error(d.error||'Screen failed ('+r.status+')');
     lastScreen=d;renderScreen(d);
   }catch(e){er.textContent=e.message;er.classList.add('on');}
   finally{
