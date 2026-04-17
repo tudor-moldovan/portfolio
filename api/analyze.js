@@ -293,7 +293,7 @@ function buildContext(portfolio, quotes, news) {
     ? news.map(h => `  • ${h}`).join('\n')
     : '  (unavailable)';
 
-  return { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, macroText, newsText };
+  return { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, macroText, newsText, marketRegime };
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────
@@ -303,6 +303,17 @@ export default async function handler(req) {
     return new Response('Method not allowed', { status: 405 });
   }
 
+  try {
+  return await runAnalyze(req);
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: 'Analyze failed: ' + (e.message || String(e)) }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } },
+    );
+  }
+}
+
+async function runAnalyze(req) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(
@@ -331,7 +342,7 @@ export default async function handler(req) {
 
   const [quotes, news] = await Promise.all([fetchAllData(allSymbols), fetchMarketNews()]);
 
-  const { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, macroText, newsText } =
+  const { totalValue, totalReturn, holdingsText, sectorText, marketText, corrText, attributionText, tradeMemory, macroText, newsText, marketRegime } =
     buildContext(portfolio, quotes, news);
 
   const today = new Date().toLocaleDateString('en-US', {
