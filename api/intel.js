@@ -67,30 +67,83 @@ async function fetchChartData(symbol) {
 }
 
 // Ask Claude to generate the moat/valuation analysis
-async function askClaudeForAnalysis(stockData, apiKey) {
+// Fetch fundamentals from our own endpoint
+async function fetchFundamentals(symbol, reqUrl) {
+  try {
+    const origin = new URL(reqUrl).origin;
+    const res = await fetch(`${origin}/api/fundamentals?symbol=${symbol}`, { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+function buildFundamentalsContext(fund) {
+  if (!fund) return 'Fundamentals: unavailable';
+  const lines = [];
+  const inc = fund.incomeStatement || [];
+  const cf = fund.cashFlow || [];
+  const rat = fund.ratios || [];
+
+  if (inc.length) {
+    lines.push('INCOME STATEMENT (annual):');
+    for (const y of inc.slice(-5)) {
+      lines.push(`  ${y.year}: Rev $${y.revenue ? (y.revenue / 1e9).toFixed(1) + 'B' : '?'} | Gross ${y.grossMargin ? (y.grossMargin * 100).toFixed(0) + '%' : '?'} | Net ${y.netMargin ? (y.netMargin * 100).toFixed(0) + '%' : '?'} | EPS $${y.eps?.toFixed(2) || '?'}`);
+    }
+  }
+  if (cf.length) {
+    lines.push('FREE CASH FLOW:');
+    for (const y of cf.slice(-5)) {
+      lines.push(`  ${y.year}: FCF $${y.freeCashFlow ? (y.freeCashFlow / 1e9).toFixed(1) + 'B' : '?'}`);
+    }
+  }
+  if (rat.length) {
+    lines.push('KEY RATIOS:');
+    for (const y of rat.slice(-3)) {
+      lines.push(`  ${y.year}: ROIC ${y.roic ? (y.roic * 100).toFixed(0) + '%' : '?'} | ROE ${y.roe ? (y.roe * 100).toFixed(0) + '%' : '?'} | D/E ${y.debtToEquity?.toFixed(1) || '?'} | P/E ${y.peRatio?.toFixed(1) || '?'}`);
+    }
+  }
+  if (fund.moat) {
+    lines.push(`QUANTITATIVE MOAT SCORE: ${fund.moat.moatScore}/100 (${fund.moat.rating})`);
+    const c = fund.moat.components;
+    if (c.grossMargin) lines.push(`  Gross margin: avg ${c.grossMargin.avg?.toFixed(0)}%, stability score ${(c.grossMargin.score * 100).toFixed(0)}`);
+    if (c.revenueGrowth) lines.push(`  Revenue CAGR: ${c.revenueGrowth.cagr?.toFixed(1)}%, ${c.revenueGrowth.positiveYears?.toFixed(0)}% positive years`);
+    if (c.roic) lines.push(`  ${c.roic.metric || 'ROIC'}: avg ${c.roic.avg?.toFixed(0)}%`);
+    if (c.fcf) lines.push(`  FCF margin: avg ${c.fcf.avgMargin?.toFixed(0)}%`);
+    if (c.health) lines.push(`  Debt/Equity: ${c.health.debtToEquity?.toFixed(1)}`);
+  }
+  return lines.join('\n');
+}
+
+async function askClaudeForAnalysis(stockData, fund, apiKey) {
   const { symbol, name, price, high52, low52, fiftyTwoWeekPosition, sma50, sma200, rsi, yearReturn, marketCap } = stockData;
+  const fundContext = buildFundamentalsContext(fund);
+  const moatData = fund?.moat;
+
   const prompt = `Analyze ${symbol} (${name}) for a moat-focused long-term investor.
 
-Current data:
+PRICE DATA:
 - Price: $${price?.toFixed(2)}
-- 52-week range: $${low52?.toFixed(2)} — $${high52?.toFixed(2)} (currently ${fiftyTwoWeekPosition?.toFixed(0)}% of range)
+- 52-week range: $${low52?.toFixed(2)} — $${high52?.toFixed(2)} (${fiftyTwoWeekPosition?.toFixed(0)}% of range)
 - 1-year return: ${yearReturn?.toFixed(1)}%
 - SMA50: $${sma50?.toFixed(2) || '?'}, SMA200: $${sma200?.toFixed(2) || '?'}
 - RSI14: ${rsi?.toFixed(0) || '?'}
 - Market cap: $${marketCap ? (marketCap / 1e9).toFixed(0) + 'B' : '?'}
 
-Provide a crisp analysis with ONLY valid JSON (no markdown, no commentary):
+${fundContext}
+
+${moatData ? `The quantitative moat score is ${moatData.moatScore}/100 (${moatData.rating}). Use this as the moat rating — do NOT override it. Explain WHY the data supports this rating.` : 'No moat score available — assess qualitatively.'}
+
+Respond with ONLY valid JSON:
 {
-  "moatRating": "FORTRESS | STRONG | INTACT | ERODING",
-  "moatExplanation": "<2 sentences on what the moat is>",
+  "moatExplanation": "<2 sentences on what the moat IS, citing specific data: margins, ROIC, growth>",
   "valuationVerdict": "UNDERVALUED | FAIR | RICH | OVERVALUED",
-  "valuationReasoning": "<1-2 sentences comparing current price to typical valuation>",
-  "technicalSetup": "<1-2 sentences on what the charts say>",
-  "keyRisks": "<1-2 sentences>",
-  "catalyst": "<ONE specific event/metric that would change the rating>",
+  "valuationReasoning": "<2 sentences citing P/E, FCF margin, growth rate vs price>",
+  "technicalSetup": "<1 sentence on what charts say — RSI, trend, position>",
+  "keyRisks": "<2 sentences on specific risks>",
+  "catalyst": "<ONE specific metric or event that would change the rating>",
   "convictionScore": <1-10>,
   "verdict": "BUY_ZONE | ACCUMULATE | HOLD | WATCH | AVOID",
-  "oneSentenceSummary": "<pithy takeaway>"
+  "oneSentenceSummary": "<pithy takeaway referencing a specific number>"
 }`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -139,16 +192,28 @@ export default async function handler(req) {
     }
 
     const sym = symbol.toUpperCase();
-    const stockData = await fetchChartData(sym);
+    const [stockData, fund] = await Promise.all([
+      fetchChartData(sym),
+      fetchFundamentals(sym, req.url),
+    ]);
     if (!stockData) {
       return new Response(JSON.stringify({ error: `Could not fetch price data for ${sym}. Check the ticker symbol.` }), {
         status: 404, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
 
-    const analysis = await askClaudeForAnalysis(stockData, apiKey);
+    // Use quantitative moat score if available, Claude adds qualitative layer
+    const moat = fund?.moat || null;
+    const analysis = await askClaudeForAnalysis(stockData, fund, apiKey);
 
-    return new Response(JSON.stringify({ ...stockData, ...analysis }), {
+    return new Response(JSON.stringify({
+      ...stockData,
+      moatRating: moat?.rating || 'UNKNOWN',
+      moatScore: moat?.moatScore || null,
+      moatComponents: moat?.components || null,
+      fundamentals: fund ? { source: fund.source, incomeStatement: fund.incomeStatement, cashFlow: fund.cashFlow, ratios: fund.ratios } : null,
+      ...analysis,
+    }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600', ...CORS },
     });
   } catch (e) {
