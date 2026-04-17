@@ -11,169 +11,150 @@ const YF_HEADERS = {
   Accept: 'application/json',
 };
 
-async function fetchCrumb() {
-  try {
-    const res = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
-      headers: { ...YF_HEADERS, 'Cookie': 'A3=d=AQABBCYwKmcCEFoo' },
-      signal: AbortSignal.timeout(4000),
-    });
-    if (res.ok) return await res.text();
-  } catch {}
-  return null;
+// Fetch 1-year chart data (this endpoint works reliably)
+async function fetchChartData(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y&includePrePost=false`;
+  const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(6000) });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const result = data.chart?.result?.[0];
+  if (!result?.meta?.regularMarketPrice) return null;
+  const meta = result.meta;
+  const closes = (result.indicators?.quote?.[0]?.close || []).filter(c => c != null);
+  const volumes = (result.indicators?.quote?.[0]?.volume || []).filter(v => v != null);
+  const price = meta.regularMarketPrice;
+  const high52 = meta.fiftyTwoWeekHigh || (closes.length ? Math.max(...closes) : null);
+  const low52 = meta.fiftyTwoWeekLow || (closes.length ? Math.min(...closes) : null);
+
+  // Compute indicators
+  const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : null;
+  const sma200 = closes.length >= 200 ? closes.slice(-200).reduce((a, b) => a + b, 0) / 200 : null;
+
+  // Wilder's RSI
+  let rsi = null;
+  if (closes.length >= 15) {
+    let ag = 0, al = 0;
+    for (let i = 1; i <= 14; i++) {
+      const d = closes[i] - closes[i - 1];
+      if (d >= 0) ag += d; else al -= d;
+    }
+    ag /= 14; al /= 14;
+    for (let i = 15; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      ag = (ag * 13 + (d >= 0 ? d : 0)) / 14;
+      al = (al * 13 + (d < 0 ? -d : 0)) / 14;
+    }
+    rsi = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  }
+
+  // 1-year return
+  const yearReturn = closes.length > 1 ? ((price - closes[0]) / closes[0]) * 100 : null;
+
+  return {
+    symbol,
+    name: meta.shortName || meta.longName || symbol,
+    price,
+    prevClose: meta.previousClose,
+    changePercent: meta.previousClose ? ((price - meta.previousClose) / meta.previousClose) * 100 : 0,
+    high52, low52,
+    fiftyTwoWeekPosition: (high52 && low52 && high52 !== low52) ? ((price - low52) / (high52 - low52)) * 100 : null,
+    sma50, sma200,
+    rsi,
+    yearReturn,
+    marketCap: meta.marketCap,
+    volume: meta.regularMarketVolume,
+  };
 }
 
-async function fetchInsiders(symbol) {
-  try {
-    // Try v10 quoteSummary with query2 endpoint
-    const modules = 'insiderTransactions,recommendationTrend,earningsHistory,earningsTrend,calendarEvents,financialData';
-    let url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
-    const crumb = await fetchCrumb();
-    if (crumb) url += '&crumb=' + encodeURIComponent(crumb);
+// Ask Claude to generate the moat/valuation analysis
+async function askClaudeForAnalysis(stockData, apiKey) {
+  const { symbol, name, price, high52, low52, fiftyTwoWeekPosition, sma50, sma200, rsi, yearReturn, marketCap } = stockData;
+  const prompt = `Analyze ${symbol} (${name}) for a moat-focused long-term investor.
 
-    let res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) });
+Current data:
+- Price: $${price?.toFixed(2)}
+- 52-week range: $${low52?.toFixed(2)} — $${high52?.toFixed(2)} (currently ${fiftyTwoWeekPosition?.toFixed(0)}% of range)
+- 1-year return: ${yearReturn?.toFixed(1)}%
+- SMA50: $${sma50?.toFixed(2) || '?'}, SMA200: $${sma200?.toFixed(2) || '?'}
+- RSI14: ${rsi?.toFixed(0) || '?'}
+- Market cap: $${marketCap ? (marketCap / 1e9).toFixed(0) + 'B' : '?'}
 
-    // Fallback to query1 if query2 fails
-    if (!res.ok) {
-      const url2 = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
-      res = await fetch(url2, { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) });
-    }
+Provide a crisp analysis with ONLY valid JSON (no markdown, no commentary):
+{
+  "moatRating": "FORTRESS | STRONG | INTACT | ERODING",
+  "moatExplanation": "<2 sentences on what the moat is>",
+  "valuationVerdict": "UNDERVALUED | FAIR | RICH | OVERVALUED",
+  "valuationReasoning": "<1-2 sentences comparing current price to typical valuation>",
+  "technicalSetup": "<1-2 sentences on what the charts say>",
+  "keyRisks": "<1-2 sentences>",
+  "catalyst": "<ONE specific event/metric that would change the rating>",
+  "convictionScore": <1-10>,
+  "verdict": "BUY_ZONE | ACCUMULATE | HOLD | WATCH | AVOID",
+  "oneSentenceSummary": "<pithy takeaway>"
+}`;
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    const r = data.quoteSummary?.result?.[0];
-    if (!r) return null;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1500,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    signal: AbortSignal.timeout(25000),
+  });
 
-    // Insider transactions (last 6 months)
-    const insiders = (r.insiderTransactions?.transactions || []).slice(0, 10).map(t => ({
-      name: t.filerName,
-      relation: t.filerRelation,
-      type: t.transactionText,
-      shares: t.shares?.raw,
-      value: t.value?.raw,
-      date: t.startDate?.fmt,
-    }));
-
-    // Net insider sentiment
-    let insiderBuys = 0, insiderSells = 0;
-    for (const t of insiders) {
-      if (t.type?.includes('Purchase') || t.type?.includes('Buy')) insiderBuys += (t.value || 0);
-      if (t.type?.includes('Sale') || t.type?.includes('Sell')) insiderSells += (t.value || 0);
-    }
-
-    // Analyst recommendations
-    const recTrend = r.recommendationTrend?.trend?.[0] || {};
-    const analysts = {
-      strongBuy: recTrend.strongBuy || 0,
-      buy: recTrend.buy || 0,
-      hold: recTrend.hold || 0,
-      sell: recTrend.sell || 0,
-      strongSell: recTrend.strongSell || 0,
-      period: recTrend.period || 'current',
-    };
-    const totalAnalysts = analysts.strongBuy + analysts.buy + analysts.hold + analysts.sell + analysts.strongSell;
-    const bullPct = totalAnalysts > 0 ? ((analysts.strongBuy + analysts.buy) / totalAnalysts * 100) : null;
-
-    // Earnings history (last 4 quarters)
-    const earnings = (r.earningsHistory?.history || []).slice(-4).map(e => ({
-      quarter: e.quarter?.fmt || e.period,
-      date: e.quarterEnd?.fmt,
-      epsEstimate: e.epsEstimate?.raw,
-      epsActual: e.epsActual?.raw,
-      surprise: e.surprisePercent?.raw,
-    }));
-
-    // Earnings trend (forward estimates)
-    const trend = (r.earningsTrend?.trend || []).slice(0, 2).map(t => ({
-      period: t.period,
-      epsEstimate: t.earningsEstimate?.avg?.raw,
-      revenueEstimate: t.revenueEstimate?.avg?.raw,
-      growth: t.growth?.raw,
-    }));
-
-    // Next earnings date
-    const cal = r.calendarEvents?.earnings || {};
-    const nextEarnings = cal.earningsDate?.[0]?.fmt || null;
-
-    // Target price
-    const fd = r.financialData || {};
-    const targetHigh = fd.targetHighPrice?.raw;
-    const targetLow = fd.targetLowPrice?.raw;
-    const targetMean = fd.targetMeanPrice?.raw;
-    const currentPrice = fd.currentPrice?.raw;
-    const upside = targetMean && currentPrice ? ((targetMean - currentPrice) / currentPrice * 100) : null;
-
-    return {
-      insiders,
-      insiderNetSentiment: insiderBuys > insiderSells ? 'NET_BUYING' : insiderSells > insiderBuys ? 'NET_SELLING' : 'NEUTRAL',
-      insiderBuyValue: insiderBuys,
-      insiderSellValue: insiderSells,
-      analysts,
-      bullPct,
-      earnings,
-      earningsTrend: trend,
-      nextEarnings,
-      target: { high: targetHigh, low: targetLow, mean: targetMean, upside },
-    };
-  } catch (e) { return { _error: e.message }; }
-}
-
-// Fallback: build partial data from the chart endpoint (always works)
-async function fetchFallbackData(symbol) {
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y&includePrePost=false`;
-    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const meta = data.chart?.result?.[0]?.meta;
-    if (!meta) return null;
-    return {
-      insiders: [],
-      insiderNetSentiment: 'UNAVAILABLE',
-      insiderBuyValue: 0, insiderSellValue: 0,
-      analysts: { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 },
-      bullPct: null,
-      earnings: [],
-      earningsTrend: [],
-      nextEarnings: null,
-      target: { high: null, low: null, mean: null, upside: null },
-      _note: 'Detailed data unavailable — Yahoo Finance quoteSummary API restricted. Showing basic data only.',
-      _basic: {
-        price: meta.regularMarketPrice,
-        name: meta.shortName || meta.longName || symbol,
-        fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh,
-        fiftyTwoWeekLow: meta.fiftyTwoWeekLow,
-        marketCap: meta.marketCap,
-      },
-    };
-  } catch { return null; }
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Claude API ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const text = data.content?.find(b => b.type === 'text')?.text?.trim() || '';
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON in Claude response');
+  return JSON.parse(match[0]);
 }
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
-  const url = new URL(req.url);
-  const symbol = url.searchParams.get('symbol');
-  if (!symbol) {
-    return new Response(JSON.stringify({ error: 'symbol parameter required' }), {
-      status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+  try {
+    const url = new URL(req.url);
+    const symbol = url.searchParams.get('symbol');
+    if (!symbol) {
+      return new Response(JSON.stringify({ error: 'symbol parameter required' }), {
+        status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
+        status: 503, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
+    const sym = symbol.toUpperCase();
+    const stockData = await fetchChartData(sym);
+    if (!stockData) {
+      return new Response(JSON.stringify({ error: `Could not fetch price data for ${sym}. Check the ticker symbol.` }), {
+        status: 404, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
+    const analysis = await askClaudeForAnalysis(stockData, apiKey);
+
+    return new Response(JSON.stringify({ ...stockData, ...analysis }), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600', ...CORS },
     });
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: 'Intel failed: ' + (e.message || String(e)) }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } },
+    );
   }
-
-  const sym = symbol.toUpperCase();
-  let data = await fetchInsiders(sym);
-
-  // If quoteSummary failed, try fallback
-  if (!data || data._error) {
-    data = await fetchFallbackData(sym);
-  }
-
-  if (!data) {
-    return new Response(JSON.stringify({ error: 'Could not fetch data for ' + sym + '. Yahoo Finance may be rate-limiting.' }), {
-      status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
-    });
-  }
-
-  return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=3600', ...CORS },
-  });
 }

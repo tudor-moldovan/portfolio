@@ -907,49 +907,63 @@ function sendNotify(event,message){
 async function loadIntel(){
   const sym=(document.getElementById('intelSym').value||'').trim().toUpperCase();
   if(!sym){toast('Enter a ticker',false);return;}
-  document.getElementById('intelStatus').textContent='Loading...';
+  document.getElementById('intelStatus').textContent='Claude is analyzing '+sym+'...';
+  document.getElementById('intelBody').innerHTML='<div style="padding:24px;color:var(--di);font-size:12px;text-align:center">Fetching data and generating moat + valuation analysis...</div>';
   try{
     const r=await fetch('/api/intel?symbol='+sym);
     const d=await r.json();
-    if(!r.ok||d.error){document.getElementById('intelStatus').textContent=d.error||'Failed';return;}
+    if(!r.ok||d.error){
+      document.getElementById('intelStatus').textContent='';
+      document.getElementById('intelBody').innerHTML='<div style="padding:20px;color:var(--rd);font-size:12px">'+(d.error||'Failed to fetch')+'</div>';
+      return;
+    }
     document.getElementById('intelStatus').textContent='';
-    let html='<div class="intel-grid">';
-    // Analysts
-    const a=d.analysts||{};
-    const total=a.strongBuy+a.buy+a.hold+a.sell+a.strongSell;
-    html+='<div class="intel-section"><div class="intel-title">Analyst Ratings'+(total?' ('+total+' analysts)':'')+'</div>';
-    if(total){
-      html+=`<div class="analyst-bar"><div style="flex:${a.strongBuy};background:#00c896"></div><div style="flex:${a.buy};background:#60a5fa"></div><div style="flex:${a.hold};background:#f59e0b"></div><div style="flex:${a.sell};background:#ff6b6b"></div><div style="flex:${a.strongSell};background:#ff4d6d"></div></div>`;
-      html+=`<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu)"><span class="up">Buy ${a.strongBuy+a.buy}</span><span>Hold ${a.hold}</span><span class="dn">Sell ${a.sell+a.strongSell}</span></div>`;
-    }
-    if(d.target?.mean)html+=`<div class="intel-row" style="margin-top:8px"><span>Price Target</span><span style="font-family:var(--mo)">$${d.target.mean.toFixed(0)} <span class="${d.target.upside>0?'up':'dn'}" style="font-size:11px">(${d.target.upside>0?'+':''}${d.target.upside.toFixed(0)}%)</span></span></div>`;
-    if(d.bullPct!=null)html+=`<div class="intel-row"><span>Bull %</span><span class="${d.bullPct>60?'up':d.bullPct<40?'dn':'nt'}" style="font-family:var(--mo)">${d.bullPct.toFixed(0)}%</span></div>`;
+    const moatColors={FORTRESS:'var(--gr)',STRONG:'var(--bl)',INTACT:'var(--go)',ERODING:'var(--rd)'};
+    const valColors={UNDERVALUED:'var(--gr)',FAIR:'var(--tx)',RICH:'var(--go)',OVERVALUED:'var(--rd)'};
+    const verdictColors={BUY_ZONE:'var(--gr)',ACCUMULATE:'var(--bl)',HOLD:'var(--mu)',WATCH:'var(--go)',AVOID:'var(--rd)'};
+    const mc=moatColors[d.moatRating]||'var(--mu)';
+    const vc=valColors[d.valuationVerdict]||'var(--mu)';
+    const vrc=verdictColors[d.verdict]||'var(--mu)';
+    let html='<div style="padding:18px">';
+    // Header: symbol + price + verdict
+    html+=`<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--bd)">
+      <div><span style="font-size:22px;font-weight:700;font-family:var(--mo);color:var(--bl)">${d.symbol}</span> <span style="color:var(--mu);font-size:13px">${d.name||''}</span></div>
+      <div style="text-align:right"><div style="font-size:20px;font-weight:700;font-family:var(--mo)">$${d.price?.toFixed(2)}</div><div class="${d.changePercent>=0?'up':'dn'}" style="font-size:11px;font-family:var(--mo)">${d.changePercent>=0?'+':''}${d.changePercent?.toFixed(2)}% today</div></div>
+    </div>`;
+    // One-sentence takeaway
+    if(d.oneSentenceSummary)html+=`<div style="background:var(--sf2);border-left:3px solid ${vrc};padding:10px 14px;margin-bottom:14px;font-size:13px;line-height:1.5;border-radius:4px">${d.oneSentenceSummary}</div>`;
+    // Verdict + Conviction big display
+    html+='<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:14px">';
+    html+=`<div class="intel-section"><div class="intel-title">Verdict</div><div style="font-size:16px;font-weight:700;color:${vrc}">${d.verdict?.replace('_',' ')||'—'}</div></div>`;
+    html+=`<div class="intel-section"><div class="intel-title">Moat</div><div style="font-size:14px;font-weight:700;color:${mc}">${d.moatRating||'—'}</div></div>`;
+    html+=`<div class="intel-section"><div class="intel-title">Conviction</div><div><span style="font-size:20px;font-weight:700;font-family:var(--mo)">${d.convictionScore||'—'}</span><span style="color:var(--di)">/10</span></div></div>`;
     html+='</div>';
-    // Insiders
-    html+='<div class="intel-section"><div class="intel-title">Insider Trading <span style="font-weight:400;color:'+(d.insiderNetSentiment==='NET_BUYING'?'var(--gr)':d.insiderNetSentiment==='NET_SELLING'?'var(--rd)':'var(--mu)')+'">'+d.insiderNetSentiment+'</span></div>';
-    for(const t of(d.insiders||[]).slice(0,5)){
-      const cls=t.type?.includes('Purchase')||t.type?.includes('Buy')?'insider-buy':'insider-sell';
-      html+=`<div class="intel-row"><span>${t.name?.split(' ').slice(0,2).join(' ')||'?'}</span><span class="${cls}" style="font-family:var(--mo)">${t.type?.includes('Purchase')?'BUY':'SELL'} ${t.value?'$'+(t.value/1000).toFixed(0)+'k':''}</span></div>`;
-    }
-    if(!d.insiders?.length)html+='<div style="font-size:11px;color:var(--di)">No recent insider transactions</div>';
+    // Moat explanation
+    if(d.moatExplanation)html+=`<div class="intel-section" style="margin-bottom:10px"><div class="intel-title">Moat Thesis</div><div style="font-size:13px;line-height:1.55">${d.moatExplanation}</div></div>`;
+    // Valuation
+    html+=`<div class="intel-section" style="margin-bottom:10px"><div class="intel-title">Valuation: <span style="color:${vc}">${d.valuationVerdict||'—'}</span></div>`;
+    if(d.valuationReasoning)html+=`<div style="font-size:13px;line-height:1.55;margin-top:4px">${d.valuationReasoning}</div>`;
     html+='</div>';
-    // Earnings history
-    html+='<div class="intel-section"><div class="intel-title">Earnings History (last 4Q)</div>';
-    for(const e of(d.earnings||[])){
-      const beat=e.surprise!=null&&e.surprise>0;const miss=e.surprise!=null&&e.surprise<0;
-      html+=`<div class="intel-row"><span>${e.date||e.quarter||'?'}</span><span style="font-family:var(--mo)">EPS $${e.epsActual?.toFixed(2)||'?'} <span class="${beat?'up':miss?'dn':'nt'}" style="font-size:10px">${e.surprise!=null?(e.surprise>0?'+':'')+e.surprise.toFixed(1)+'%':'—'}</span></span></div>`;
-    }
-    if(d.nextEarnings)html+=`<div class="intel-row" style="margin-top:6px;color:var(--go)"><span>Next Earnings</span><span style="font-family:var(--mo)">${d.nextEarnings}</span></div>`;
-    html+='</div>';
-    // Forward estimates
-    html+='<div class="intel-section"><div class="intel-title">Forward Estimates</div>';
-    for(const t of(d.earningsTrend||[])){
-      html+=`<div class="intel-row"><span>${t.period}</span><span style="font-family:var(--mo)">EPS $${t.epsEstimate?.toFixed(2)||'?'} ${t.growth!=null?'<span class="'+(t.growth>0?'up':'dn')+'" style="font-size:10px">'+(t.growth>0?'+':'')+(t.growth*100).toFixed(0)+'% growth</span>':''}</span></div>`;
-    }
+    // Technical setup
+    if(d.technicalSetup)html+=`<div class="intel-section" style="margin-bottom:10px"><div class="intel-title">Technical Setup</div><div style="font-size:13px;line-height:1.55">${d.technicalSetup}</div></div>`;
+    // Risks
+    if(d.keyRisks)html+=`<div class="intel-section" style="margin-bottom:10px"><div class="intel-title" style="color:var(--rd)">Key Risks</div><div style="font-size:13px;line-height:1.55">${d.keyRisks}</div></div>`;
+    // Catalyst
+    if(d.catalyst)html+=`<div class="intel-section" style="margin-bottom:10px"><div class="intel-title" style="color:var(--go)">Catalyst (What Would Change This)</div><div style="font-size:13px;line-height:1.55">${d.catalyst}</div></div>`;
+    // Data row
+    html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--bd);margin-top:14px;border-radius:6px;overflow:hidden">';
+    const dataCell=(lbl,val,sub)=>`<div style="background:var(--sf2);padding:8px 10px"><div style="font-size:9px;color:var(--di);text-transform:uppercase">${lbl}</div><div style="font-family:var(--mo);font-size:12px;font-weight:600">${val}</div>${sub?'<div style="font-size:10px;color:var(--mu)">'+sub+'</div>':''}</div>`;
+    html+=dataCell('52wk Range',d.low52?.toFixed(0)+' — '+d.high52?.toFixed(0),d.fiftyTwoWeekPosition!=null?d.fiftyTwoWeekPosition.toFixed(0)+'% of range':'');
+    html+=dataCell('1Y Return',(d.yearReturn>=0?'+':'')+d.yearReturn?.toFixed(1)+'%','');
+    html+=dataCell('RSI',d.rsi?.toFixed(0)||'—',d.rsi>70?'overbought':d.rsi<30?'oversold':'neutral');
+    html+=dataCell('Mkt Cap',d.marketCap?'$'+(d.marketCap/1e9).toFixed(0)+'B':'—','');
     html+='</div>';
     html+='</div>';
     document.getElementById('intelBody').innerHTML=html;
-  }catch(e){document.getElementById('intelStatus').textContent='Error';}
+  }catch(e){
+    document.getElementById('intelStatus').textContent='';
+    document.getElementById('intelBody').innerHTML='<div style="padding:20px;color:var(--rd);font-size:12px">Error: '+e.message+'</div>';
+  }
 }
 
 // ── DCF Calculator ──────────────────────────────────────────────────────
