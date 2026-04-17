@@ -215,25 +215,73 @@ Return JSON for all stocks in this batch.`;
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
+      accept: 'text/event-stream',
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
+      max_tokens: 2500,
+      stream: true,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMsg }],
     }),
-    signal: AbortSignal.timeout(35000),
+    signal: AbortSignal.timeout(45000),
   });
 
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Claude API ${res.status}: ${err.slice(0, 200)}`);
   }
-  const data = await res.json();
-  const text = data.content?.find(b => b.type === 'text')?.text?.trim() || '';
-  const match = text.match(/\{[\s\S]*\}/);
+
+  // Parse SSE stream — each delta resets the idle timer so we don't hit
+  // undici's stream-idle-timeout on non-streaming endpoints.
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let accumulated = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      for (const line of block.split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(payload);
+          if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+            accumulated += evt.delta.text || '';
+          } else if (evt.type === 'error') {
+            throw new Error(`Anthropic stream error: ${evt.error?.message || JSON.stringify(evt.error).slice(0, 200)}`);
+          }
+        } catch (e) {
+          // Re-throw Anthropic errors; ignore malformed JSON fragments
+          if (e.message?.startsWith('Anthropic stream error')) throw e;
+        }
+      }
+    }
+  }
+
+  const match = accumulated.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('No JSON in Claude response');
   return JSON.parse(match[0]);
+}
+
+async function analyzeBatchWithRetry(stockBlocks, macroContext, apiKey) {
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await analyzeBatch(stockBlocks, macroContext, apiKey);
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1200));
+    }
+  }
+  throw lastErr;
 }
 
 function deriveRegime(macroContext) {
@@ -261,7 +309,7 @@ async function rankUniverse(stocks, macroContext, apiKey) {
   // Each batch Promise catches its own failure so one slow batch doesn't kill the whole run
   const results = await Promise.all(
     batches.map(batch =>
-      analyzeBatch(batch, macroContext, apiKey)
+      analyzeBatchWithRetry(batch, macroContext, apiKey)
         .catch(e => ({ stocks: [], error: e.message })),
     ),
   );
