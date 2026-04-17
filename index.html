@@ -327,11 +327,13 @@ const usd=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',mini
 const pct=n=>(n>=0?'+':'')+n.toFixed(2)+'%';
 
 function renderHeaderSpy(){
-  const spy=quotes['SPY'];if(!spy)return;
-  document.getElementById('sSpy').textContent='$'+spy.price.toFixed(2);
+  // Prefer the real S&P 500 index (^GSPC ~7,100) over the SPY ETF (~$710)
+  const idx=quotes['^GSPC']||quotes['SPY'];if(!idx)return;
+  const nf=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('sSpy').textContent=nf.format(idx.price);
   const sp=document.getElementById('sSpyP');
-  sp.textContent=pct(spy.changePercent);
-  sp.className='pill '+(spy.changePercent>=0?'up':'dn');
+  sp.textContent=pct(idx.changePercent);
+  sp.className='pill '+(idx.changePercent>=0?'up':'dn');
 }
 
 function renderWatchlist(){
@@ -358,7 +360,9 @@ function analyzeStock(sym){
 // ── Data & Actions ──────────────────────────────────────────────────────
 async function fetchPrices(){
   try{
-    const r=await fetch('/api/quote?symbols='+WATCHLIST.join(','));
+    // WATCHLIST + ^GSPC (header shows the real S&P 500 index, not SPY ETF)
+    const syms=WATCHLIST.concat(['^GSPC']);
+    const r=await fetch('/api/quote?symbols='+syms.map(encodeURIComponent).join(','));
     if(!r.ok)return;
     Object.assign(quotes,await r.json());
     renderWatchlist();renderHeaderSpy();
