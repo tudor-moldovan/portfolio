@@ -456,11 +456,18 @@ async function fetchPrices(){
   }catch{}
 }
 
+let screenPollTimer=null;
+
 async function loadCachedScreen(){
   try{
     const r=await fetch('/api/screen');
     if(!r.ok)return false;
     const d=await r.json();
+    if(d.refreshStatus?.state==='running'){
+      // A background refresh is in progress from a previous session — pick up polling
+      document.getElementById('screenThinking').classList.add('on');
+      startScreenPolling(d.timestamp);
+    }
     if(!d||!d.stocks||!d.stocks.length)return false;
     lastScreen=d;renderScreen(d);
     return true;
@@ -470,6 +477,7 @@ async function loadCachedScreen(){
 async function runScreener(){
   const btn=document.getElementById('screenBtn'),th=document.getElementById('screenThinking'),er=document.getElementById('screenErr');
   btn.disabled=true;th.classList.add('on');er.classList.remove('on');
+  btn.textContent='Refreshing…';
   try{
     const r=await fetch('/api/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     const text=await r.text();
@@ -477,14 +485,62 @@ async function runScreener(){
     try{d=JSON.parse(text);}
     catch{throw new Error(r.ok?'Server returned non-JSON: '+text.slice(0,200):'HTTP '+r.status+' — '+text.slice(0,200));}
     if(!r.ok||d.error)throw new Error(d.error||'Screen failed ('+r.status+')');
-    lastScreen=d;renderScreen(d);
-    if(d.warning)toast(d.warning,false);
-  }catch(e){er.textContent=e.message;er.classList.add('on');}
-  finally{
+    // Show existing cached data immediately if present
+    if(d.stocks&&d.stocks.length){lastScreen=d;renderScreen(d);}
+    // If refresh queued in background, start polling
+    if(d.refreshStatus?.state==='running'){
+      startScreenPolling(d.timestamp);
+    }else{
+      // Inline run completed — we have fresh data
+      th.classList.remove('on');
+      resetScreenButtonAfterCooldown(btn);
+    }
+  }catch(e){
+    er.textContent=e.message;er.classList.add('on');
     th.classList.remove('on');
-    btn.disabled=true;btn.textContent='Cooling down...';
-    let t=20;const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';}else{btn.textContent='Wait '+t+'s...';}},1000);
+    btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';
   }
+}
+
+function startScreenPolling(priorTimestamp){
+  if(screenPollTimer)clearInterval(screenPollTimer);
+  const btn=document.getElementById('screenBtn'),th=document.getElementById('screenThinking'),er=document.getElementById('screenErr');
+  const startedAt=Date.now();
+  const pollOnce=async()=>{
+    try{
+      const r=await fetch('/api/screen?_='+Date.now());
+      const d=await r.json();
+      const status=d.refreshStatus?.state;
+      if(status==='error'){
+        clearInterval(screenPollTimer);screenPollTimer=null;
+        er.textContent='Refresh failed: '+(d.refreshStatus.error||'unknown');er.classList.add('on');
+        th.classList.remove('on');
+        btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';
+        return;
+      }
+      // Completed if timestamp advanced
+      if(d.stocks&&d.stocks.length&&d.timestamp!==priorTimestamp&&status!=='running'){
+        clearInterval(screenPollTimer);screenPollTimer=null;
+        lastScreen=d;renderScreen(d);
+        th.classList.remove('on');
+        resetScreenButtonAfterCooldown(btn);
+        toast('Screener updated',true);
+        return;
+      }
+      if(Date.now()-startedAt>180000){
+        clearInterval(screenPollTimer);screenPollTimer=null;
+        er.textContent='Refresh is taking longer than expected. It may still finish — reload in a minute.';er.classList.add('on');
+        th.classList.remove('on');
+        btn.disabled=false;btn.textContent='Refresh Screener';
+      }
+    }catch{}
+  };
+  screenPollTimer=setInterval(pollOnce,3000);
+}
+
+function resetScreenButtonAfterCooldown(btn){
+  btn.disabled=true;btn.textContent='Cooling down…';
+  let t=15;const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';}else{btn.textContent='Wait '+t+'s…';}},1000);
 }
 
 function renderScreen(d){
