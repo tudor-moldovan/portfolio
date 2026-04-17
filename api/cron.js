@@ -132,8 +132,12 @@ export default async function handler(req) {
   if (kv) {
     try {
       await kv.set('latest_scan', JSON.stringify(scan));
-      // Keep last 30 days of scans for historical review
-      const history = JSON.parse(await kv.get('scan_history') || '[]');
+      // Keep last 30 days of scans. Upstash auto-parses JSON on get,
+      // so normalize whatever shape we get back.
+      const raw = await kv.get('scan_history');
+      let history = [];
+      if (Array.isArray(raw)) history = raw;
+      else if (typeof raw === 'string') { try { history = JSON.parse(raw); } catch {} }
       history.push({ date: scan.timestamp.slice(0, 10), regime, signals: scan.signals, vix: scan.vix });
       if (history.length > 30) history.splice(0, history.length - 30);
       await kv.set('scan_history', JSON.stringify(history));
