@@ -104,6 +104,19 @@ tbody tr:hover td{background:var(--sf2)}
 .bt-stat .st-lbl{font-size:9px}.bt-stat .st-val{font-size:14px}
 /* screener */
 .scr-note{font-size:12px;color:var(--mu);padding:0 4px;line-height:1.4}
+.scr-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px}
+@media(max-width:600px){.scr-summary{grid-template-columns:1fr}}
+.scr-box{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:9px 11px}
+.scr-box.under{border-color:rgba(46,196,160,.35)}
+.scr-box.over{border-color:rgba(229,83,75,.35)}
+.scr-box-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.scr-box.under .scr-box-lbl{color:var(--gr)}
+.scr-box.over .scr-box-lbl{color:var(--rd)}
+.scr-pills{display:flex;gap:5px;flex-wrap:wrap}
+.scr-pill{background:var(--sf);border:1px solid var(--bd);border-radius:5px;padding:3px 8px;font-size:11px;font-weight:600;font-family:var(--mo);cursor:pointer;color:var(--bl);transition:.12s}
+.scr-pill:hover{background:var(--pu2);border-color:var(--pu)}
+.scr-pill .pp{color:var(--mu);font-weight:400;margin-left:4px;font-size:10px}
+.scr-staleness{font-size:10px;color:var(--di);padding:0 4px;margin-top:-2px}
 .scr-item{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;cursor:pointer;transition:.15s}
 .scr-item:hover{border-color:var(--bd2)}
 .scr-item.open{border-color:var(--pu);background:rgba(78,161,211,0.04)}
@@ -256,7 +269,9 @@ tbody tr:hover td{background:var(--sf2)}
         <button class="ask-btn" id="screenBtn" onclick="runScreener()">Screen Universe — full moat &amp; valuation report</button>
         <div class="thinking" id="screenThinking"><div class="dots"><span></span><span></span><span></span></div><span>Fetching fundamentals and synthesizing 12 moat assessments…</span></div>
         <div class="err" id="screenErr"></div>
+        <div class="scr-staleness" id="screenStaleness"></div>
         <div class="scr-note" id="screenNote"></div>
+        <div id="screenSummary"></div>
         <div id="screenResults" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
     </div>
@@ -350,6 +365,17 @@ async function fetchPrices(){
   }catch{}
 }
 
+async function loadCachedScreen(){
+  try{
+    const r=await fetch('/api/screen');
+    if(!r.ok)return false;
+    const d=await r.json();
+    if(!d||!d.stocks||!d.stocks.length)return false;
+    lastScreen=d;renderScreen(d);
+    return true;
+  }catch{return false;}
+}
+
 async function runScreener(){
   const btn=document.getElementById('screenBtn'),th=document.getElementById('screenThinking'),er=document.getElementById('screenErr');
   btn.disabled=true;th.classList.add('on');er.classList.remove('on');
@@ -361,11 +387,12 @@ async function runScreener(){
     catch{throw new Error(r.ok?'Server returned non-JSON: '+text.slice(0,200):'HTTP '+r.status+' — '+text.slice(0,200));}
     if(!r.ok||d.error)throw new Error(d.error||'Screen failed ('+r.status+')');
     lastScreen=d;renderScreen(d);
+    if(d.warning)toast(d.warning,false);
   }catch(e){er.textContent=e.message;er.classList.add('on');}
   finally{
     th.classList.remove('on');
-    btn.disabled=true;btn.textContent='Wait 30s...';
-    let t=30;const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);btn.disabled=false;btn.textContent='Screen Universe';}else{btn.textContent='Wait '+t+'s...';}},1000);
+    btn.disabled=true;btn.textContent='Cooling down...';
+    let t=20;const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';}else{btn.textContent='Wait '+t+'s...';}},1000);
   }
 }
 
@@ -377,9 +404,48 @@ function renderScreen(d){
     rb.textContent=regime;rb.style.display='inline';rb.style.color=rc[0];rb.style.background=rc[1];
   }else{rb.style.display='none';}
   document.getElementById('screenNote').textContent=d.regimeNote||'';
-  if(d.timestamp){const ts=new Date(d.timestamp);document.getElementById('screenTime').textContent='Updated '+ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
-  const res=document.getElementById('screenResults');
-  res.innerHTML=(d.stocks||[]).map(renderScreenCard).join('');
+  if(d.timestamp){
+    const ts=new Date(d.timestamp);
+    document.getElementById('screenTime').textContent='Updated '+ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('screenStaleness').textContent=(d.cached?'Cached · ':'Fresh · ')+relativeAge(ts);
+  }
+  document.getElementById('screenSummary').innerHTML=renderSummary(d.stocks||[]);
+  document.getElementById('screenResults').innerHTML=(d.stocks||[]).map(renderScreenCard).join('');
+  const btn=document.getElementById('screenBtn');
+  if(btn&&!btn.disabled)btn.textContent='Refresh Screener';
+}
+
+function relativeAge(ts){
+  const mins=Math.floor((Date.now()-ts.getTime())/60000);
+  if(mins<1)return 'just now';
+  if(mins<60)return mins+'m ago';
+  const hrs=Math.floor(mins/60);
+  if(hrs<24)return hrs+'h ago';
+  return Math.floor(hrs/24)+'d ago';
+}
+
+function renderSummary(stocks){
+  if(!stocks.length)return '';
+  // Undervalued: UNDERVALUED valuation OR BUY_ZONE verdict. Sort by conviction desc.
+  const under=stocks.filter(s=>s.valuationVerdict==='UNDERVALUED'||s.verdict==='BUY_ZONE')
+    .sort((a,b)=>(b.convictionScore||0)-(a.convictionScore||0)).slice(0,3);
+  // Overvalued: OVERVALUED/RICH valuation OR AVOID/WATCH verdict. Sort by conviction asc (lowest = worst).
+  const over=stocks.filter(s=>s.valuationVerdict==='OVERVALUED'||s.valuationVerdict==='RICH'||s.verdict==='AVOID'||s.verdict==='WATCH')
+    .sort((a,b)=>(a.convictionScore||99)-(b.convictionScore||99)).slice(0,3);
+  const pill=(s,colorKind)=>`<span class="scr-pill" onclick="event.stopPropagation();jumpToScreen('${s.symbol}')">${s.symbol}${s.fiftyTwoWeekPosition!=null?'<span class="pp">'+Math.round(s.fiftyTwoWeekPosition)+'%</span>':''}</span>`;
+  const underHTML=under.length?under.map(s=>pill(s,'under')).join(''):'<span style="font-size:11px;color:var(--di)">— none flagged</span>';
+  const overHTML=over.length?over.map(s=>pill(s,'over')).join(''):'<span style="font-size:11px;color:var(--di)">— none flagged</span>';
+  return `<div class="scr-summary">
+    <div class="scr-box under"><div class="scr-box-lbl">Most Undervalued</div><div class="scr-pills">${underHTML}</div></div>
+    <div class="scr-box over"><div class="scr-box-lbl">Most Overvalued</div><div class="scr-pills">${overHTML}</div></div>
+  </div>`;
+}
+
+function jumpToScreen(sym){
+  const el=document.getElementById('scr_'+sym);
+  if(!el)return;
+  if(!el.classList.contains('open'))el.classList.add('open');
+  el.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function renderScreenCard(s){
@@ -628,6 +694,7 @@ loadTheme();
 fetchPrices();setInterval(fetchPrices,60000);
 loadLatestScan();
 loadMacro();
+loadCachedScreen();
 </script>
 </body>
 </html>

@@ -11,7 +11,6 @@ const YF_HEADERS = {
   Accept: 'application/json',
 };
 
-// ── Universe (12 moat compounders + SPY benchmark) ──────────────────────
 const UNIVERSE = {
   AAPL: 'Tech — Platform', MSFT: 'Tech — Platform', GOOGL: 'Tech — Platform',
   AMZN: 'Tech — Platform', META: 'Tech — Platform',
@@ -21,13 +20,30 @@ const UNIVERSE = {
   'BRK-B': 'Conglomerate',
 };
 const TICKERS = Object.keys(UNIVERSE);
+const CACHE_KEY = 'screener_v1';
+
+// ── KV helpers (graceful if KV isn't configured) ────────────────────────
+async function getKV() {
+  try { return (await import('@vercel/kv')).kv; } catch { return null; }
+}
+async function getCached(kv) {
+  if (!kv) return null;
+  try {
+    const raw = await kv.get(CACHE_KEY);
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch { return null; }
+}
+async function setCached(kv, data) {
+  if (!kv) return;
+  try { await kv.set(CACHE_KEY, JSON.stringify(data), { ex: 7 * 24 * 3600 }); } catch {}
+}
 
 // ── Technical indicators ────────────────────────────────────────────────
 function sma(arr, period) {
   if (arr.length < period) return null;
   return arr.slice(-period).reduce((a, b) => a + b, 0) / period;
 }
-
 function computeRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
   let ag = 0, al = 0;
@@ -45,11 +61,10 @@ function computeRSI(closes, period = 14) {
   return 100 - 100 / (1 + ag / al);
 }
 
-// ── Fetch 1-year chart data ─────────────────────────────────────────────
 async function fetchChart(symbol) {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y&includePrePost=false`;
-    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) });
+    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     const data = await res.json();
     const r = data.chart?.result?.[0];
@@ -75,23 +90,21 @@ async function fetchChart(symbol) {
   } catch { return null; }
 }
 
-// ── Fetch fundamentals (reuses /api/fundamentals endpoint for caching) ─
 async function fetchFundamentals(symbol, reqUrl) {
   try {
     const origin = new URL(reqUrl).origin;
-    const res = await fetch(`${origin}/api/fundamentals?symbol=${symbol}`, { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(`${origin}/api/fundamentals?symbol=${symbol}`, { signal: AbortSignal.timeout(12000) });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
 }
 
-// ── Enrich a single ticker with all data ────────────────────────────────
 async function enrichStock(symbol, reqUrl) {
   const [chart, fund] = await Promise.all([fetchChart(symbol), fetchFundamentals(symbol, reqUrl)]);
   return { symbol, sector: UNIVERSE[symbol], chart, fund };
 }
 
-// ── Compute peer valuation (average P/E within sector from our data) ───
+// ── Peer P/E context (within universe sector) ──────────────────────────
 function computePeerContext(stocks) {
   const bySector = {};
   for (const s of stocks) {
@@ -101,7 +114,7 @@ function computePeerContext(stocks) {
     bySector[s.sector].push({ symbol: s.symbol, pe });
   }
   const peerAvg = {};
-  for (const [sector, list] of Object.entries(bySector)) {
+  for (const [, list] of Object.entries(bySector)) {
     if (list.length < 2) continue;
     const avg = list.reduce((sum, p) => sum + p.pe, 0) / list.length;
     for (const p of list) peerAvg[p.symbol] = { sectorAvgPE: avg, pe: p.pe, vsPeers: p.pe < avg * 0.9 ? 'CHEAPER' : p.pe > avg * 1.1 ? 'RICHER' : 'IN-LINE' };
@@ -109,7 +122,7 @@ function computePeerContext(stocks) {
   return peerAvg;
 }
 
-// ── Compute vs-history valuation proxy (using 5yr P/E trend) ───────────
+// ── 5yr P/E history context ────────────────────────────────────────────
 function computeHistoryContext(fund) {
   const ratios = fund?.ratios || [];
   const pes = ratios.map(r => r.peRatio).filter(p => p != null && p > 0 && p < 200);
@@ -123,7 +136,6 @@ function computeHistoryContext(fund) {
   return { currentPE: current, historicalAvgPE: avg, minPE: min, maxPE: max, vsHistory, yearsOfData: pes.length };
 }
 
-// ── Build the per-stock context block for Claude ────────────────────────
 function buildStockBlock(s, peerAvg) {
   const c = s.chart || {};
   const f = s.fund || {};
@@ -169,7 +181,6 @@ function buildStockBlock(s, peerAvg) {
   return lines.join('\n');
 }
 
-// ── Claude call for a batch of stocks ───────────────────────────────────
 const SYSTEM_PROMPT = `You are a senior equity analyst covering elite moat compounders. For each stock in the batch, produce a concise research assessment.
 
 For EACH stock, decide:
@@ -207,11 +218,11 @@ Return JSON for all stocks in this batch.`;
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4000,
+      max_tokens: 3000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMsg }],
     }),
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(35000),
   });
 
   if (!res.ok) {
@@ -225,7 +236,6 @@ Return JSON for all stocks in this batch.`;
   return JSON.parse(match[0]);
 }
 
-// ── Derive macro regime from VIX/SPY (no extra Claude call) ─────────────
 function deriveRegime(macroContext) {
   const vixMatch = macroContext.match(/VIX:\s*([\d.]+)/);
   const spyAbove = /above 50-day/.test(macroContext);
@@ -239,30 +249,33 @@ function deriveRegime(macroContext) {
   return { regime, note };
 }
 
-// ── Rank universe: split into batches, run Claude in parallel ──────────
+// ── Rank universe: 3 parallel batches of ~4 stocks each ────────────────
 async function rankUniverse(stocks, macroContext, apiKey) {
   const peerAvg = computePeerContext(stocks);
   const blocks = stocks.map(s => buildStockBlock(s, peerAvg));
 
-  // Split into 2 batches of ~6 each (parallel Claude calls → fits in 25s)
-  const mid = Math.ceil(blocks.length / 2);
-  const batch1 = blocks.slice(0, mid);
-  const batch2 = blocks.slice(mid);
+  const BATCH_SIZE = 4;
+  const batches = [];
+  for (let i = 0; i < blocks.length; i += BATCH_SIZE) batches.push(blocks.slice(i, i + BATCH_SIZE));
 
-  const [r1, r2] = await Promise.all([
-    analyzeBatch(batch1, macroContext, apiKey),
-    batch2.length ? analyzeBatch(batch2, macroContext, apiKey) : Promise.resolve({ stocks: [] }),
-  ]);
+  // Each batch Promise catches its own failure so one slow batch doesn't kill the whole run
+  const results = await Promise.all(
+    batches.map(batch =>
+      analyzeBatch(batch, macroContext, apiKey)
+        .catch(e => ({ stocks: [], error: e.message })),
+    ),
+  );
 
   const { regime, note } = deriveRegime(macroContext);
-  return {
-    regime,
-    regimeNote: note,
-    stocks: [...(r1.stocks || []), ...(r2.stocks || [])],
-  };
+  const stocksOut = [];
+  const errors = [];
+  for (const r of results) {
+    if (r.stocks) stocksOut.push(...r.stocks);
+    if (r.error) errors.push(r.error);
+  }
+  return { regime, regimeNote: note, stocks: stocksOut, errors };
 }
 
-// ── Macro snapshot (VIX, 10Y, SPY trend) ────────────────────────────────
 async function fetchMacro() {
   const lines = [];
   try {
@@ -279,84 +292,98 @@ async function fetchMacro() {
   return lines.length ? lines.map(l => '  ' + l).join('\n') : '  (unavailable)';
 }
 
-// ── Handler ─────────────────────────────────────────────────────────────
+async function runScreener(reqUrl) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured.');
+
+  const [stocks, macroContext] = await Promise.all([
+    Promise.all(TICKERS.map(t => enrichStock(t, reqUrl))),
+    fetchMacro(),
+  ]);
+
+  const valid = stocks.filter(s => s.chart?.price);
+  if (valid.length === 0) throw new Error('Could not fetch market data for any ticker.');
+
+  const ranked = await rankUniverse(valid, macroContext, apiKey);
+
+  const byClaudeSymbol = {};
+  for (const s of (ranked.stocks || [])) byClaudeSymbol[s.symbol] = s;
+
+  const output = valid.map(s => {
+    const c = s.chart || {};
+    const f = s.fund || {};
+    const claude = byClaudeSymbol[s.symbol] || {};
+    return {
+      symbol: s.symbol,
+      sector: s.sector,
+      name: c.name || f.name || s.symbol,
+      price: c.price,
+      changePercent: c.changePercent,
+      high52: c.high52,
+      low52: c.low52,
+      fiftyTwoWeekPosition: c.fiftyTwoWeekPosition,
+      rsi: c.rsi,
+      sma50: c.sma50,
+      sma200: c.sma200,
+      yearReturn: c.yearReturn,
+      marketCap: c.marketCap,
+      moatScore: f.moat?.moatScore || null,
+      moatComponents: f.moat?.components || null,
+      ...claude,
+    };
+  });
+
+  // Sort by conviction descending
+  output.sort((a, b) => (b.convictionScore || 0) - (a.convictionScore || 0));
+
+  return {
+    timestamp: new Date().toISOString(),
+    regime: ranked.regime || 'UNKNOWN',
+    regimeNote: ranked.regimeNote || '',
+    batchErrors: ranked.errors?.length ? ranked.errors : undefined,
+    stocks: output,
+  };
+}
+
+// ── Handler: GET returns cached, POST runs fresh ────────────────────────
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: 'ANTHROPIC_API_KEY is not configured on this deployment.' }),
-        { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } },
-      );
+  const kv = await getKV();
+
+  // GET — return cached
+  if (req.method === 'GET') {
+    const cached = await getCached(kv);
+    if (cached) {
+      return new Response(JSON.stringify({ ...cached, cached: true }), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', ...CORS },
+      });
     }
-
-    // Fetch all stocks + macro in parallel
-    const [stocks, macroContext] = await Promise.all([
-      Promise.all(TICKERS.map(t => enrichStock(t, req.url))),
-      fetchMacro(),
-    ]);
-
-    // Filter out stocks where we couldn't get a price
-    const valid = stocks.filter(s => s.chart?.price);
-    if (valid.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Could not fetch market data for any ticker.' }),
-        { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } },
-      );
-    }
-
-    // One big Claude call to rank the universe
-    const ranked = await rankUniverse(valid, macroContext, apiKey);
-
-    // Merge Claude's per-stock assessments with our live data
-    const byClaudeSymbol = {};
-    for (const s of (ranked.stocks || [])) byClaudeSymbol[s.symbol] = s;
-
-    const output = valid.map(s => {
-      const c = s.chart || {};
-      const f = s.fund || {};
-      const claude = byClaudeSymbol[s.symbol] || {};
-      return {
-        symbol: s.symbol,
-        sector: s.sector,
-        name: c.name || f.name || s.symbol,
-        price: c.price,
-        changePercent: c.changePercent,
-        high52: c.high52,
-        low52: c.low52,
-        fiftyTwoWeekPosition: c.fiftyTwoWeekPosition,
-        rsi: c.rsi,
-        sma50: c.sma50,
-        sma200: c.sma200,
-        yearReturn: c.yearReturn,
-        marketCap: c.marketCap,
-        moatScore: f.moat?.moatScore || null,
-        moatComponents: f.moat?.components || null,
-        ...claude,
-      };
+    return new Response(JSON.stringify({ error: 'No cached screen yet. POST /api/screen to run.' }), {
+      status: 404, headers: { 'Content-Type': 'application/json', ...CORS },
     });
+  }
 
-    // Sort by conviction descending (Claude should do this, but enforce)
-    output.sort((a, b) => (b.convictionScore || 0) - (a.convictionScore || 0));
+  // POST — run fresh pipeline, cache result
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405, headers: CORS });
+  }
 
-    return new Response(
-      JSON.stringify({
-        timestamp: new Date().toISOString(),
-        regime: ranked.regime || 'UNKNOWN',
-        regimeNote: ranked.regimeNote || '',
-        stocks: output,
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=600, s-maxage=600',
-          ...CORS,
-        },
-      },
-    );
+  try {
+    const output = await runScreener(req.url);
+    await setCached(kv, output);
+    return new Response(JSON.stringify(output), {
+      headers: { 'Content-Type': 'application/json', ...CORS },
+    });
   } catch (e) {
+    // On failure, fall back to cached if we have it
+    const cached = await getCached(kv);
+    if (cached) {
+      return new Response(
+        JSON.stringify({ ...cached, cached: true, warning: 'Live run failed, showing cached: ' + (e.message || String(e)) }),
+        { headers: { 'Content-Type': 'application/json', ...CORS } },
+      );
+    }
     return new Response(
       JSON.stringify({ error: 'Screen failed: ' + (e.message || String(e)) }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } },
