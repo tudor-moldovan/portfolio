@@ -393,48 +393,100 @@ async function runScreener(reqUrl) {
   };
 }
 
-// ── Handler: GET returns cached, POST runs fresh ────────────────────────
+// ── Handler: GET returns cached, POST fires background refresh ─────────
+const STATUS_KEY = CACHE_KEY + ':status';
+
+async function setStatus(kv, status) {
+  if (!kv) return;
+  try { await kv.set(STATUS_KEY, JSON.stringify({ ...status, updatedAt: new Date().toISOString() }), { ex: 3600 }); } catch {}
+}
+async function getStatus(kv) {
+  if (!kv) return null;
+  try {
+    const raw = await kv.get(STATUS_KEY);
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch { return null; }
+}
+
+async function runAndCache(reqUrl, kv) {
+  try {
+    await setStatus(kv, { state: 'running' });
+    const output = await runScreener(reqUrl);
+    await setCached(kv, output);
+    await setStatus(kv, { state: 'idle', lastSuccessAt: output.timestamp });
+  } catch (e) {
+    await setStatus(kv, { state: 'error', error: e.message || String(e) });
+  }
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
   const kv = await getKV();
 
-  // GET — return cached
+  // GET — return cached (instant)
   if (req.method === 'GET') {
-    const cached = await getCached(kv);
-    if (cached) {
-      return new Response(JSON.stringify({ ...cached, cached: true }), {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', ...CORS },
+    const [cached, status] = await Promise.all([getCached(kv), getStatus(kv)]);
+    const body = {
+      ...(cached || {}),
+      cached: !!cached,
+      refreshStatus: status || { state: 'idle' },
+    };
+    if (!cached && !status) {
+      return new Response(JSON.stringify({ error: 'No cached screen yet. POST /api/screen to run.' }), {
+        status: 404, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
-    return new Response(JSON.stringify({ error: 'No cached screen yet. POST /api/screen to run.' }), {
-      status: 404, headers: { 'Content-Type': 'application/json', ...CORS },
+    return new Response(JSON.stringify(body), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30', ...CORS },
     });
   }
 
-  // POST — run fresh pipeline, cache result
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405, headers: CORS });
   }
 
-  try {
-    const output = await runScreener(req.url);
-    await setCached(kv, output);
-    return new Response(JSON.stringify(output), {
-      headers: { 'Content-Type': 'application/json', ...CORS },
-    });
-  } catch (e) {
-    // On failure, fall back to cached if we have it
+  // POST — fire refresh in background via waitUntil, return immediately
+  const current = await getStatus(kv);
+  if (current?.state === 'running') {
+    // Already running — don't queue duplicate
     const cached = await getCached(kv);
-    if (cached) {
-      return new Response(
-        JSON.stringify({ ...cached, cached: true, warning: 'Live run failed, showing cached: ' + (e.message || String(e)) }),
-        { headers: { 'Content-Type': 'application/json', ...CORS } },
-      );
+    return new Response(JSON.stringify({
+      ...(cached || {}),
+      cached: !!cached,
+      refreshStatus: current,
+      message: 'Refresh already in progress.',
+    }), { headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
+
+  // Mark running immediately so concurrent POSTs see it
+  await setStatus(kv, { state: 'running' });
+
+  // Dynamic import so local dev / edge environments without the package
+  // fall back gracefully (we still await inline then).
+  try {
+    const { waitUntil } = await import('@vercel/functions');
+    waitUntil(runAndCache(req.url, kv));
+    const cached = await getCached(kv);
+    return new Response(JSON.stringify({
+      ...(cached || {}),
+      cached: !!cached,
+      refreshStatus: { state: 'running' },
+      message: 'Refresh started in background. Poll GET /api/screen for updates.',
+    }), { headers: { 'Content-Type': 'application/json', ...CORS } });
+  } catch {
+    // No waitUntil available — run inline (may hit 60s cap but at least works locally)
+    try {
+      await runAndCache(req.url, kv);
+      const fresh = await getCached(kv);
+      return new Response(JSON.stringify({ ...(fresh || {}), cached: false, refreshStatus: { state: 'idle' } }), {
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Screen failed: ' + (e.message || String(e)) }), {
+        status: 500, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
     }
-    return new Response(
-      JSON.stringify({ error: 'Screen failed: ' + (e.message || String(e)) }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } },
-    );
   }
 }
