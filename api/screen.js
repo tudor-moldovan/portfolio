@@ -463,30 +463,24 @@ export default async function handler(req) {
   // Mark running immediately so concurrent POSTs see it
   await setStatus(kv, { state: 'running' });
 
-  // Dynamic import so local dev / edge environments without the package
-  // fall back gracefully (we still await inline then).
+  // Start the heavy pipeline. We try waitUntil first (guarantees the
+  // function stays alive until the work completes), and fall back to
+  // fire-and-forget if the package isn't available in this runtime.
+  // Either way, we return the current cached state immediately — we
+  // never await the pipeline on the request path.
+  const work = runAndCache(req.url, kv).catch(() => {});
   try {
-    const { waitUntil } = await import('@vercel/functions');
-    waitUntil(runAndCache(req.url, kv));
-    const cached = await getCached(kv);
-    return new Response(JSON.stringify({
-      ...(cached || {}),
-      cached: !!cached,
-      refreshStatus: { state: 'running' },
-      message: 'Refresh started in background. Poll GET /api/screen for updates.',
-    }), { headers: { 'Content-Type': 'application/json', ...CORS } });
+    const mod = await import('@vercel/functions');
+    if (typeof mod.waitUntil === 'function') mod.waitUntil(work);
   } catch {
-    // No waitUntil available — run inline (may hit 60s cap but at least works locally)
-    try {
-      await runAndCache(req.url, kv);
-      const fresh = await getCached(kv);
-      return new Response(JSON.stringify({ ...(fresh || {}), cached: false, refreshStatus: { state: 'idle' } }), {
-        headers: { 'Content-Type': 'application/json', ...CORS },
-      });
-    } catch (e) {
-      return new Response(JSON.stringify({ error: 'Screen failed: ' + (e.message || String(e)) }), {
-        status: 500, headers: { 'Content-Type': 'application/json', ...CORS },
-      });
-    }
+    // No @vercel/functions in this runtime — work continues best-effort
   }
+
+  const cached = await getCached(kv);
+  return new Response(JSON.stringify({
+    ...(cached || {}),
+    cached: !!cached,
+    refreshStatus: { state: 'running' },
+    message: 'Refresh started in background. Poll GET /api/screen for updates.',
+  }), { headers: { 'Content-Type': 'application/json', ...CORS } });
 }
