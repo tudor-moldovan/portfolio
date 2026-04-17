@@ -2,7 +2,7 @@ export const config = { runtime: 'edge' };
 
 const UNIVERSE = [
   'AAPL','MSFT','NVDA','GOOGL','AMZN','META','ASML','TSM',
-  'NFLX','V','MA','COST','BRK-B','LLY','LVMUY',
+  'NFLX','V','MA','BRK-B',
   'SPY','^VIX','^TNX',
 ];
 
