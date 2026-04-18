@@ -151,12 +151,34 @@ tbody tr:hover td{background:var(--sf2)}
 .wg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd);gap:1px}
 @media(max-width:900px){.wg{grid-template-columns:repeat(2,1fr)}}
 .sec-hdr{grid-column:1/-1;background:var(--sf2);padding:9px 18px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--di)}
-.wi{background:var(--sf);padding:13px 16px;cursor:pointer;transition:.15s}
+.wi{background:var(--sf);padding:13px 16px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:4px}
 .wi:hover{background:var(--sf2)}
-.wn{font-size:10px;color:var(--di);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;font-weight:500}
+.wn{font-size:10px;color:var(--di);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.w-tickerline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ws{font-size:12px;font-weight:600;font-family:var(--mo);color:var(--ac);letter-spacing:-0.01em}
 .wp{font-size:15px;font-weight:600;font-family:var(--mo);font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 .wc{font-size:11px;font-family:var(--mo);font-variant-numeric:tabular-nums}
+/* Moat badge inside grid tile */
+.w-moat{font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-family:var(--sans)}
+.w-moat.FORTRESS{background:var(--gr2);color:var(--gr)}
+.w-moat.STRONG{background:var(--bl2);color:var(--bl)}
+.w-moat.INTACT{background:var(--go2);color:var(--go)}
+.w-moat.ERODING{background:var(--rd2);color:var(--rd)}
+.w-moat.none{background:var(--sf2);color:var(--di);border:1px solid var(--bd)}
+/* Sparkline */
+.w-spark{display:block;margin-top:2px;height:14px}
+.w-spark-empty{display:block;margin-top:2px;height:14px;background:repeating-linear-gradient(90deg,var(--bd) 0,var(--bd) 1px,transparent 1px,transparent 4px);opacity:0.3;border-radius:2px}
+.w-priceline{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+
+/* ── Daily Read banner (Claude 2-sentence morning take) ────────────── */
+.dr-panel{display:none;max-width:1360px;margin:0 auto;padding:16px 28px 0}
+.dr-panel.on{display:block}
+@media(max-width:960px){.dr-panel{padding:14px 20px 0}}
+.dr-inner{background:var(--ac2);border:1px solid var(--ac3);border-radius:var(--radius-sm);padding:13px 16px;display:flex;align-items:flex-start;gap:12px;line-height:1.55}
+.dr-mark{font-family:var(--serif);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ac);padding:3px 9px;border-radius:99px;background:var(--sf);flex-shrink:0;margin-top:1px}
+.dr-text{flex:1;font-size:14px;color:var(--tx);font-family:var(--serif);font-weight:400;letter-spacing:-0.005em}
+.dr-dismiss{background:none;border:none;color:var(--mu);cursor:pointer;font-size:20px;line-height:1;padding:0 4px;flex-shrink:0}
+.dr-dismiss:hover{color:var(--tx)}
 
 /* ── Toast ──────────────────────────────────────────────────────────── */
 .toast{position:fixed;bottom:28px;right:28px;padding:12px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;z-index:999;transform:translateY(80px);opacity:0;transition:.3s;pointer-events:none;box-shadow:var(--shadow-md)}
@@ -280,6 +302,14 @@ tbody tr:hover td{background:var(--sf2)}
   </div>
 </header>
 
+<div class="dr-panel" id="drPanel">
+  <div class="dr-inner">
+    <span class="dr-mark">Today</span>
+    <span class="dr-text" id="drText"></span>
+    <button class="dr-dismiss" onclick="dismissDailyRead()" title="Dismiss" aria-label="Dismiss">&times;</button>
+  </div>
+</div>
+
 <div class="sig-panel" id="sigPanel">
   <div class="sig-inner">
     <div class="sig-head">
@@ -382,6 +412,35 @@ function renderHeaderSpy(){
   sp.className='pill '+(idx.changePercent>=0?'up':'dn');
 }
 
+// Cached supplemental data for grid tiles (populated by background fetches)
+let moatsBySymbol={};   // {AAPL: {rating:'FORTRESS', score:85}, ...}
+let historyBySymbol={}; // {AAPL: [{d, s, pe, pos, rsi}, ...], ...}
+
+function moatBadge(sym){
+  const m=moatsBySymbol[sym];
+  if(!m||!m.rating)return '<span class="w-moat none">—</span>';
+  return `<span class="w-moat ${m.rating}" title="Moat score ${m.score}/100">${m.rating}</span>`;
+}
+
+// Tiny SVG sparkline of valuation score (0-100, lower = cheaper).
+// Color = green if trending DOWN (getting cheaper), red if trending UP (getting expensive).
+function sparkline(sym){
+  const series=historyBySymbol[sym];
+  if(!series||series.length<2)return '<div class="w-spark-empty" title="Need 2+ days of valuation history"></div>';
+  const pts=series.slice(-30); // last 30 days
+  const W=80,H=14;
+  const ys=pts.map(p=>p.s);
+  const min=Math.min(...ys),max=Math.max(...ys);
+  const range=max-min||1;
+  const sx=(i)=>(i/(pts.length-1))*W;
+  const sy=(v)=>H-1-((v-min)/range)*(H-2);
+  const d=pts.map((p,i)=>(i===0?'M':'L')+sx(i).toFixed(1)+','+sy(p.s).toFixed(1)).join('');
+  // Trend = first vs last value (higher = more expensive, so reversed for color)
+  const trendUp=ys[ys.length-1]>ys[0];
+  const color=trendUp?'var(--rd)':'var(--gr)';
+  return `<svg class="w-spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="none" title="Valuation score ${pts.length}d trend (lower = cheaper)"><path d="${d}" fill="none" stroke="${color}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
 function renderWatchlist(){
   let html='';
   for(const[sec,syms]of Object.entries(SECTORS)){
@@ -389,13 +448,68 @@ function renderWatchlist(){
     html+=syms.map(sym=>{
       const q=quotes[sym];
       const click=` onclick="analyzeStock('${sym}')"`;
-      if(!q)return`<div class="wi"${click}><div class="wn">${sym}</div><div class="ws">${sym}</div><div class="wp" style="color:var(--di)">—</div></div>`;
+      if(!q){
+        return `<div class="wi"${click}>
+          <div class="wn">${sym}</div>
+          <div class="w-tickerline"><span class="ws">${sym}</span>${moatBadge(sym)}</div>
+          <div class="w-priceline"><span class="wp" style="color:var(--di)">—</span></div>
+        </div>`;
+      }
       const cls=q.changePercent>=0?'up':'dn';
-      return`<div class="wi"${click}><div class="wn">${q.name||sym}</div><div style="display:flex;align-items:baseline;gap:6px"><div class="ws">${sym}</div><div class="wc ${cls}" style="font-size:10px">${pct(q.changePercent)}</div></div><div class="wp">$${q.price.toFixed(2)}</div></div>`;
+      return `<div class="wi"${click}>
+        <div class="wn">${q.name||sym}</div>
+        <div class="w-tickerline">
+          <span class="ws">${sym}</span>
+          <span class="wc ${cls}" style="font-size:10px">${pct(q.changePercent)}</span>
+          ${moatBadge(sym)}
+        </div>
+        <div class="w-priceline">
+          <span class="wp">$${q.price.toFixed(2)}</span>
+        </div>
+        ${sparkline(sym)}
+      </div>`;
     }).join('');
   }
   document.getElementById('wGrid').innerHTML=html;
   document.getElementById('pTime').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ── Background loaders for moats/history/dailyread ─────────────────────
+async function loadMoats(){
+  try{
+    const r=await fetch('/api/moats');
+    if(!r.ok)return;
+    const d=await r.json();
+    if(d.moats){moatsBySymbol=d.moats;renderWatchlist();}
+  }catch{}
+}
+async function loadHistory(){
+  try{
+    const r=await fetch('/api/history');
+    if(!r.ok)return;
+    const d=await r.json();
+    if(d.history){historyBySymbol=d.history;renderWatchlist();}
+  }catch{}
+}
+async function loadDailyRead(){
+  try{
+    const r=await fetch('/api/dailyread');
+    if(!r.ok)return;
+    const d=await r.json();
+    const dr=d.dailyread;
+    if(!dr||!dr.text)return;
+    // Only show if it's today's read AND not dismissed
+    const today=new Date().toISOString().slice(0,10);
+    if(dr.date!==today)return;
+    if(localStorage.getItem('dr_dismissed')===dr.date)return;
+    document.getElementById('drText').textContent=dr.text;
+    document.getElementById('drPanel').classList.add('on');
+  }catch{}
+}
+function dismissDailyRead(){
+  const today=new Date().toISOString().slice(0,10);
+  localStorage.setItem('dr_dismissed',today);
+  document.getElementById('drPanel').classList.remove('on');
 }
 function analyzeStock(sym){
   document.getElementById('intelSym').value=sym;
@@ -657,6 +771,11 @@ loadLatestScan();
 loadMacro();
 loadValuation();
 setInterval(loadValuation,5*60*1000); // refresh every 5 min
+// Daily-cron-populated data: moat ratings, valuation history, Claude daily read.
+// All read from KV → instant. If empty (cron hasn't run yet), tiles degrade gracefully.
+loadMoats();
+loadHistory();
+loadDailyRead();
 // Log deployed version so we can confirm the browser isn't on a stale HTML
 fetch('/api/version').then(r=>r.json()).then(v=>{
   console.log('%cMoat Portfolio','color:#d97757;font-weight:bold;font-size:14px','build',v.shaShort,'@',v.region);

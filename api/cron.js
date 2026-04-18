@@ -1,18 +1,31 @@
-export const config = { runtime: 'edge' };
+import { runValuation, TICKERS as VAL_TICKERS } from './_lib/valuation.js';
+import { getFundamentalsWithCache } from './_lib/moat.js';
 
-const UNIVERSE = [
+export const config = { maxDuration: 60 };
+
+const SCAN_UNIVERSE = [
   'AAPL','MSFT','NVDA','GOOGL','AMZN','META','ASML','TSM',
   'NFLX','V','MA','BRK-B',
   'SPY','^VIX','^TNX',
 ];
 
-async function fetchQuote(symbol) {
+const YF_HEADERS = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' };
+
+// ── KV (Upstash auto-parses JSON on get; normalize) ────────────────────
+async function getKV() {
+  try { return (await import('@vercel/kv')).kv; } catch { return null; }
+}
+function safeParse(v, fallback) {
+  if (v == null) return fallback;
+  if (typeof v === 'string') { try { return JSON.parse(v); } catch { return fallback; } }
+  return v;
+}
+
+// ── Step 1: Daily Market Scan (existing logic, slightly cleaned up) ────
+async function fetchScanQuote(symbol) {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=3mo&includePrePost=false`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
-      signal: AbortSignal.timeout(6000),
-    });
+    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     const data = await res.json();
     const result = data.chart?.result?.[0];
@@ -21,13 +34,8 @@ async function fetchQuote(symbol) {
     const closes = (result.indicators?.quote?.[0]?.close || []).filter(c => c != null);
     const price = meta.regularMarketPrice;
     const prev = meta.previousClose || price;
-
-    const sma20 = closes.length >= 20
-      ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : null;
-    const sma50 = closes.length >= 50
-      ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : null;
-
-    // Wilder's RSI
+    const sma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : null;
+    const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : null;
     let rsi = null;
     if (closes.length >= 15) {
       let avgGain = 0, avgLoss = 0;
@@ -43,10 +51,8 @@ async function fetchQuote(symbol) {
       }
       rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
     }
-
     const high52 = closes.length ? closes.reduce((a, b) => Math.max(a, b)) : null;
     const low52 = closes.length ? closes.reduce((a, b) => Math.min(a, b)) : null;
-
     return {
       symbol, price, name: meta.shortName || symbol,
       changePercent: prev ? ((price - prev) / prev) * 100 : 0,
@@ -58,19 +64,12 @@ async function fetchQuote(symbol) {
   } catch { return null; }
 }
 
-// ── KV storage ──────────────────────────────────────────────────────────
-async function getKV() {
-  try { return (await import('@vercel/kv')).kv; } catch { return null; }
-}
-
-// ── Webhook notification ────────────────────────────────────────────────
 async function sendWebhook(scan) {
   const url = process.env.WEBHOOK_URL;
   if (!url) return;
-  const signalCount = scan.signals.oversold.length + scan.signals.overbought.length +
+  const sigCount = scan.signals.oversold.length + scan.signals.overbought.length +
     scan.signals.breakouts.length + scan.signals.breakdowns.length;
-  if (signalCount === 0) return; // don't notify on quiet days
-
+  if (sigCount === 0) return;
   const lines = [`📊 Daily Market Scan — ${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`];
   lines.push(`Scanned ${scan.totalScanned} stocks`);
   if (scan.vix) lines.push(`VIX: ${scan.vix} (${scan.regime})`);
@@ -78,7 +77,6 @@ async function sendWebhook(scan) {
   if (scan.signals.overbought.length) lines.push(`🔴 Overbought: ${scan.signals.overbought.map(s => s.symbol + ' RSI=' + s.rsi).join(', ')}`);
   if (scan.signals.breakouts.length) lines.push(`⬆️ Breakouts: ${scan.signals.breakouts.map(s => s.symbol + ' ' + s.change).join(', ')}`);
   if (scan.signals.breakdowns.length) lines.push(`⬇️ Breakdowns: ${scan.signals.breakdowns.map(s => s.symbol + ' ' + s.change).join(', ')}`);
-
   try {
     await fetch(url, {
       method: 'POST',
@@ -89,28 +87,19 @@ async function sendWebhook(scan) {
   } catch {}
 }
 
-export default async function handler(req) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  const results = await Promise.allSettled(UNIVERSE.map(s => fetchQuote(s)));
+async function stepScan(kv) {
+  const results = await Promise.allSettled(SCAN_UNIVERSE.map(s => fetchScanQuote(s)));
   const quotes = results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
-
   const oversold = quotes.filter(q => q.rsi != null && q.rsi < 30);
   const overbought = quotes.filter(q => q.rsi != null && q.rsi > 70);
   const breakouts = quotes.filter(q => q.aboveSma20 && q.changePercent > 1.5);
   const breakdowns = quotes.filter(q => q.aboveSma20 === false && q.changePercent < -1.5);
-
   const vixQuote = quotes.find(q => q.symbol === '^VIX');
   const spyQuote = quotes.find(q => q.symbol === 'SPY');
   const regime = !vixQuote ? 'UNKNOWN' :
     vixQuote.price < 15 ? (spyQuote?.aboveSma20 ? 'RISK_ON' : 'NORMAL') :
     vixQuote.price < 25 ? 'NORMAL' :
     vixQuote.price < 35 ? 'CAUTIOUS' : 'RISK_OFF';
-
   const scan = {
     timestamp: new Date().toISOString(),
     totalScanned: quotes.length,
@@ -127,27 +116,196 @@ export default async function handler(req) {
     summary: `Scanned ${quotes.length} stocks. ${oversold.length} oversold, ${overbought.length} overbought, ${breakouts.length} breakouts, ${breakdowns.length} breakdowns. Regime: ${regime}.`,
   };
 
-  // Store in KV for frontend to pick up
-  const kv = await getKV();
   if (kv) {
     try {
       await kv.set('latest_scan', JSON.stringify(scan));
-      // Keep last 30 days of scans. Upstash auto-parses JSON on get,
-      // so normalize whatever shape we get back.
       const raw = await kv.get('scan_history');
-      let history = [];
-      if (Array.isArray(raw)) history = raw;
-      else if (typeof raw === 'string') { try { history = JSON.parse(raw); } catch {} }
-      history.push({ date: scan.timestamp.slice(0, 10), regime, signals: scan.signals, vix: scan.vix });
-      if (history.length > 30) history.splice(0, history.length - 30);
-      await kv.set('scan_history', JSON.stringify(history));
+      const history = safeParse(raw, []);
+      const hist = Array.isArray(history) ? history : [];
+      hist.push({ date: scan.timestamp.slice(0, 10), regime, signals: scan.signals, vix: scan.vix });
+      if (hist.length > 30) hist.splice(0, hist.length - 30);
+      await kv.set('scan_history', JSON.stringify(hist));
     } catch {}
   }
 
-  // Send webhook notification
   await sendWebhook(scan);
+  return scan;
+}
 
-  return new Response(JSON.stringify(scan), {
+// ── Step 2: Warm moats — fetch fundamentals for all 12, write moats:all ─
+async function stepWarmMoats(kv) {
+  if (!kv) return { warmed: 0 };
+  const moatTickers = VAL_TICKERS;
+  const settled = await Promise.allSettled(
+    moatTickers.map(t => getFundamentalsWithCache(t, kv).catch(() => null)),
+  );
+  const moats = {};
+  for (let i = 0; i < moatTickers.length; i++) {
+    const r = settled[i];
+    const sym = moatTickers[i];
+    if (r.status === 'fulfilled' && r.value?.moat) {
+      moats[sym] = {
+        rating: r.value.moat.rating,
+        score: r.value.moat.moatScore,
+        ts: new Date().toISOString().slice(0, 10),
+      };
+    } else {
+      moats[sym] = { rating: null, score: null, ts: new Date().toISOString().slice(0, 10) };
+    }
+  }
+  try { await kv.set('moats:all', JSON.stringify(moats), { ex: 30 * 24 * 3600 }); } catch {}
+  return { warmed: Object.values(moats).filter(m => m.rating).length };
+}
+
+// ── Step 3: Snapshot valuation history — append today's score per stock ─
+async function stepSnapHistory(kv) {
+  if (!kv) return { snapped: 0 };
+  let valuation;
+  try { valuation = await runValuation(); } catch (e) { return { error: e.message }; }
+  const today = new Date().toISOString().slice(0, 10);
+  const raw = await kv.get('history:valuation');
+  const history = safeParse(raw, {}) || {};
+  for (const s of (valuation.all || [])) {
+    if (!history[s.symbol]) history[s.symbol] = [];
+    // Replace today's entry if it exists (idempotent re-runs)
+    const existingIdx = history[s.symbol].findIndex(p => p.d === today);
+    const entry = {
+      d: today,
+      s: Math.round(s.valuationScore * 10) / 10,
+      pe: s.trailingPE != null ? Math.round(s.trailingPE * 10) / 10 : null,
+      pos: s.fiftyTwoWeekPosition != null ? Math.round(s.fiftyTwoWeekPosition) : null,
+      rsi: s.rsi != null ? Math.round(s.rsi) : null,
+    };
+    if (existingIdx >= 0) history[s.symbol][existingIdx] = entry;
+    else history[s.symbol].push(entry);
+    // Cap at 90 days
+    if (history[s.symbol].length > 90) history[s.symbol] = history[s.symbol].slice(-90);
+  }
+  try { await kv.set('history:valuation', JSON.stringify(history), { ex: 180 * 24 * 3600 }); } catch {}
+  return { snapped: Object.keys(history).length, valuation };
+}
+
+// ── Step 4: Claude daily read — 2 sentences for the page banner ────────
+async function stepDailyRead(kv, scan, valuation) {
+  if (!kv) return { skipped: true };
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { skipped: 'no key' };
+
+  const top = (valuation?.undervalued || []).slice(0, 3).map(s => `${s.symbol} (${s.label})`).join(', ');
+  const bottom = (valuation?.overvalued || []).slice(0, 3).map(s => `${s.symbol} (${s.label})`).join(', ');
+  const sigs = scan?.signals || {};
+  const sigSummary = [
+    sigs.oversold?.length ? `${sigs.oversold.length} oversold` : null,
+    sigs.overbought?.length ? `${sigs.overbought.length} overbought` : null,
+    sigs.breakouts?.length ? `${sigs.breakouts.length} breakout` : null,
+    sigs.breakdowns?.length ? `${sigs.breakdowns.length} breakdown` : null,
+  ].filter(Boolean).join(', ') || 'no notable signals';
+
+  const userMsg = `Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.
+
+Universe: 12 elite moat compounders (AAPL, MSFT, GOOGL, AMZN, META, NVDA, ASML, TSM, V, MA, NFLX, BRK-B).
+
+Macro: VIX ${scan?.vix || '?'} (${scan?.regime || 'unknown regime'}), 10Y ${scan?.tnx || '?'}%.
+
+Today's signals: ${sigSummary}.
+
+Most undervalued (lowest valuation score): ${top || 'none flagged'}.
+Most overvalued (highest valuation score): ${bottom || 'none flagged'}.
+
+In 2 sentences MAX, what's the most interesting move/insight in the universe today? Be specific (cite a ticker and a number). No fluff, no disclaimers, no bullet points. Just 2 sentences.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: userMsg }],
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return { error: 'Claude ' + res.status };
+    const data = await res.json();
+    const text = data.content?.find(b => b.type === 'text')?.text?.trim() || '';
+    if (!text) return { error: 'empty response' };
+    const payload = {
+      date: new Date().toISOString().slice(0, 10),
+      generatedAt: new Date().toISOString(),
+      text,
+    };
+    try { await kv.set('claude:dailyread', JSON.stringify(payload), { ex: 7 * 24 * 3600 }); } catch {}
+    return payload;
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+// ── Handler ─────────────────────────────────────────────────────────────
+// Defensive header access: nodejs functions on Vercel can present `req`
+// either as a Web Request (headers.get(...)) or a Node IncomingMessage
+// (headers.authorization). Handle both so the function can't 500 at the
+// auth check.
+function getHeader(req, name) {
+  if (typeof req?.headers?.get === 'function') return req.headers.get(name);
+  return req?.headers?.[name.toLowerCase()] ?? null;
+}
+
+export default async function handler(req) {
+  const authHeader = getHeader(req, 'authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  const kv = await getKV();
+  const t0 = Date.now();
+  const result = { steps: {} };
+
+  // Step 1: scan (always)
+  try {
+    const scan = await stepScan(kv);
+    result.steps.scan = { ok: true, ms: Date.now() - t0, totalScanned: scan.totalScanned, regime: scan.regime };
+    result.scan = scan;
+  } catch (e) {
+    result.steps.scan = { ok: false, error: e.message };
+  }
+
+  // Step 2: warm moats
+  const t1 = Date.now();
+  try {
+    const r = await stepWarmMoats(kv);
+    result.steps.moats = { ok: true, ms: Date.now() - t1, ...r };
+  } catch (e) {
+    result.steps.moats = { ok: false, error: e.message };
+  }
+
+  // Step 3: snapshot valuation history
+  const t2 = Date.now();
+  let valuation = null;
+  try {
+    const r = await stepSnapHistory(kv);
+    valuation = r.valuation;
+    result.steps.history = { ok: true, ms: Date.now() - t2, snapped: r.snapped };
+  } catch (e) {
+    result.steps.history = { ok: false, error: e.message };
+  }
+
+  // Step 4: Claude daily read (uses scan + valuation from above)
+  const t3 = Date.now();
+  try {
+    const r = await stepDailyRead(kv, result.scan, valuation);
+    result.steps.dailyread = { ok: !r.error, ms: Date.now() - t3, ...r };
+  } catch (e) {
+    result.steps.dailyread = { ok: false, error: e.message };
+  }
+
+  result.totalMs = Date.now() - t0;
+  return new Response(JSON.stringify(result), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
