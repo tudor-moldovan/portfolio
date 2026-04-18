@@ -260,15 +260,6 @@ tbody tr:hover td{background:var(--sf2)}
 .lookup button{background:var(--ac2);border:1px solid var(--ac3);color:var(--ac);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
 .lookup button:hover{background:var(--ac);color:#fff}
 
-/* ── DCF inputs ─────────────────────────────────────────────────────── */
-.dcf-inputs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.dcf-inputs label{font-size:10px;color:var(--di);display:flex;flex-direction:column;gap:4px;text-transform:uppercase;letter-spacing:.1em;font-weight:600}
-.dcf-inputs input{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);padding:6px 10px;border-radius:6px;font-size:13px;font-family:var(--mo);width:80px;font-variant-numeric:tabular-nums}
-.dcf-result{font-family:var(--mo);font-size:20px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
-.dcf-result.under{color:var(--gr)}
-.dcf-result.fair{color:var(--tx)}
-.dcf-result.over{color:var(--rd)}
-
 /* ── Mobile refinements ─────────────────────────────────────────────── */
 @media(max-width:600px){
   header{padding:12px 16px;gap:10px;flex-wrap:wrap}
@@ -335,7 +326,6 @@ tbody tr:hover td{background:var(--sf2)}
       <div class="lookup">
         <input type="text" id="intelSym" placeholder="Ticker" maxlength="6" onkeydown="if(event.key==='Enter')loadIntel()">
         <button onclick="loadIntel()">Analyze</button>
-        <button onclick="loadDCF()" style="background:var(--sf2);border-color:var(--bd);color:var(--mu)" onmouseenter="this.style.color='var(--tx)';this.style.borderColor='var(--bd2)'" onmouseleave="this.style.color='var(--mu)';this.style.borderColor='var(--bd)'">DCF</button>
         <span style="font-size:11px;color:var(--di)" id="intelStatus"></span>
       </div>
       <div id="intelBody"></div>
@@ -756,31 +746,6 @@ async function loadIntel(){
     document.getElementById('intelStatus').textContent='';
     document.getElementById('intelBody').innerHTML='<div style="padding:20px;color:var(--rd);font-size:12px">Error: '+e.message+'</div>';
   }
-}
-
-// ── DCF Calculator ──────────────────────────────────────────────────────
-async function loadDCF(){
-  const sym=(document.getElementById('intelSym').value||'').trim().toUpperCase();
-  if(!sym){toast('Enter a ticker',false);return;}
-  document.getElementById('intelStatus').textContent='Running DCF...';
-  try{
-    const r=await fetch('/api/dcf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:sym})});
-    const d=await r.json();
-    if(!r.ok||d.error){document.getElementById('intelStatus').textContent=d.error||'Failed';return;}
-    document.getElementById('intelStatus').textContent='';
-    const vc=d.verdict==='UNDERVALUED'?'under':d.verdict==='OVERVALUED'?'over':'fair';
-    let html='<div style="padding:0 18px 18px">';
-    html+=`<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px"><span style="font-size:12px;color:var(--mu)">${d.name} (${d.symbol})</span><span style="font-size:12px;color:var(--di)">Current: $${d.currentPrice?.toFixed(2)||'?'}</span></div>`;
-    if(d.fairValue){
-      html+=`<div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:11px;color:var(--di)">Fair Value:</span><span class="dcf-result ${vc}">$${d.fairValue.toFixed(2)}</span><span style="font-size:13px" class="${vc==='under'?'up':vc==='over'?'dn':'nt'}">${d.upside} ${d.verdict?.replace('_',' ')}</span></div>`;
-    }else{
-      html+='<div style="color:var(--di);font-size:12px">Could not compute DCF — no free cash flow data available</div>';
-    }
-    html+=`<div style="margin-top:12px;font-size:11px;color:var(--di)">Assumptions: ${(d.assumptions.growthRate*100).toFixed(0)}% growth, ${(d.assumptions.terminalGrowth*100).toFixed(0)}% terminal, ${(d.assumptions.discountRate*100).toFixed(0)}% discount, ${d.assumptions.years}yr</div>`;
-    if(d.freeCashFlow)html+=`<div style="font-size:11px;color:var(--di);margin-top:4px">FCF: $${(d.freeCashFlow/1e9).toFixed(2)}B | Margins: ${d.profitMargins?(d.profitMargins*100).toFixed(0)+'%':'?'} | D/E: ${d.debtToEquity?.toFixed(0)||'?'}</div>`;
-    html+='</div>';
-    document.getElementById('intelBody').innerHTML=html;
-  }catch(e){document.getElementById('intelStatus').textContent='Error';}
 }
 
 // ── Macro Dashboard ─────────────────────────────────────────────────────

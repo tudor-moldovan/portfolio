@@ -1,4 +1,4 @@
-import { getFundamentalsWithCache } from '../lib/moat.js';
+import { getFundamentalsWithCache } from './_lib/moat.js';
 
 export const config = { runtime: 'edge' };
 

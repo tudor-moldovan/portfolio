@@ -1,4 +1,4 @@
-import { getFundamentalsWithCache } from '../lib/moat.js';
+import { getFundamentalsWithCache } from './_lib/moat.js';
 
 export const config = { maxDuration: 60 };
 
@@ -454,9 +454,23 @@ async function combineCached(kv) {
 }
 
 export default async function handler(req) {
+  try {
+    return await routeRequest(req);
+  } catch (e) {
+    // Last-resort catch: anything that escapes the handler becomes a
+    // clean JSON 500 instead of Vercel's generic FUNCTION_INVOCATION_FAILED.
+    return new Response(JSON.stringify({
+      error: 'Unhandled: ' + (e?.message || String(e)),
+      stack: (e?.stack || '').split('\n').slice(0, 4),
+    }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
+}
+
+async function routeRequest(req) {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
-  const url = new URL(req.url);
+  // Defensive URL parse — Node runtime sometimes gives relative paths
+  const url = new URL(req.url, 'http://localhost');
   const step = url.searchParams.get('step');
 
   if (req.method === 'GET') {
