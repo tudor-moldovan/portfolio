@@ -1,5 +1,3 @@
-import { getFundamentalsWithCache } from './_lib/moat.js';
-
 export const config = { maxDuration: 60 };
 
 const CORS = {
@@ -103,14 +101,13 @@ async function fetchChart(symbol) {
   } catch { return null; }
 }
 
-// In-process fundamentals fetch with KV cache (24h TTL).
-// No HTTP self-call — that was causing the screener 504s on cold starts.
-async function enrichStock(symbol, kv) {
-  const [chart, fund] = await Promise.all([
-    fetchChart(symbol),
-    getFundamentalsWithCache(symbol, kv).catch(() => null),
-  ]);
-  return { symbol, sector: UNIVERSE[symbol], chart, fund };
+// Chart-only enrichment. Skipping the fundamentals roundtrip is what
+// keeps the screener under Vercel's 60s cap reliably — fundamentals
+// (FMP + Yahoo fallbacks for 12 tickers) was the actual bottleneck.
+// For deep-dive moat scoring with real fundamentals, use Stock Intel.
+async function enrichStock(symbol) {
+  const chart = await fetchChart(symbol);
+  return { symbol, sector: UNIVERSE[symbol], chart, fund: null };
 }
 
 // ── Peer P/E context (within universe sector) ──────────────────────────
@@ -190,22 +187,22 @@ function buildStockBlock(s, peerAvg) {
   return lines.join('\n');
 }
 
-const SYSTEM_PROMPT = `You are a senior equity analyst covering elite moat compounders. For each stock in the batch, produce a concise research assessment.
+const SYSTEM_PROMPT = `You are a senior equity analyst covering elite moat compounders. For each stock in the batch, produce a concise research assessment combining the live price/technical data provided with your knowledge of the company.
 
 For EACH stock, decide:
-1. MOAT HEALTH — STRENGTHENING, STABLE, or WEAKENING. Use the quant moat score as baseline. Name the moat type (scale economies / network effect / switching costs / regulatory / brand).
-2. FUNDAMENTALS — IMPROVING / STABLE / DETERIORATING. Cite specific numbers.
-3. VALUATION — use vs-history and vs-peers signals. UNDERVALUED / FAIR / RICH / OVERVALUED.
+1. MOAT HEALTH — STRENGTHENING, STABLE, or WEAKENING. Use your knowledge of the company's competitive position. Name the moat type (scale economies / network effect / switching costs / regulatory / brand).
+2. FUNDAMENTALS — IMPROVING / STABLE / DETERIORATING. Cite recent revenue/margin trends from your training knowledge.
+3. VALUATION — combine the 52-week position, RSI, and SMA trend with what you know of the company's typical valuation multiples. UNDERVALUED / FAIR / RICH / OVERVALUED.
 4. VERDICT — combine: BUY_ZONE / ACCUMULATE / HOLD / WATCH / AVOID.
 5. ENTRY ZONE — $X - $Y price range where this is a clear buy.
 
 RULES:
-- Never invent numbers. Cite only what's in the data.
-- Be specific: "gross margin expanded from 38% to 44%" not "strong margins".
-- BUY_ZONE requires: moat STRENGTHENING or STABLE + valuation cheap vs history or peers.
+- Anchor numbers in the live data when given (price, RSI, 52wk position).
+- For fundamentals you cite, frame as "historically" or "recent quarters" — be honest about temporal scope.
+- BUY_ZONE requires: moat STRENGTHENING or STABLE + technical setup CHEAP (low 52wk position OR oversold RSI).
 
 Respond with ONLY valid JSON matching this schema exactly:
-{"stocks":[{"symbol":"TICKER","moatRating":"FORTRESS|STRONG|INTACT|ERODING","moatType":"<1-3 words>","moatHealth":"STRENGTHENING|STABLE|WEAKENING","moatThesis":"<1 sentence with numbers>","fundamentalsVerdict":"IMPROVING|STABLE|DETERIORATING","fundamentalsNote":"<1 sentence with numbers>","valuationVerdict":"UNDERVALUED|FAIR|RICH|OVERVALUED","valuationNote":"<1-2 sentences>","verdict":"BUY_ZONE|ACCUMULATE|HOLD|WATCH|AVOID","convictionScore":<1-10>,"thesis":"<2 sentences>","bullCase":"<1 sentence>","bearCase":"<1 sentence>","entryZone":"$X - $Y","keyRisk":"<1 sentence>","catalyst":"<1 sentence>"}]}`;
+{"stocks":[{"symbol":"TICKER","moatRating":"FORTRESS|STRONG|INTACT|ERODING","moatType":"<1-3 words>","moatHealth":"STRENGTHENING|STABLE|WEAKENING","moatThesis":"<1 sentence>","fundamentalsVerdict":"IMPROVING|STABLE|DETERIORATING","fundamentalsNote":"<1 sentence>","valuationVerdict":"UNDERVALUED|FAIR|RICH|OVERVALUED","valuationNote":"<1-2 sentences>","verdict":"BUY_ZONE|ACCUMULATE|HOLD|WATCH|AVOID","convictionScore":<1-10>,"thesis":"<2 sentences>","bullCase":"<1 sentence>","bearCase":"<1 sentence>","entryZone":"$X - $Y","keyRisk":"<1 sentence>","catalyst":"<1 sentence>"}]}`;
 
 async function analyzeBatch(stockBlocks, macroContext, apiKey) {
   const userMsg = `Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -352,7 +349,7 @@ async function fetchMacro() {
 // ── Step 1: Fetch raw market data for all 12 stocks + macro context ───
 async function stepFetchData(kv) {
   const [stocks, macroContext] = await Promise.all([
-    Promise.all(TICKERS.map(t => enrichStock(t, kv))),
+    Promise.all(TICKERS.map(t => enrichStock(t))),
     fetchMacro(),
   ]);
   const valid = stocks.filter(s => s.chart?.price);
