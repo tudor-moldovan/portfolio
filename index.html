@@ -498,17 +498,31 @@ async function loadDailyRead(){
     const d=await r.json();
     const dr=d.dailyread;
     if(!dr||!dr.text)return;
-    // Only show if it's today's read AND not dismissed
-    const today=new Date().toISOString().slice(0,10);
-    if(dr.date!==today)return;
-    if(localStorage.getItem('dr_dismissed')===dr.date)return;
+    // Show the read if it was generated in the last ~36h. Strict
+    // 'today only' was hiding the banner during the pre-14:30 UTC
+    // window each day and on days cron is delayed.
+    if(dr.generatedAt){
+      const ageMs=Date.now()-new Date(dr.generatedAt).getTime();
+      if(ageMs>36*3600*1000)return;
+    }
+    // Per-read dismissal (by generatedAt timestamp) so a dismissed
+    // read stays dismissed but tomorrow's shows up.
+    const dismissKey=dr.generatedAt||dr.date;
+    if(localStorage.getItem('dr_dismissed')===dismissKey)return;
     document.getElementById('drText').textContent=dr.text;
+    // Show relative age in the banner so stale reads are honest
+    const mark=document.querySelector('.dr-mark');
+    if(mark&&dr.generatedAt){
+      const hrs=Math.round((Date.now()-new Date(dr.generatedAt).getTime())/3600000);
+      mark.textContent=hrs<2?'Today':(hrs<24?`${hrs}h ago`:'Yesterday');
+    }
     document.getElementById('drPanel').classList.add('on');
+    document.getElementById('drPanel').dataset.dismissKey=dismissKey;
   }catch{}
 }
 function dismissDailyRead(){
-  const today=new Date().toISOString().slice(0,10);
-  localStorage.setItem('dr_dismissed',today);
+  const key=document.getElementById('drPanel').dataset.dismissKey||new Date().toISOString().slice(0,10);
+  localStorage.setItem('dr_dismissed',key);
   document.getElementById('drPanel').classList.remove('on');
 }
 function analyzeStock(sym){
