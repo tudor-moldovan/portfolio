@@ -1,13 +1,6 @@
-export const config = { maxDuration: 60 };
+import { getFundamentalsWithCache } from '../lib/moat.js';
 
-// Static import so waitUntil is available synchronously when the POST
-// handler returns. Falls back to a no-op if the package isn't present
-// (keeps local dev / non-Vercel envs working).
-let _waitUntil = null;
-try {
-  _waitUntil = (await import('@vercel/functions')).waitUntil;
-} catch {}
-const waitUntil = _waitUntil || (() => {});
+export const config = { maxDuration: 60 };
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,8 +23,11 @@ const UNIVERSE = {
 };
 const TICKERS = Object.keys(UNIVERSE);
 const CACHE_KEY = 'screener_v1';
+const STATUS_KEY = CACHE_KEY + ':status';
+const DATA_KEY = 'screener:data';
+const BATCH_KEY = (n) => `screener:batch:${n}`;
 
-// ── KV helpers (graceful if KV isn't configured) ────────────────────────
+// ── KV helpers ─────────────────────────────────────────────────────────
 async function getKV() {
   try { return (await import('@vercel/kv')).kv; } catch { return null; }
 }
@@ -43,9 +39,17 @@ async function getCached(kv) {
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   } catch { return null; }
 }
-async function setCached(kv, data) {
+async function setStatus(kv, status) {
   if (!kv) return;
-  try { await kv.set(CACHE_KEY, JSON.stringify(data), { ex: 7 * 24 * 3600 }); } catch {}
+  try { await kv.set(STATUS_KEY, JSON.stringify({ ...status, updatedAt: new Date().toISOString() }), { ex: 3600 }); } catch {}
+}
+async function getStatus(kv) {
+  if (!kv) return null;
+  try {
+    const raw = await kv.get(STATUS_KEY);
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch { return null; }
 }
 
 // ── Technical indicators ────────────────────────────────────────────────
@@ -99,17 +103,13 @@ async function fetchChart(symbol) {
   } catch { return null; }
 }
 
-async function fetchFundamentals(symbol, reqUrl) {
-  try {
-    const origin = new URL(reqUrl).origin;
-    const res = await fetch(`${origin}/api/fundamentals?symbol=${symbol}`, { signal: AbortSignal.timeout(12000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
-}
-
-async function enrichStock(symbol, reqUrl) {
-  const [chart, fund] = await Promise.all([fetchChart(symbol), fetchFundamentals(symbol, reqUrl)]);
+// In-process fundamentals fetch with KV cache (24h TTL).
+// No HTTP self-call — that was causing the screener 504s on cold starts.
+async function enrichStock(symbol, kv) {
+  const [chart, fund] = await Promise.all([
+    fetchChart(symbol),
+    getFundamentalsWithCache(symbol, kv).catch(() => null),
+  ]);
   return { symbol, sector: UNIVERSE[symbol], chart, fund };
 }
 
@@ -350,9 +350,9 @@ async function fetchMacro() {
 }
 
 // ── Step 1: Fetch raw market data for all 12 stocks + macro context ───
-async function stepFetchData(reqUrl, kv) {
+async function stepFetchData(kv) {
   const [stocks, macroContext] = await Promise.all([
-    Promise.all(TICKERS.map(t => enrichStock(t, reqUrl))),
+    Promise.all(TICKERS.map(t => enrichStock(t, kv))),
     fetchMacro(),
   ]);
   const valid = stocks.filter(s => s.chart?.price);
@@ -453,24 +453,6 @@ async function combineCached(kv) {
   };
 }
 
-// ── KV keys ─────────────────────────────────────────────────────────────
-const STATUS_KEY = CACHE_KEY + ':status';
-const DATA_KEY = 'screener:data';
-const BATCH_KEY = (n) => `screener:batch:${n}`;
-
-async function setStatus(kv, status) {
-  if (!kv) return;
-  try { await kv.set(STATUS_KEY, JSON.stringify({ ...status, updatedAt: new Date().toISOString() }), { ex: 3600 }); } catch {}
-}
-async function getStatus(kv) {
-  if (!kv) return null;
-  try {
-    const raw = await kv.get(STATUS_KEY);
-    if (!raw) return null;
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
-  } catch { return null; }
-}
-
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
@@ -484,7 +466,6 @@ export default async function handler(req) {
       combineCached(kv),
       getStatus(kv),
     ]);
-    // Prefer freshly combined data; fall back to old single-blob cache
     const body = combined || legacyCached || null;
     if (!body) {
       return new Response(JSON.stringify({
@@ -505,13 +486,18 @@ export default async function handler(req) {
     return new Response('Method not allowed', { status: 405, headers: CORS });
   }
 
-  // POST — explicit step, runs synchronously (each step is small enough)
+  // POST requires an explicit step — no more legacy background path.
+  if (!step) {
+    return new Response(JSON.stringify({
+      error: 'POST requires ?step=data or ?step=batch&n=0|1|2. The frontend should orchestrate the steps.',
+    }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
+
   const kv = await getKV();
   try {
     if (step === 'data') {
       await setStatus(kv, { state: 'fetching-data' });
-      const data = await stepFetchData(req.url, kv);
-      // Invalidate any cached batches now that data has changed
+      const data = await stepFetchData(kv);
       if (kv) await Promise.all([0, 1, 2].map(n => kv.del(BATCH_KEY(n)).catch(() => {})));
       await setStatus(kv, { state: 'data-ready', dataTimestamp: data.timestamp });
       return new Response(JSON.stringify({
@@ -527,7 +513,6 @@ export default async function handler(req) {
         });
       }
       const batch = await stepAnalyzeBatch(n, kv);
-      // After each batch, refresh status with progress
       const combined = await combineCached(kv);
       const ready = combined?.batchesReady || 0;
       const total = combined?.batchesTotal || 3;
@@ -539,36 +524,13 @@ export default async function handler(req) {
       }), { headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
-    // No explicit step — kick off all steps in background (legacy)
-    fireFullRefresh(req.url, kv);
-    return new Response(JSON.stringify({
-      refreshStatus: { state: 'running' },
-      message: 'Background refresh started. Use ?step=data and ?step=batch&n=N for explicit control.',
-    }), { status: 202, headers: { 'Content-Type': 'application/json', ...CORS } });
+    return new Response(JSON.stringify({ error: 'Unknown step: ' + step }), {
+      status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+    });
   } catch (e) {
     await setStatus(kv, { state: 'error', error: e.message || String(e) });
     return new Response(JSON.stringify({ error: (e.message || String(e)) }), {
       status: 500, headers: { 'Content-Type': 'application/json', ...CORS },
     });
   }
-}
-
-// Background full refresh (legacy POST without step) — runs all steps server-side
-function fireFullRefresh(reqUrl, kv) {
-  const work = (async () => {
-    if (!kv) return;
-    await setStatus(kv, { state: 'fetching-data' });
-    try {
-      await stepFetchData(reqUrl, kv);
-      await Promise.all([0, 1, 2].map(n => kv.del(BATCH_KEY(n)).catch(() => {})));
-      await setStatus(kv, { state: 'analyzing', batchesReady: 0, batchesTotal: 3 });
-      await Promise.all([0, 1, 2].map(n => stepAnalyzeBatch(n, kv).catch(() => {})));
-      const combined = await combineCached(kv);
-      await setStatus(kv, { state: 'idle', lastSuccessAt: combined?.timestamp });
-    } catch (e) {
-      await setStatus(kv, { state: 'error', error: e.message || String(e) });
-    }
-  })();
-  try { waitUntil(work); } catch {}
-  work.catch(() => {});
 }
