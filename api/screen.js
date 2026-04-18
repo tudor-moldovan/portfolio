@@ -349,61 +349,114 @@ async function fetchMacro() {
   return lines.length ? lines.map(l => '  ' + l).join('\n') : '  (unavailable)';
 }
 
-async function runScreener(reqUrl) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured.');
-
+// ── Step 1: Fetch raw market data for all 12 stocks + macro context ───
+async function stepFetchData(reqUrl, kv) {
   const [stocks, macroContext] = await Promise.all([
     Promise.all(TICKERS.map(t => enrichStock(t, reqUrl))),
     fetchMacro(),
   ]);
-
   const valid = stocks.filter(s => s.chart?.price);
-  if (valid.length === 0) throw new Error('Could not fetch market data for any ticker.');
+  if (valid.length === 0) throw new Error('No live prices fetched.');
 
-  const ranked = await rankUniverse(valid, macroContext, apiKey);
+  // Pre-compute per-stock context blocks so the analyze step is pure Claude
+  const peerAvg = computePeerContext(valid);
+  const blocks = valid.map(s => ({ symbol: s.symbol, block: buildStockBlock(s, peerAvg) }));
 
-  const byClaudeSymbol = {};
-  for (const s of (ranked.stocks || [])) byClaudeSymbol[s.symbol] = s;
-
-  const output = valid.map(s => {
-    const c = s.chart || {};
-    const f = s.fund || {};
-    const claude = byClaudeSymbol[s.symbol] || {};
-    return {
+  const dataPayload = {
+    timestamp: new Date().toISOString(),
+    macroContext,
+    regime: deriveRegime(macroContext),
+    blocks, // [{symbol, block: '...formatted text...'}, ...]
+    stocks: valid.map(s => ({
       symbol: s.symbol,
       sector: s.sector,
-      name: c.name || f.name || s.symbol,
-      price: c.price,
-      changePercent: c.changePercent,
-      high52: c.high52,
-      low52: c.low52,
-      fiftyTwoWeekPosition: c.fiftyTwoWeekPosition,
-      rsi: c.rsi,
-      sma50: c.sma50,
-      sma200: c.sma200,
-      yearReturn: c.yearReturn,
-      marketCap: c.marketCap,
-      moatScore: f.moat?.moatScore || null,
-      moatComponents: f.moat?.components || null,
-      ...claude,
-    };
-  });
+      name: s.chart?.name || s.fund?.name || s.symbol,
+      price: s.chart?.price,
+      changePercent: s.chart?.changePercent,
+      high52: s.chart?.high52,
+      low52: s.chart?.low52,
+      fiftyTwoWeekPosition: s.chart?.fiftyTwoWeekPosition,
+      rsi: s.chart?.rsi,
+      sma50: s.chart?.sma50,
+      sma200: s.chart?.sma200,
+      yearReturn: s.chart?.yearReturn,
+      marketCap: s.chart?.marketCap,
+      moatScore: s.fund?.moat?.moatScore || null,
+      moatComponents: s.fund?.moat?.components || null,
+      hasFundamentals: !!s.fund?.incomeStatement?.length,
+    })),
+  };
+  if (kv) try { await kv.set(DATA_KEY, JSON.stringify(dataPayload), { ex: 7 * 24 * 3600 }); } catch {}
+  return dataPayload;
+}
 
-  // Sort by conviction descending
-  output.sort((a, b) => (b.convictionScore || 0) - (a.convictionScore || 0));
+// ── Step 2: Analyze a single batch with Claude ─────────────────────────
+async function stepAnalyzeBatch(batchIndex, kv) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured.');
+  if (!kv) throw new Error('KV not configured.');
+
+  const raw = await kv.get(DATA_KEY);
+  if (!raw) throw new Error('No data in cache. Run step=data first.');
+  const dataPayload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+  const BATCH_SIZE = 4;
+  const start = batchIndex * BATCH_SIZE;
+  const end = start + BATCH_SIZE;
+  const batchBlocks = dataPayload.blocks.slice(start, end);
+  if (!batchBlocks.length) return { batchIndex, stocks: [] };
+
+  const result = await analyzeBatchWithRetry(batchBlocks.map(b => b.block), dataPayload.macroContext, apiKey);
+
+  const batchResult = {
+    batchIndex,
+    timestamp: new Date().toISOString(),
+    dataTimestamp: dataPayload.timestamp,
+    stocks: result.stocks || [],
+  };
+  try { await kv.set(BATCH_KEY(batchIndex), JSON.stringify(batchResult), { ex: 7 * 24 * 3600 }); } catch {}
+  return batchResult;
+}
+
+// ── Combine fresh data + batch results into the canonical screener output ─
+async function combineCached(kv) {
+  if (!kv) return null;
+  const [rawData, b0, b1, b2] = await Promise.all([
+    kv.get(DATA_KEY),
+    kv.get(BATCH_KEY(0)),
+    kv.get(BATCH_KEY(1)),
+    kv.get(BATCH_KEY(2)),
+  ]);
+  if (!rawData) return null;
+  const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+  const parseB = (v) => v == null ? null : (typeof v === 'string' ? JSON.parse(v) : v);
+  const batches = [parseB(b0), parseB(b1), parseB(b2)].filter(Boolean);
+
+  // Only batches that match the current data timestamp are considered fresh
+  const fresh = batches.filter(b => b.dataTimestamp === data.timestamp);
+  const stale = batches.filter(b => b.dataTimestamp !== data.timestamp);
+
+  const claudeBySymbol = {};
+  for (const b of fresh) for (const s of (b.stocks || [])) claudeBySymbol[s.symbol] = s;
+
+  const merged = data.stocks.map(s => ({ ...s, ...(claudeBySymbol[s.symbol] || {}) }));
+  merged.sort((a, b) => (b.convictionScore || 0) - (a.convictionScore || 0));
 
   return {
-    timestamp: new Date().toISOString(),
-    regime: ranked.regime || 'UNKNOWN',
-    regimeNote: ranked.regimeNote || '',
-    batchErrors: ranked.errors?.length ? ranked.errors : undefined,
-    stocks: output,
+    timestamp: data.timestamp,
+    regime: data.regime?.regime || 'UNKNOWN',
+    regimeNote: data.regime?.note || '',
+    stocks: merged,
+    batchesReady: fresh.length,
+    batchesTotal: Math.ceil(data.stocks.length / 4),
+    staleBatches: stale.length,
   };
 }
 
-// ── Handler: GET returns cached, POST fires background refresh ─────────
+// ── KV keys ─────────────────────────────────────────────────────────────
 const STATUS_KEY = CACHE_KEY + ':status';
+const DATA_KEY = 'screener:data';
+const BATCH_KEY = (n) => `screener:batch:${n}`;
 
 async function setStatus(kv, status) {
   if (!kv) return;
@@ -418,62 +471,104 @@ async function getStatus(kv) {
   } catch { return null; }
 }
 
-// ── Fire background work: kick off KV + pipeline without awaiting.
-// Called synchronously from the POST handler so it returns immediately.
-function fireBackgroundRefresh(reqUrl) {
-  const work = (async () => {
+export default async function handler(req) {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+
+  const url = new URL(req.url);
+  const step = url.searchParams.get('step');
+
+  if (req.method === 'GET') {
     const kv = await getKV();
+    const [legacyCached, combined, status] = await Promise.all([
+      getCached(kv),
+      combineCached(kv),
+      getStatus(kv),
+    ]);
+    // Prefer freshly combined data; fall back to old single-blob cache
+    const body = combined || legacyCached || null;
+    if (!body) {
+      return new Response(JSON.stringify({
+        error: 'No cached screen yet. Run the screener.',
+        refreshStatus: status || { state: 'idle' },
+      }), { status: 404, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+    return new Response(JSON.stringify({
+      ...body,
+      cached: true,
+      refreshStatus: status || { state: 'idle' },
+    }), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=15', ...CORS },
+    });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405, headers: CORS });
+  }
+
+  // POST — explicit step, runs synchronously (each step is small enough)
+  const kv = await getKV();
+  try {
+    if (step === 'data') {
+      await setStatus(kv, { state: 'fetching-data' });
+      const data = await stepFetchData(req.url, kv);
+      // Invalidate any cached batches now that data has changed
+      if (kv) await Promise.all([0, 1, 2].map(n => kv.del(BATCH_KEY(n)).catch(() => {})));
+      await setStatus(kv, { state: 'data-ready', dataTimestamp: data.timestamp });
+      return new Response(JSON.stringify({
+        ok: true, step: 'data', timestamp: data.timestamp, stocks: data.stocks.length,
+      }), { headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    if (step === 'batch') {
+      const n = parseInt(url.searchParams.get('n') || '0', 10);
+      if (![0, 1, 2].includes(n)) {
+        return new Response(JSON.stringify({ error: 'n must be 0, 1, or 2' }), {
+          status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
+      }
+      const batch = await stepAnalyzeBatch(n, kv);
+      // After each batch, refresh status with progress
+      const combined = await combineCached(kv);
+      const ready = combined?.batchesReady || 0;
+      const total = combined?.batchesTotal || 3;
+      await setStatus(kv, ready >= total
+        ? { state: 'idle', lastSuccessAt: combined?.timestamp }
+        : { state: 'analyzing', batchesReady: ready, batchesTotal: total });
+      return new Response(JSON.stringify({
+        ok: true, step: 'batch', n, stocks: batch.stocks.length, batchesReady: ready, batchesTotal: total,
+      }), { headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
+
+    // No explicit step — kick off all steps in background (legacy)
+    fireFullRefresh(req.url, kv);
+    return new Response(JSON.stringify({
+      refreshStatus: { state: 'running' },
+      message: 'Background refresh started. Use ?step=data and ?step=batch&n=N for explicit control.',
+    }), { status: 202, headers: { 'Content-Type': 'application/json', ...CORS } });
+  } catch (e) {
+    await setStatus(kv, { state: 'error', error: e.message || String(e) });
+    return new Response(JSON.stringify({ error: (e.message || String(e)) }), {
+      status: 500, headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  }
+}
+
+// Background full refresh (legacy POST without step) — runs all steps server-side
+function fireFullRefresh(reqUrl, kv) {
+  const work = (async () => {
     if (!kv) return;
-    await setStatus(kv, { state: 'running' });
+    await setStatus(kv, { state: 'fetching-data' });
     try {
-      const output = await runScreener(reqUrl);
-      await setCached(kv, output);
-      await setStatus(kv, { state: 'idle', lastSuccessAt: output.timestamp });
+      await stepFetchData(reqUrl, kv);
+      await Promise.all([0, 1, 2].map(n => kv.del(BATCH_KEY(n)).catch(() => {})));
+      await setStatus(kv, { state: 'analyzing', batchesReady: 0, batchesTotal: 3 });
+      await Promise.all([0, 1, 2].map(n => stepAnalyzeBatch(n, kv).catch(() => {})));
+      const combined = await combineCached(kv);
+      await setStatus(kv, { state: 'idle', lastSuccessAt: combined?.timestamp });
     } catch (e) {
       await setStatus(kv, { state: 'error', error: e.message || String(e) });
     }
   })();
-  // Hand the promise to waitUntil so the function stays alive until it
-  // completes (up to maxDuration). Synchronous because waitUntil is
-  // already imported.
   try { waitUntil(work); } catch {}
   work.catch(() => {});
-}
-
-export default async function handler(req) {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
-
-  // POST — fire background refresh and return IMMEDIATELY.
-  // No awaits on the request path — this makes 504 impossible.
-  if (req.method === 'POST') {
-    fireBackgroundRefresh(req.url);
-    return new Response(JSON.stringify({
-      refreshStatus: { state: 'running' },
-      message: 'Refresh started. Poll GET /api/screen for updates.',
-    }), {
-      status: 202,
-      headers: { 'Content-Type': 'application/json', ...CORS },
-    });
-  }
-
-  // GET — return cached + current status (also quick, but does await KV)
-  if (req.method === 'GET') {
-    const kv = await getKV();
-    const [cached, status] = await Promise.all([getCached(kv), getStatus(kv)]);
-    const body = {
-      ...(cached || {}),
-      cached: !!cached,
-      refreshStatus: status || { state: 'idle' },
-    };
-    if (!cached && !status) {
-      return new Response(JSON.stringify({ error: 'No cached screen yet. POST /api/screen to run.' }), {
-        status: 404, headers: { 'Content-Type': 'application/json', ...CORS },
-      });
-    }
-    return new Response(JSON.stringify(body), {
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30', ...CORS },
-    });
-  }
-
-  return new Response('Method not allowed', { status: 405, headers: CORS });
 }
