@@ -20,6 +20,7 @@ const UNIVERSE = {
 };
 const TICKERS = Object.keys(UNIVERSE);
 
+// ── Technical: RSI(14) via Wilder's smoothing ──────────────────────────
 function computeRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
   let ag = 0, al = 0;
@@ -37,7 +38,8 @@ function computeRSI(closes, period = 14) {
   return 100 - 100 / (1 + ag / al);
 }
 
-async function fetchSnapshot(symbol) {
+// ── Fetch 1y chart for 52wk position, RSI, 1y return ──────────────────
+async function fetchChart(symbol) {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y&includePrePost=false`;
     const res = await fetch(url, { headers: YF, signal: AbortSignal.timeout(5000) });
@@ -55,8 +57,6 @@ async function fetchSnapshot(symbol) {
       ? ((price - low52) / (high52 - low52)) * 100
       : null;
     return {
-      symbol,
-      sector: UNIVERSE[symbol],
       name: meta.shortName || meta.longName || symbol,
       price,
       changePercent: prev ? ((price - prev) / prev) * 100 : 0,
@@ -68,18 +68,111 @@ async function fetchSnapshot(symbol) {
   } catch { return null; }
 }
 
-// Valuation score, 0-100. Lower = more undervalued.
-// Combines 52wk position (60%) + RSI normalized (40%).
-function valuationScore(s) {
-  const pos = s.fiftyTwoWeekPosition;
-  const rsi = s.rsi;
-  if (pos == null && rsi == null) return null;
-  const posComponent = pos == null ? 50 : pos;        // 0=at low (cheap), 100=at high (expensive)
-  const rsiComponent = rsi == null ? 50 : rsi;        // 0=oversold, 100=overbought
-  return posComponent * 0.6 + rsiComponent * 0.4;
+// ── Fetch Yahoo quoteSummary for P/E, forward P/E, P/B ────────────────
+async function fetchQuoteSummary(symbol) {
+  try {
+    const modules = 'price,summaryDetail,defaultKeyStatistics,financialData';
+    let res = await fetch(
+      `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`,
+      { headers: YF, signal: AbortSignal.timeout(5000) },
+    );
+    if (!res.ok) {
+      res = await fetch(
+        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`,
+        { headers: YF, signal: AbortSignal.timeout(5000) },
+      );
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    const r = data.quoteSummary?.result?.[0];
+    if (!r) return null;
+    const sd = r.summaryDetail || {};
+    const ks = r.defaultKeyStatistics || {};
+    const pr = r.price || {};
+    const fd = r.financialData || {};
+    const trailingPE = sd.trailingPE?.raw ?? ks.trailingPE?.raw ?? pr.trailingPE?.raw ?? null;
+    const forwardPE = sd.forwardPE?.raw ?? ks.forwardPE?.raw ?? null;
+    const priceToBook = ks.priceToBook?.raw ?? sd.priceToBook?.raw ?? null;
+    const priceToSales = sd.priceToSalesTrailing12Months?.raw ?? null;
+    const marketCap = pr.marketCap?.raw ?? sd.marketCap?.raw ?? null;
+    return {
+      trailingPE: trailingPE && trailingPE > 0 && trailingPE < 500 ? trailingPE : null,
+      forwardPE: forwardPE && forwardPE > 0 && forwardPE < 500 ? forwardPE : null,
+      priceToBook,
+      priceToSales,
+      marketCap,
+      earningsGrowth: fd.earningsGrowth?.raw ?? null,
+    };
+  } catch { return null; }
 }
 
-function valuationLabel(score) {
+// ── Sector-relative P/E percentile (0 = cheapest, 100 = most expensive) ─
+// For sectors with 2+ stocks we rank within sector. For single-stock
+// sectors (NFLX in Consumer, BRK-B in Conglomerate) we rank within the
+// whole universe as a fallback.
+function assignPePercentiles(stocks) {
+  const bySector = {};
+  for (const s of stocks) {
+    if (s.trailingPE == null) continue;
+    if (!bySector[s.sector]) bySector[s.sector] = [];
+    bySector[s.sector].push(s);
+  }
+  const universeWithPE = stocks.filter(s => s.trailingPE != null)
+    .slice().sort((a, b) => a.trailingPE - b.trailingPE);
+  const universeRank = new Map(universeWithPE.map((s, i) => [s.symbol, i]));
+
+  for (const [, list] of Object.entries(bySector)) {
+    if (list.length >= 2) {
+      list.slice().sort((a, b) => a.trailingPE - b.trailingPE).forEach((s, i, arr) => {
+        s.peScore = ((i + 0.5) / arr.length) * 100;
+        s.peRankedAgainst = 'sector';
+      });
+    } else {
+      for (const s of list) {
+        const idx = universeRank.get(s.symbol);
+        s.peScore = universeWithPE.length > 0
+          ? ((idx + 0.5) / universeWithPE.length) * 100
+          : 50;
+        s.peRankedAgainst = 'universe';
+      }
+    }
+  }
+}
+
+// Forward-vs-trailing score. forwardPE < trailingPE ⇒ growth expected ⇒ bullish ⇒ low score.
+// Linear: 0.5 → 0, 1.0 → 50, 1.5 → 100.
+function forwardScore(s) {
+  if (s.trailingPE == null || s.forwardPE == null || s.trailingPE <= 0) return 50;
+  const ratio = s.forwardPE / s.trailingPE;
+  return Math.max(0, Math.min(100, (ratio - 0.5) * 100));
+}
+
+// Technical score, same as before (0-100, lower = oversold / near lows).
+function technicalScore(s) {
+  const pos = s.fiftyTwoWeekPosition ?? 50;
+  const rsi = s.rsi ?? 50;
+  return pos * 0.6 + rsi * 0.4;
+}
+
+// Final score (0-100, lower = most undervalued). If P/E is missing, fall
+// back to technical-only and mark the stock so the UI can note the caveat.
+function finalScore(s) {
+  const tech = technicalScore(s);
+  if (s.trailingPE == null) {
+    return { score: tech, tech, val: null, hasFundamentals: false };
+  }
+  const fwd = forwardScore(s);
+  const val = 0.7 * s.peScore + 0.3 * fwd;
+  return {
+    score: 0.55 * val + 0.45 * tech,
+    tech,
+    val,
+    valForward: fwd,
+    hasFundamentals: true,
+  };
+}
+
+function label(score) {
   if (score == null) return '—';
   if (score < 30) return 'UNDERVALUED';
   if (score < 50) return 'CHEAP';
@@ -92,22 +185,53 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
   try {
-    const snapshots = await Promise.all(TICKERS.map(t => fetchSnapshot(t)));
-    const valid = snapshots.filter(Boolean).map(s => {
-      const score = valuationScore(s);
-      return { ...s, valuationScore: score, valuationLabel: valuationLabel(score) };
-    }).filter(s => s.valuationScore != null);
+    // Fetch chart + quoteSummary for all 12 tickers in parallel (24 concurrent calls).
+    const pairs = await Promise.all(
+      TICKERS.map(async (symbol) => {
+        const [chart, fund] = await Promise.all([fetchChart(symbol), fetchQuoteSummary(symbol)]);
+        if (!chart) return null;
+        return {
+          symbol,
+          sector: UNIVERSE[symbol],
+          ...chart,
+          ...(fund || {}),
+        };
+      }),
+    );
 
-    valid.sort((a, b) => a.valuationScore - b.valuationScore);
+    const valid = pairs.filter(Boolean);
+    if (valid.length === 0) {
+      return new Response(JSON.stringify({ error: 'No live data available.' }), {
+        status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
 
-    const undervalued = valid.slice(0, 3);
-    const overvalued = valid.slice(-3).reverse();
+    assignPePercentiles(valid);
+
+    const scored = valid.map(s => {
+      const f = finalScore(s);
+      return {
+        ...s,
+        valuationScore: f.score,
+        technicalScoreValue: f.tech,
+        fundamentalScoreValue: f.val,
+        forwardScoreValue: f.valForward,
+        hasFundamentals: f.hasFundamentals,
+        label: label(f.score),
+      };
+    });
+
+    scored.sort((a, b) => a.valuationScore - b.valuationScore);
 
     return new Response(JSON.stringify({
       timestamp: new Date().toISOString(),
-      undervalued,
-      overvalued,
-      all: valid,
+      undervalued: scored.slice(0, 3),
+      overvalued: scored.slice(-3).reverse(),
+      all: scored,
+      methodology: {
+        formula: '0.55 × valuation + 0.45 × technical. Valuation = 70% sector-relative P/E percentile + 30% forward-P/E-vs-trailing ratio. Technical = 60% × 52wk position + 40% × RSI.',
+        missingFundamentals: scored.filter(s => !s.hasFundamentals).map(s => s.symbol),
+      },
     }), {
       headers: {
         'Content-Type': 'application/json',

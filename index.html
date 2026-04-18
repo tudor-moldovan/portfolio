@@ -196,6 +196,8 @@ tbody tr:hover td{background:var(--sf2)}
 .val-sym{font-size:14px;font-weight:700;font-family:var(--mo);color:var(--ac);letter-spacing:-0.02em}
 .val-meta{font-size:10px;color:var(--mu);font-family:var(--mo);font-variant-numeric:tabular-nums;letter-spacing:-0.01em;text-align:right}
 .val-foot{font-size:11px;color:var(--di);text-align:center;padding:0 6px;line-height:1.5}
+.val-warn{background:var(--go2);border:1px solid rgba(212,168,85,0.32);color:var(--go);border-radius:var(--radius-sm);padding:9px 12px;font-size:12px;line-height:1.45;font-weight:500}
+.val-warn-mini{font-size:10px;color:var(--di);text-align:center;padding:0 6px;font-style:italic}
 
 /* ── Daily scan signals panel ───────────────────────────────────────── */
 .sig-panel{max-width:1360px;margin:0 auto;padding:0 28px 14px;display:none}
@@ -441,12 +443,28 @@ function renderValuation(d){
     const ts=new Date(d.timestamp);
     document.getElementById('valTime').textContent='Updated '+ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
   }
-  const pill=(s)=>`<button class="val-pill" onclick="deepDive('${s.symbol}')">
+  const pill=(s)=>{
+    const parts=[];
+    if(s.trailingPE!=null)parts.push('P/E '+s.trailingPE.toFixed(0));
+    if(s.fiftyTwoWeekPosition!=null)parts.push(Math.round(s.fiftyTwoWeekPosition)+'% 52w');
+    if(!s.hasFundamentals)parts.push('tech-only');
+    return `<button class="val-pill" onclick="deepDive('${s.symbol}')">
       <span class="val-sym">${s.symbol}</span>
-      <span class="val-meta">${s.fiftyTwoWeekPosition!=null?Math.round(s.fiftyTwoWeekPosition)+'% of 52w':''}${s.rsi!=null?' · RSI '+Math.round(s.rsi):''}</span>
+      <span class="val-meta">${parts.join(' · ')}</span>
     </button>`;
+  };
   const under=(d.undervalued||[]).map(pill).join('')||'<span style="font-size:11px;color:var(--di)">none</span>';
   const over=(d.overvalued||[]).map(pill).join('')||'<span style="font-size:11px;color:var(--di)">none</span>';
+  // Warn if fundamentals are missing for a bunch of stocks — otherwise the
+  // score silently degrades to technical-only and NVDA-style false flags
+  // come back with no user-visible signal.
+  const missing=d.methodology?.missingFundamentals||[];
+  let warn='';
+  if(missing.length>=6){
+    warn=`<div class="val-warn">⚠ Fundamentals unavailable for ${missing.length}/12 stocks — ranking is technical-only this cycle. Try again later.</div>`;
+  }else if(missing.length>0){
+    warn=`<div class="val-warn-mini">Tech-only for: ${missing.join(', ')}</div>`;
+  }
   document.getElementById('valBody').innerHTML=`
     <div class="val-grid">
       <div class="val-box under">
@@ -458,7 +476,8 @@ function renderValuation(d){
         <div class="val-pills">${over}</div>
       </div>
     </div>
-    <div class="val-foot">Score = 60% × 52-week position + 40% × RSI. Tap a ticker for full Stock Intel.</div>`;
+    ${warn}
+    <div class="val-foot">55% valuation (sector-relative P/E + forward-vs-trailing) + 45% technical (52w position + RSI). Tap a ticker for full Stock Intel.</div>`;
 }
 
 function toast(msg,ok){
