@@ -456,22 +456,20 @@ async function fetchPrices(){
   }catch{}
 }
 
-let screenPollTimer=null;
-
 async function loadCachedScreen(){
   try{
     const r=await fetch('/api/screen');
     if(!r.ok)return false;
     const d=await r.json();
-    if(d.refreshStatus?.state==='running'){
-      // A background refresh is in progress from a previous session — pick up polling
-      document.getElementById('screenThinking').classList.add('on');
-      startScreenPolling(d.timestamp);
-    }
     if(!d||!d.stocks||!d.stocks.length)return false;
     lastScreen=d;renderScreen(d);
     return true;
   }catch{return false;}
+}
+
+function setScreenStatus(text){
+  const el=document.getElementById('screenStaleness');
+  if(el)el.textContent=text;
 }
 
 async function runScreener(){
@@ -479,68 +477,44 @@ async function runScreener(){
   btn.disabled=true;th.classList.add('on');er.classList.remove('on');
   btn.textContent='Refreshing…';
   try{
-    const r=await fetch('/api/screen',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-    const text=await r.text();
-    let d;
-    try{d=JSON.parse(text);}
-    catch{throw new Error(r.ok?'Server returned non-JSON: '+text.slice(0,200):'HTTP '+r.status+' — '+text.slice(0,200));}
-    if(!r.ok||d.error)throw new Error(d.error||'Screen failed ('+r.status+')');
-    // Show existing cached data immediately if present
-    if(d.stocks&&d.stocks.length){lastScreen=d;renderScreen(d);}
-    // If refresh queued in background, start polling
-    if(d.refreshStatus?.state==='running'){
-      startScreenPolling(d.timestamp);
-    }else{
-      // Inline run completed — we have fresh data
-      th.classList.remove('on');
-      resetScreenButtonAfterCooldown(btn);
-    }
+    // Step 1: fetch live data + fundamentals
+    setScreenStatus('Step 1/4: Fetching live data + fundamentals…');
+    await callStep('/api/screen?step=data');
+    // Step 2-4: analyze 3 batches in parallel (each is small enough to fit in 60s)
+    setScreenStatus('Step 2/4: Analyzing batches in parallel…');
+    let done=0;const total=3;
+    await Promise.all([0,1,2].map(async n=>{
+      try{
+        await callStep('/api/screen?step=batch&n='+n);
+        done++;
+        setScreenStatus('Step '+(done+1)+'/4: '+done+'/'+total+' batches analyzed…');
+        // Refresh the rendered list incrementally
+        const r=await fetch('/api/screen?_='+Date.now());
+        if(r.ok){const d=await r.json();if(d.stocks){lastScreen=d;renderScreen(d);}}
+      }catch(e){toast('Batch '+n+' failed: '+e.message,false);}
+    }));
+    // Final fetch + render
+    setScreenStatus('Loading results…');
+    const r=await fetch('/api/screen?_='+Date.now());
+    if(r.ok){const d=await r.json();if(d.stocks){lastScreen=d;renderScreen(d);}}
+    setScreenStatus('');
+    toast('Screener updated',true);
   }catch(e){
     er.textContent=e.message;er.classList.add('on');
+    setScreenStatus('');
+  }finally{
     th.classList.remove('on');
-    btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';
+    btn.disabled=true;btn.textContent='Cooling down…';
+    let t=10;const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';}else{btn.textContent='Wait '+t+'s…';}},1000);
   }
 }
 
-function startScreenPolling(priorTimestamp){
-  if(screenPollTimer)clearInterval(screenPollTimer);
-  const btn=document.getElementById('screenBtn'),th=document.getElementById('screenThinking'),er=document.getElementById('screenErr');
-  const startedAt=Date.now();
-  const pollOnce=async()=>{
-    try{
-      const r=await fetch('/api/screen?_='+Date.now());
-      const d=await r.json();
-      const status=d.refreshStatus?.state;
-      if(status==='error'){
-        clearInterval(screenPollTimer);screenPollTimer=null;
-        er.textContent='Refresh failed: '+(d.refreshStatus.error||'unknown');er.classList.add('on');
-        th.classList.remove('on');
-        btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';
-        return;
-      }
-      // Completed if timestamp advanced
-      if(d.stocks&&d.stocks.length&&d.timestamp!==priorTimestamp&&status!=='running'){
-        clearInterval(screenPollTimer);screenPollTimer=null;
-        lastScreen=d;renderScreen(d);
-        th.classList.remove('on');
-        resetScreenButtonAfterCooldown(btn);
-        toast('Screener updated',true);
-        return;
-      }
-      if(Date.now()-startedAt>180000){
-        clearInterval(screenPollTimer);screenPollTimer=null;
-        er.textContent='Refresh is taking longer than expected. It may still finish — reload in a minute.';er.classList.add('on');
-        th.classList.remove('on');
-        btn.disabled=false;btn.textContent='Refresh Screener';
-      }
-    }catch{}
-  };
-  screenPollTimer=setInterval(pollOnce,3000);
-}
-
-function resetScreenButtonAfterCooldown(btn){
-  btn.disabled=true;btn.textContent='Cooling down…';
-  let t=15;const iv=setInterval(()=>{t--;if(t<=0){clearInterval(iv);btn.disabled=false;btn.textContent=lastScreen?'Refresh Screener':'Screen Universe';}else{btn.textContent='Wait '+t+'s…';}},1000);
+async function callStep(url){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  const text=await r.text();
+  let d;try{d=JSON.parse(text);}catch{throw new Error('Non-JSON: '+text.slice(0,200));}
+  if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));
+  return d;
 }
 
 function renderScreen(d){
@@ -731,7 +705,7 @@ async function loadIntel(){
     // Verdict + Conviction big display
     html+='<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:14px">';
     html+=`<div class="intel-section"><div class="intel-title">Verdict</div><div style="font-size:16px;font-weight:700;color:${vrc}">${d.verdict?.replace('_',' ')||'—'}</div></div>`;
-    html+=`<div class="intel-section"><div class="intel-title">Moat</div><div style="font-size:14px;font-weight:700;color:${mc}">${d.moatRating||'—'}</div></div>`;
+    html+=`<div class="intel-section"><div class="intel-title">Moat</div><div style="font-size:14px;font-weight:700;color:${d.moatRating==='UNKNOWN'?'var(--di)':mc}">${d.moatRating==='UNKNOWN'?'NO DATA':(d.moatRating||'—')}</div>${d.moatRating==='UNKNOWN'?'<div style="font-size:10px;color:var(--di);margin-top:3px;font-weight:400">FMP fundamentals unavailable</div>':''}</div>`;
     html+=`<div class="intel-section"><div class="intel-title">Conviction</div><div><span style="font-size:20px;font-weight:700;font-family:var(--mo)">${d.convictionScore||'—'}</span><span style="color:var(--di)">/10</span></div></div>`;
     html+='</div>';
     // Moat explanation
