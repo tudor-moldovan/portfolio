@@ -816,6 +816,10 @@ fetchPrices();setInterval(fetchPrices,60000);
 loadLatestScan();
 loadMacro();
 loadCachedScreen();
+// Log deployed version so we can confirm the browser isn't on a stale HTML
+fetch('/api/version').then(r=>r.json()).then(v=>{
+  console.log('%cMoat Portfolio','color:#d97757;font-weight:bold;font-size:14px','build',v.shaShort,'@',v.region);
+}).catch(()=>{});
 </script>
 </body>
 </html>

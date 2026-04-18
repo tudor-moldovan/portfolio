@@ -3,7 +3,13 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/img/(.*)", "dest": "/img/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    {
+      "src": "/(index.html)?",
+      "dest": "/index.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    }
   ],
   "crons": [
     {
