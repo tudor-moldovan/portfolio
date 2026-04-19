@@ -479,7 +479,11 @@ function getHeader(req, name) {
 export default async function handler(req) {
   const authHeader = getHeader(req, 'authorization');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Accept either Bearer header (Vercel cron schedule) or ?key= query
+  // param (for manual phone-browser triggers).
+  const url = new URL(req.url, 'http://localhost');
+  const keyParam = url.searchParams.get('key');
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}` && keyParam !== cronSecret) {
     return new Response('Unauthorized', { status: 401 });
   }
 
