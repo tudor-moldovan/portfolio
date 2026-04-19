@@ -29,6 +29,10 @@ async function fetchSingleQuote(symbol) {
     high: meta.regularMarketDayHigh,
     low: meta.regularMarketDayLow,
     volume: meta.regularMarketVolume,
+    // 52-week range — used for position range bars
+    fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh || null,
+    fiftyTwoWeekLow: meta.fiftyTwoWeekLow || null,
+    currency: meta.currency || null,
   };
 }
 
@@ -43,7 +47,7 @@ export default async function handler(req) {
     });
   }
 
-  const list = symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 40);
+  const list = symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 60);
 
   const settled = await Promise.allSettled(list.map(s => fetchSingleQuote(s)));
 
