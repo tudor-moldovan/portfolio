@@ -206,6 +206,12 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
 .range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--di);margin-top:5px;font-family:var(--mo);font-variant-numeric:tabular-nums}
 .pos-thesis{font-size:12px;color:var(--mu);line-height:1.55;font-style:italic}
 .pos-thesis:empty{display:none}
+.pos-thesis-line{font-family:var(--serif);font-size:14px;color:var(--tx);line-height:1.5;font-weight:500;letter-spacing:-0.005em;margin-top:4px}
+.pos-body{font-size:13px;color:var(--tx);line-height:1.6;margin-top:4px}
+.pos-detail{display:flex;flex-direction:column;gap:3px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
+.pos-row{display:grid;grid-template-columns:62px 1fr;gap:10px;font-size:12px;line-height:1.5}
+.pos-row-k{color:var(--di);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:9px;padding-top:3px}
+.pos-row-v{color:var(--tx)}
 .pos-analysis-pending{font-size:11px;color:var(--di);font-style:italic;padding:4px 0}
 
 /* Positions table */
@@ -1139,7 +1145,8 @@ function renderTodayCards(rows){
     sub.textContent='—';
     return;
   }
-  sub.textContent=rows.length+' position'+(rows.length===1?'':'s')+' · daily analysis pending';
+  const hasBriefing=Object.keys(briefingPositions).length>0;
+  sub.textContent=rows.length+' position'+(rows.length===1?'':'s')+(hasBriefing?'':' · daily analysis pending');
   // Consolidate duplicate symbols (same symbol across brokers) for cards — show one card per symbol
   const bySym={};
   for(const r of rows){
@@ -1156,7 +1163,23 @@ function renderTodayCards(rows){
   }
   const cards=Object.values(bySym).map(x=>{
     const noData=!x.hasLive;
-    const verdict=noData?{v:'NO DATA',color:'SLATE'}:heuristicVerdict(x);
+    const briefing=briefingPositions[x.sym];
+    // Prefer Claude's verdict/color when available; fall back to heuristic.
+    // Whitelist values so a malformed Claude response can't break the DOM
+    // or silently render unstyled pills.
+    const VALID_VERDICTS=new Set(['HOLD','ACCUMULATE','TRIM','WAIT','WATCH','SELL']);
+    const VALID_COLORS=new Set(['GREEN','AMBER','RED','SLATE']);
+    let verdict;
+    if(noData&&!briefing){verdict={v:'NO DATA',color:'SLATE'};}
+    else if(briefing){
+      const rawV=String(briefing.verdict||'HOLD').toUpperCase();
+      const rawC=String(briefing.color||'SLATE').toUpperCase();
+      verdict={
+        v:VALID_VERDICTS.has(rawV)?rawV:'HOLD',
+        color:VALID_COLORS.has(rawC)?rawC:'SLATE',
+      };
+    }
+    else{verdict=heuristicVerdict(x);}
     const pnlCls=x.pnlUSD>=0?'up':'dn';
     const range=(!noData&&x.high52&&x.low52&&x.high52!==x.low52)?renderRangeBar(x):'';
     const priceHtml=noData
@@ -1165,9 +1188,27 @@ function renderTodayCards(rows){
     const pnlHtml=noData
       ?'<span style="color:var(--di);font-size:11px">—</span>'
       :`<span class="${pnlCls}">${x.pnlUSD>=0?'+':''}${usd(x.pnlUSD)}</span> <span style="color:var(--mu);font-size:10px">${pct(x.pctReturn)}</span>`;
-    const pending=noData
-      ?'Try a Yahoo-compatible symbol (e.g. <code>VUSA.AS</code> for European ETFs).'
-      :'Daily analysis will appear after the next 14:30 UTC cron.';
+    // Rich analysis body from Claude (if present), else the fallback hint
+    let analysisHtml;
+    if(briefing){
+      const rows2=[];
+      if(briefing.thesis)rows2.push(`<div class="pos-thesis-line">${esc(briefing.thesis)}</div>`);
+      if(briefing.body)rows2.push(`<div class="pos-body">${esc(briefing.body)}</div>`);
+      const row=(k,v)=>v?`<div class="pos-row"><span class="pos-row-k">${k}</span><span class="pos-row-v">${esc(v)}</span></div>`:'';
+      let detail='';
+      detail+=row('Bull',briefing.bullCase);
+      detail+=row('Bear',briefing.bearCase);
+      detail+=row('Entry',briefing.entryZone);
+      detail+=row('Risk',briefing.risk);
+      detail+=row('Catalyst',briefing.catalyst);
+      if(detail)rows2.push(`<div class="pos-detail">${detail}</div>`);
+      analysisHtml=rows2.join('');
+    }else{
+      const pending=noData
+        ?'Try a Yahoo-compatible symbol (e.g. <code>VUSA.AS</code> for European ETFs).'
+        :'Daily analysis will appear after the next 14:30 UTC cron.';
+      analysisHtml=`<div class="pos-analysis-pending">${pending}</div>`;
+    }
     return `<div class="pos-card">
       <div class="pos-card-head">
         <div class="pos-card-left">
@@ -1181,7 +1222,7 @@ function renderTodayCards(rows){
         </div>
       </div>
       ${range}
-      <div class="pos-analysis-pending">${pending}</div>
+      ${analysisHtml}
     </div>`;
   }).join('');
   el.innerHTML=cards;
@@ -1201,6 +1242,11 @@ function renderRangeBar(row){
   </div>`;
 }
 
+// Claude-generated per-position briefing (keyed by symbol), set by
+// renderTodayBriefing(). renderTodayCards merges this in when present.
+let briefingPositions={};
+let briefingActions=[];
+
 function renderBriefingPlaceholder(){
   const macro=document.getElementById('briefMacro');
   const actions=document.getElementById('briefActions');
@@ -1208,8 +1254,51 @@ function renderBriefingPlaceholder(){
   actions.innerHTML='';
 }
 
-// Render Claude daily read (if we have it) at the top of Today
+function renderActions(actions){
+  const el=document.getElementById('briefActions');
+  if(!Array.isArray(actions)||!actions.length){el.innerHTML='';return;}
+  el.innerHTML=actions.slice(0,6).map(a=>`
+    <div class="brief-action">
+      <span class="brief-action-num">#${esc(String(a.priority??''))}</span>
+      <div class="brief-action-body">
+        <div class="brief-action-label">${esc(a.label||'')}</div>
+        <div class="brief-action-note">${esc(a.note||'')}</div>
+      </div>
+      ${a.tag?`<span class="brief-action-tag">${esc(a.tag)}</span>`:''}
+    </div>
+  `).join('');
+}
+
+// Primary: /api/briefing (rich, per-position + actions). Fallback to
+// /api/dailyread (2-sentence macro only).
 async function renderTodayBriefing(){
+  // 1) Try the rich briefing endpoint
+  try{
+    const r=await fetch('/api/briefing');
+    if(r.ok){
+      const d=await r.json();
+      const b=d.briefing;
+      if(b&&(b.macroTake||b.positions||b.actions)){
+        const macro=document.getElementById('briefMacro');
+        const timeEl=document.getElementById('briefTime');
+        if(b.macroTake)macro.textContent=b.macroTake;
+        if(b.generatedAt){
+          const hrs=Math.round((Date.now()-new Date(b.generatedAt).getTime())/3600000);
+          timeEl.textContent=hrs<2?'Today':(hrs<24?hrs+'h ago':'Yesterday');
+        }
+        briefingPositions=b.positions||{};
+        briefingActions=b.actions||[];
+        renderActions(briefingActions);
+        // Re-render position cards now that we have analysis
+        if(positionsData.positions?.length){
+          const rows=positionsData.positions.map(computeRow);
+          renderTodayCards(rows);
+        }
+        return;
+      }
+    }
+  }catch{}
+  // 2) Fallback to the legacy daily read (just the 2-sentence macro line)
   try{
     const r=await fetch('/api/dailyread');
     if(!r.ok)return renderBriefingPlaceholder();

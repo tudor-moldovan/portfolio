@@ -1,5 +1,6 @@
 import { runValuation, TICKERS as VAL_TICKERS } from './_lib/valuation.js';
 import { getFundamentalsWithCache } from './_lib/moat.js';
+import { fetchNAV, BTAM_TICKERS } from './_lib/btam.js';
 
 export const config = { maxDuration: 60 };
 
@@ -245,6 +246,226 @@ In 2 sentences MAX, what's the most interesting move/insight in the universe tod
   }
 }
 
+// ── Step: Pre-warm BTAM NAVs for Romanian fund positions ───────────────
+// Directly calls the shared fetchNAV helper (no HTTP self-call) and
+// writes to KV on every successful scrape — so when BT blocks us on a
+// future day, the runtime endpoint still has a last-known-good value.
+async function stepCacheBTAM(kv, positions) {
+  if (!kv || !positions?.length) return { cached: 0 };
+  const known = new Set(BTAM_TICKERS);
+  const syms = [...new Set(positions.map(p => p.sym).filter(s => known.has(s)))];
+  if (!syms.length) return { cached: 0 };
+  const results = await Promise.allSettled(syms.map(async (sym) => {
+    const r = await fetchNAV(sym);
+    if (r && !r.error && r.price) {
+      await kv.set('btam:nav:' + sym, JSON.stringify({
+        symbol: sym, price: r.price, fetchedAt: new Date().toISOString(),
+      }), { ex: 14 * 24 * 3600 });
+      return sym;
+    }
+    return null;
+  }));
+  const cached = results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
+  return { cached: cached.length, symbols: cached };
+}
+
+// ── Step: Pre-warm fundamentals for user positions ────────────────────
+// Calls getFundamentalsWithCache which stores in KV for 24h.
+async function stepWarmPortfolioFundamentals(kv, positions) {
+  if (!kv || !positions?.length) return { warmed: 0 };
+  // Only equities — skip crypto, indexes, Romanian funds that FMP doesn't cover
+  const skip = new Set(['BTC','ETH','SOL','BNB','XRP','ADA','ROTX','BT_USA','BT_WORLD','BT_EURO','BT_MAXI','BT_CLASIC','BT_OBLIG']);
+  const syms = [...new Set(positions.map(p => p.sym).filter(s => !skip.has(s)))];
+  if (!syms.length) return { warmed: 0 };
+  const settled = await Promise.allSettled(syms.map(s => getFundamentalsWithCache(s, kv).catch(() => null)));
+  const warmed = settled.filter(r => r.status === 'fulfilled' && r.value).length;
+  return { warmed, attempted: syms.length };
+}
+
+// ── Step: Generate per-position briefing (supersedes stepDailyRead) ────
+// Richer than the 2-sentence daily read: one Claude call produces
+//   - macroTake (2 sentences, replaces the old daily read)
+//   - positions: { SYM: {verdict, color, thesis, body, risk, catalyst, bullCase, bearCase, entryZone} }
+//   - actions: ranked 3-6 action items tied to specific holdings
+// Written to KV briefing:today. Replaces the analysis-pending placeholders
+// on the Today tab.
+async function stepBriefing(kv, scan, valuation, positions) {
+  if (!kv) return { skipped: 'no kv' };
+  if (!positions?.length) return { skipped: 'no positions' };
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { skipped: 'no anthropic key' };
+
+  // Aggregate positions per symbol — one card per ticker, so Claude can't
+  // emit duplicate JSON keys for split positions (BTC on Binance + Revolut).
+  const bySym = {};
+  for (const p of positions) {
+    const k = p.sym;
+    if (!bySym[k]) bySym[k] = { sym: k, ccy: p.ccy || 'USD', name: p.name || null, nextEarnings: p.nextEarnings || null, units: 0, cost: 0, brokers: new Set() };
+    bySym[k].units += p.units;
+    bySym[k].cost += p.units * p.avg;
+    if (p.broker) bySym[k].brokers.add(p.broker);
+    if (!bySym[k].nextEarnings && p.nextEarnings) bySym[k].nextEarnings = p.nextEarnings;
+    if (!bySym[k].name && p.name) bySym[k].name = p.name;
+  }
+  const aggPositions = Object.values(bySym).map(s => ({
+    ...s, avg: s.cost / s.units, brokers: [...s.brokers].join(', '),
+  }));
+
+  // Fetch live prices for each unique position symbol
+  const syms = aggPositions.map(p => p.sym);
+  const prices = {};
+  try {
+    const fxSyms = ['EURUSD=X','USDRON=X','GBPUSD=X','USDCHF=X'];
+    const all = [...fxSyms, ...syms];
+    const origin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+    if (origin) {
+      const r = await fetch(`${origin}/api/quote?symbols=${all.map(encodeURIComponent).join(',')}`, { signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const q = await r.json();
+        for (const s of syms) if (q[s]) prices[s] = q[s];
+      }
+    }
+  } catch {}
+
+  const macroLine = `VIX ${scan?.vix || '?'}, 10Y ${scan?.tnx || '?'}%, regime ${scan?.regime || 'unknown'}, SPY ${scan?.spy?.change || 'flat'}`;
+
+  // Build a compact per-position context block (one per UNIQUE symbol)
+  const posBlocks = aggPositions.map(p => {
+    const q = prices[p.sym] || {};
+    const pos = q.price && q.fiftyTwoWeekHigh && q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh !== q.fiftyTwoWeekLow
+      ? Math.round(((q.price - q.fiftyTwoWeekLow) / (q.fiftyTwoWeekHigh - q.fiftyTwoWeekLow)) * 100)
+      : null;
+    const pnl = q.price ? Math.round(((q.price - p.avg) / p.avg) * 1000) / 10 : null;
+    return [
+      `${p.sym} (${q.name || p.name || p.sym}) [${p.brokers || '—'}, ${p.ccy}]`,
+      `  ${p.units.toFixed(4)} units @ ${p.avg.toFixed(2)} weighted-avg`,
+      q.price ? `  now ${q.price.toFixed(2)} (${pnl != null ? (pnl >= 0 ? '+' : '') + pnl + '%' : '?'})` : '  no live price',
+      q.fiftyTwoWeekLow && q.fiftyTwoWeekHigh ? `  52wk ${q.fiftyTwoWeekLow.toFixed(0)}–${q.fiftyTwoWeekHigh.toFixed(0)} (${pos != null ? pos + '% of range' : '?'})` : '',
+      p.nextEarnings ? `  earnings ${p.nextEarnings}` : '',
+    ].filter(Boolean).join('\n');
+  }).join('\n\n');
+
+  const systemPrompt = `You are a senior portfolio advisor working for a single long-term investor. Write a terse daily briefing keyed to their ACTUAL holdings.
+
+OUTPUT — respond with ONLY valid JSON (no prose outside the JSON):
+
+{
+  "macroTake": "<2 sentences: what matters today + 1 implication for the book>",
+  "regime": "RISK_ON | NORMAL | CAUTIOUS | RISK_OFF",
+  "positions": {
+    "MSFT": {
+      "verdict": "HOLD | ACCUMULATE | TRIM | WAIT | WATCH | SELL",
+      "color": "GREEN | AMBER | RED | SLATE",
+      "thesis": "<1 sentence: the current take>",
+      "body": "<2-3 sentences: what's happening with this name, citing specific numbers from the data>",
+      "risk": "<1 sentence: the thing that could go wrong>",
+      "catalyst": "<1 sentence: the near-term thing that changes the picture>",
+      "bullCase": "<1 sentence>",
+      "bearCase": "<1 sentence>",
+      "entryZone": "$X - $Y"
+    }
+  },
+  "actions": [
+    {"priority": 1, "label": "<concrete action>", "note": "<why, citing numbers>", "tag": "ACCUMULATE|RISK MGMT|OPTIONAL|WAIT|WATCH|PASSIVE", "symbols": ["SYM"]}
+  ]
+}
+
+RULES:
+- Produce a "positions" entry for EVERY symbol in the input (one entry per UNIQUE symbol).
+- Cite specific numbers from the data (% of 52wk, P&L %, earnings date) — no vague statements.
+- "verdict" + "color" must be internally consistent (GREEN for ACCUMULATE, AMBER for HOLD with caution, RED for TRIM/SELL).
+- Actions: 3–6 items, ranked by urgency. Tie to specific symbols.
+- Think like Munger: long-term holders, don't overreact to noise, but don't be dogmatic about positions that turned speculative.`;
+
+  const userMsg = `Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.
+
+Macro snapshot: ${macroLine}.
+${scan?.signals ? `Today's scan signals — oversold: ${(scan.signals.oversold || []).map(s => s.symbol).join(', ') || 'none'}; overbought: ${(scan.signals.overbought || []).map(s => s.symbol).join(', ') || 'none'}.` : ''}
+
+Portfolio (user's ACTUAL positions):
+
+${posBlocks}
+
+Produce the briefing JSON now.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        accept: 'text/event-stream',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        stream: true,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }],
+      }),
+      signal: AbortSignal.timeout(40000),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return { error: `Claude ${res.status}: ${err.slice(0, 200)}` };
+    }
+    // Parse SSE stream (same pattern as the screener — avoids undici idle timeout)
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let accumulated = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of block.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+              accumulated += evt.delta.text || '';
+            } else if (evt.type === 'error') {
+              return { error: 'stream: ' + (evt.error?.message || 'unknown') };
+            }
+          } catch {}
+        }
+      }
+    }
+    const match = accumulated.match(/\{[\s\S]*\}/);
+    if (!match) return { error: 'no JSON in Claude response' };
+    let parsed;
+    try { parsed = JSON.parse(match[0]); } catch (e) { return { error: 'parse failed: ' + e.message }; }
+
+    const payload = {
+      date: new Date().toISOString().slice(0, 10),
+      generatedAt: new Date().toISOString(),
+      ...parsed,
+    };
+    try { await kv.set('briefing:today', JSON.stringify(payload), { ex: 7 * 24 * 3600 }); } catch {}
+    // Also mirror the macroTake to the legacy daily-read key so the old
+    // banner stays populated during rollout.
+    if (parsed.macroTake) {
+      try {
+        await kv.set('claude:dailyread', JSON.stringify({
+          date: payload.date,
+          generatedAt: payload.generatedAt,
+          text: parsed.macroTake,
+        }), { ex: 7 * 24 * 3600 });
+      } catch {}
+    }
+    return { ok: true, positions: Object.keys(parsed.positions || {}).length, actions: (parsed.actions || []).length };
+  } catch (e) {
+    return { error: e.message || String(e) };
+  }
+}
+
 // ── Handler ─────────────────────────────────────────────────────────────
 // Defensive header access: nodejs functions on Vercel can present `req`
 // either as a Web Request (headers.get(...)) or a Node IncomingMessage
@@ -266,42 +487,54 @@ export default async function handler(req) {
   const t0 = Date.now();
   const result = { steps: {} };
 
-  // Step 1: scan (always)
-  try {
-    const scan = await stepScan(kv);
-    result.steps.scan = { ok: true, ms: Date.now() - t0, totalScanned: scan.totalScanned, regime: scan.regime };
-    result.scan = scan;
-  } catch (e) {
-    result.steps.scan = { ok: false, error: e.message };
+  // Load user positions once; several steps need them
+  let positions = [];
+  if (kv) {
+    try {
+      const raw = await kv.get('portfolio:positions');
+      const parsed = safeParse(raw, null);
+      positions = parsed?.positions || [];
+    } catch {}
   }
 
-  // Step 2: warm moats
-  const t1 = Date.now();
-  try {
-    const r = await stepWarmMoats(kv);
-    result.steps.moats = { ok: true, ms: Date.now() - t1, ...r };
-  } catch (e) {
-    result.steps.moats = { ok: false, error: e.message };
-  }
-
-  // Step 3: snapshot valuation history
-  const t2 = Date.now();
+  // ── Phase 1: all data-fetching steps run IN PARALLEL ────────────────
+  // Previously sequential — occasionally tripped the 60s cap. Now ~15s
+  // for the slowest step in the group instead of ~40s cumulative.
+  const p1t = Date.now();
+  const [scanR, moatsR, fundsR, btamR, historyR] = await Promise.allSettled([
+    stepScan(kv),
+    stepWarmMoats(kv),
+    stepWarmPortfolioFundamentals(kv, positions),
+    stepCacheBTAM(kv, positions),
+    stepSnapHistory(kv),
+  ]);
+  if (scanR.status === 'fulfilled') {
+    result.scan = scanR.value;
+    result.steps.scan = { ok: true, totalScanned: scanR.value?.totalScanned, regime: scanR.value?.regime };
+  } else { result.steps.scan = { ok: false, error: scanR.reason?.message }; }
+  if (moatsR.status === 'fulfilled') result.steps.moats = { ok: true, ...moatsR.value };
+  else result.steps.moats = { ok: false, error: moatsR.reason?.message };
+  if (fundsR.status === 'fulfilled') result.steps.portfolioFundamentals = { ok: true, ...fundsR.value };
+  else result.steps.portfolioFundamentals = { ok: false, error: fundsR.reason?.message };
+  if (btamR.status === 'fulfilled') result.steps.btam = { ok: true, ...btamR.value };
+  else result.steps.btam = { ok: false, error: btamR.reason?.message };
   let valuation = null;
-  try {
-    const r = await stepSnapHistory(kv);
-    valuation = r.valuation;
-    result.steps.history = { ok: true, ms: Date.now() - t2, snapped: r.snapped };
-  } catch (e) {
-    result.steps.history = { ok: false, error: e.message };
-  }
+  if (historyR.status === 'fulfilled') { valuation = historyR.value?.valuation; result.steps.history = { ok: true, snapped: historyR.value?.snapped }; }
+  else { result.steps.history = { ok: false, error: historyR.reason?.message }; }
+  result.steps._phase1ms = Date.now() - p1t;
 
-  // Step 4: Claude daily read (uses scan + valuation from above)
-  const t3 = Date.now();
+  // ── Phase 2: briefing (needs scan + valuation) ────────────────────
+  const p2t = Date.now();
   try {
-    const r = await stepDailyRead(kv, result.scan, valuation);
-    result.steps.dailyread = { ok: !r.error, ms: Date.now() - t3, ...r };
+    if (positions.length) {
+      const r = await stepBriefing(kv, result.scan, valuation, positions);
+      result.steps.briefing = { ok: !r.error, ms: Date.now() - p2t, ...r };
+    } else {
+      const r = await stepDailyRead(kv, result.scan, valuation);
+      result.steps.dailyread = { ok: !r.error, ms: Date.now() - p2t, ...r };
+    }
   } catch (e) {
-    result.steps.dailyread = { ok: false, error: e.message };
+    result.steps.briefing = { ok: false, ms: Date.now() - p2t, error: e.message };
   }
 
   result.totalMs = Date.now() - t0;
