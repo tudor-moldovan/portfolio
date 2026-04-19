@@ -51,11 +51,20 @@ export default async function handler(req) {
     });
   }
   const symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 25);
+  const windowDaysRaw = parseInt(url.searchParams.get('days') || '60', 10);
+  const windowDays = Number.isFinite(windowDaysRaw) && windowDaysRaw > 0 && windowDaysRaw < 365
+    ? windowDaysRaw : 60;
   const results = await Promise.all(symbols.map(s => fetchEarnings(s)));
   const now = Date.now();
-  const future = results.filter(r => r && new Date(r.earningsDate).getTime() >= now - 24 * 3600 * 1000);
+  // Accept earnings from "yesterday" (reported after hours) through `days` ahead.
+  const windowEnd = now + windowDays * 24 * 3600 * 1000;
+  const future = results.filter(r => {
+    if (!r) return false;
+    const t = new Date(r.earningsDate).getTime();
+    return t >= now - 24 * 3600 * 1000 && t <= windowEnd;
+  });
   future.sort((a, b) => new Date(a.earningsDate) - new Date(b.earningsDate));
-  return new Response(JSON.stringify({ earnings: future }), {
+  return new Response(JSON.stringify({ earnings: future, windowDays }), {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'public, max-age=3600',
