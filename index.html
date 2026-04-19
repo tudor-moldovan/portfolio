@@ -1234,14 +1234,38 @@ async function renderEarningsCalendar(){
     document.getElementById('earningsBody').innerHTML='<div class="empty" style="padding:16px"><div class="em" style="color:var(--di)">No positions \u2014 no earnings to track</div></div>';
     return;
   }
+  // Manual nextEarnings overrides from positions JSON (always trusted as primary).
+  const manual={};
+  const now=Date.now();
+  const windowEnd=now+EARNINGS_WINDOW_DAYS*86400000;
+  for(const p of positionsData.positions){
+    if(p.nextEarnings){
+      const t=new Date(p.nextEarnings).getTime();
+      if(t>=now-86400000&&t<=windowEnd){
+        manual[p.sym]={
+          symbol:p.sym,
+          name:p.name||p.sym,
+          earningsDate:new Date(t).toISOString(),
+          earningsWindowEnd:new Date(t).toISOString(),
+          isEstimate:false,
+          source:'manual',
+        };
+      }
+    }
+  }
   try{
     const r=await fetch('/api/earnings?days='+EARNINGS_WINDOW_DAYS+'&symbols='+syms.map(encodeURIComponent).join(','));
     if(!r.ok)throw new Error('HTTP '+r.status);
     const d=await r.json();
-    const list=d.earnings||[];
+    const fromApi=d.earnings||[];
+    // Merge: manual takes precedence over API, then add API entries that aren't in manual
+    const merged={};
+    for(const e of fromApi)merged[e.symbol]=e;
+    for(const sym in manual)merged[sym]=manual[sym]; // manual wins
+    const list=Object.values(merged).sort((a,b)=>new Date(a.earningsDate)-new Date(b.earningsDate));
     const windowDays=d.windowDays||EARNINGS_WINDOW_DAYS;
     if(!list.length){
-      document.getElementById('earningsBody').innerHTML=`<div class="empty" style="padding:16px"><div class="em" style="color:var(--di)">No upcoming earnings in the next ${windowDays} days</div><div class="es">Yahoo may not have announced dates yet for your holdings</div></div>`;
+      document.getElementById('earningsBody').innerHTML=`<div class="empty" style="padding:16px"><div class="em" style="color:var(--di)">No upcoming earnings in the next ${windowDays} days</div><div class="es">Yahoo and Nasdaq returned nothing. Add <code>"nextEarnings": "2026-04-28"</code> to a position in your JSON to display it manually.</div></div>`;
       return;
     }
     const now=Date.now();

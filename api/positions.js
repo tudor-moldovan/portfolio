@@ -43,6 +43,10 @@ function validateAndNormalize(payload) {
     // Optional manual price override for symbols Yahoo/BT can't resolve
     if (typeof p.lastPrice === 'number' && p.lastPrice > 0) pos.lastPrice = p.lastPrice;
     if (typeof p.name === 'string' && p.name.trim()) pos.name = p.name.trim();
+    // Optional manual earnings date override (ISO date string, e.g. '2026-04-28')
+    if (typeof p.nextEarnings === 'string' && /^\d{4}-\d{2}-\d{2}/.test(p.nextEarnings)) {
+      pos.nextEarnings = p.nextEarnings;
+    }
     positions.push(pos);
   }
   if (payload.fx && typeof payload.fx !== 'object') return { error: 'fx must be an object' };

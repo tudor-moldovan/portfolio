@@ -71,7 +71,6 @@ async function fetchQuoteSummaryEarnings(symbol) {
     if (!r) return null;
     const ce = r.calendarEvents || {};
     const pr = r.price || {};
-    // earningsDate can be an array of {raw} or just nothing
     let dates = ce.earnings?.earningsDate;
     if (!Array.isArray(dates)) dates = dates ? [dates] : [];
     const raws = dates.map(d => (typeof d === 'object' ? d?.raw : d)).filter(v => typeof v === 'number');
@@ -87,6 +86,77 @@ async function fetchQuoteSummaryEarnings(symbol) {
       source: 'quoteSummary',
     };
   } catch { return null; }
+}
+
+// Nasdaq's public API. Doesn't require auth, doesn't seem to gate by IP.
+// Two endpoints worth trying — they sometimes disagree on shape.
+const NASDAQ_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Accept': 'application/json,text/plain,*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Origin': 'https://www.nasdaq.com',
+  'Referer': 'https://www.nasdaq.com/',
+};
+
+function parseNasdaqDate(s) {
+  if (!s || typeof s !== 'string') return null;
+  // Common formats: 'Apr 28, 2026', '04/28/2026', '2026-04-28', 'N/A'
+  if (/N\/A|n\/a/i.test(s)) return null;
+  const cleaned = s.replace(/\s+/g, ' ').trim();
+  // Try Date parsing first
+  let d = new Date(cleaned);
+  if (!isNaN(d.getTime())) return d;
+  // Try MM/DD/YYYY explicitly
+  const m = cleaned.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    d = new Date(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
+async function fetchNasdaqEarnings(symbol) {
+  const sym = symbol.toUpperCase();
+  // Try /eps endpoint — has 'Next EPS Report Date' style fields
+  for (const path of [
+    `https://api.nasdaq.com/api/quote/${encodeURIComponent(sym)}/eps?assetclass=stocks`,
+    `https://api.nasdaq.com/api/quote/${encodeURIComponent(sym)}/info?assetclass=stocks`,
+  ]) {
+    try {
+      const res = await fetch(path, { headers: NASDAQ_HEADERS, signal: AbortSignal.timeout(6000) });
+      if (!res.ok) continue;
+      const data = await res.json();
+      // Walk the response looking for any "Next" + "Earning" or "Date" combination.
+      const candidates = [];
+      const walk = (obj, depth = 0) => {
+        if (!obj || depth > 6) return;
+        if (typeof obj === 'object') {
+          for (const [k, v] of Object.entries(obj)) {
+            if (typeof v === 'string' && /next|upcoming|announ/i.test(k) && /date|earning|report/i.test(k)) {
+              const d = parseNasdaqDate(v);
+              if (d) candidates.push({ label: k, date: d });
+            } else if (typeof v === 'object') {
+              walk(v, depth + 1);
+            }
+          }
+        }
+      };
+      walk(data);
+      if (candidates.length) {
+        const earliest = candidates.reduce((a, b) => (a.date < b.date ? a : b));
+        return {
+          symbol: sym,
+          name: data?.data?.companyName || data?.data?.symbol || sym,
+          earningsDate: earliest.date.toISOString(),
+          earningsWindowEnd: earliest.date.toISOString(),
+          isEstimate: false,
+          source: 'nasdaq',
+          sourceLabel: earliest.label,
+        };
+      }
+    } catch {}
+  }
+  return null;
 }
 
 export default async function handler(req) {
@@ -107,15 +177,22 @@ export default async function handler(req) {
   // 1) batch v7 for everyone
   const byV7 = await fetchV7Batch(symbols);
 
-  // 2) fallback to quoteSummary for any symbol v7 missed
-  const missing = symbols.filter(s => !byV7[s]);
-  const fallbackResults = await Promise.all(missing.map(s => fetchQuoteSummaryEarnings(s)));
+  // 2) fallback to Yahoo quoteSummary for any symbol v7 missed
+  const missingAfterV7 = symbols.filter(s => !byV7[s]);
+  const summaryResults = await Promise.all(missingAfterV7.map(s => fetchQuoteSummaryEarnings(s)));
   const bySummary = {};
-  for (const r of fallbackResults) if (r) bySummary[r.symbol] = r;
+  for (const r of summaryResults) if (r) bySummary[r.symbol] = r;
 
-  const all = { ...byV7, ...bySummary };
+  // 3) Nasdaq fallback for whatever Yahoo still didn't cover (EU IPs
+  // often get nothing from Yahoo at all)
+  const missingAfterSummary = symbols.filter(s => !byV7[s] && !bySummary[s]);
+  const nasdaqResults = await Promise.all(missingAfterSummary.map(s => fetchNasdaqEarnings(s)));
+  const byNasdaq = {};
+  for (const r of nasdaqResults) if (r) byNasdaq[r.symbol] = r;
 
-  // 3) filter to window
+  const all = { ...byV7, ...bySummary, ...byNasdaq };
+
+  // 4) filter to window
   const now = Date.now();
   const windowEnd = now + windowDays * 24 * 3600 * 1000;
   const list = Object.values(all).filter(r => {
@@ -129,7 +206,8 @@ export default async function handler(req) {
     body.debug = {
       requested: symbols,
       v7Hits: Object.keys(byV7),
-      fallbackHits: Object.keys(bySummary),
+      summaryHits: Object.keys(bySummary),
+      nasdaqHits: Object.keys(byNasdaq),
       missing: symbols.filter(s => !all[s]),
       totalWithData: Object.keys(all).length,
       inWindowCount: list.length,
