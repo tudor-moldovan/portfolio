@@ -6,8 +6,27 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Yahoo uses '-USD' suffix for crypto. Plain 'BTC' matches an unrelated
+// penny stock (~$34) — a common gotcha. Auto-map the well-known tickers.
+const CRYPTO_TICKERS = new Set([
+  'BTC','ETH','SOL','DOGE','BNB','XRP','ADA','LTC','LINK','UNI',
+  'AVAX','DOT','MATIC','NEAR','BCH','ATOM','FIL','APT','ARB','OP',
+  'SUI','TON','TRX','SHIB','ETC','ALGO','XLM','ICP','HBAR','PEPE',
+  'RUNE','INJ','RNDR','FTM','EGLD','AAVE','SAND','MANA','MKR','GRT',
+]);
+
+// User-visible symbol → Yahoo symbol. Keeps API response keyed by the
+// user-visible symbol so the frontend doesn't need to know.
+function toYahooSymbol(sym) {
+  if (!sym) return sym;
+  const s = sym.toUpperCase();
+  if (CRYPTO_TICKERS.has(s)) return s + '-USD';
+  return s;
+}
+
 async function fetchSingleQuote(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false`;
+  const yahooSym = toYahooSymbol(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&range=1d&includePrePost=false`;
   const res = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -33,6 +52,7 @@ async function fetchSingleQuote(symbol) {
     fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh || null,
     fiftyTwoWeekLow: meta.fiftyTwoWeekLow || null,
     currency: meta.currency || null,
+    yahooSymbol: yahooSym !== symbol ? yahooSym : undefined,
   };
 }
 

@@ -1012,21 +1012,29 @@ function toUSD(amount,ccy){
 function computeRow(p){
   const live=liveQuotes[p.sym]||{};
   const px=live.price??null;
+  const hasLive=px!=null;
   const cost=p.units*p.avg;
-  const value=px!=null?p.units*px:cost;
-  const pnl=value-cost;
-  const pctReturn=cost?(pnl/cost)*100:0;
+  // If no live price, value falls back to cost so totals aren't corrupted,
+  // but we flag hasLive:false so the UI can show "no price" clearly and
+  // not pretend P&L is $0.
+  const value=hasLive?p.units*px:cost;
+  const pnl=hasLive?value-cost:0;
+  const pctReturn=hasLive&&cost?(pnl/cost)*100:0;
   const costUSD=toUSD(cost,p.ccy||'USD');
   const valueUSD=toUSD(value,p.ccy||'USD');
-  const pnlUSD=valueUSD-costUSD;
-  return {...p,px,name:live.name,changePercent:live.changePercent,cost,value,pnl,pctReturn,costUSD,valueUSD,pnlUSD,high52:live.fiftyTwoWeekHigh,low52:live.fiftyTwoWeekLow};
+  const pnlUSD=hasLive?valueUSD-costUSD:0;
+  return {...p,px,hasLive,name:live.name,changePercent:live.changePercent,cost,value,pnl,pctReturn,costUSD,valueUSD,pnlUSD,high52:live.fiftyTwoWeekHigh,low52:live.fiftyTwoWeekLow};
 }
 
 function computePortfolioTotals(rows){
+  // Include ALL rows in cost; value only counts rows with live data so
+  // a symbol Yahoo can't price doesn't fake a $0 P&L against its cost.
   const cost=rows.reduce((a,r)=>a+r.costUSD,0);
-  const value=rows.reduce((a,r)=>a+r.valueUSD,0);
-  const pnl=value-cost;
-  const pct=cost?(pnl/cost)*100:0;
+  const value=rows.reduce((a,r)=>a+(r.hasLive?r.valueUSD:r.costUSD),0);
+  const pnl=rows.reduce((a,r)=>a+(r.hasLive?(r.valueUSD-r.costUSD):0),0);
+  // Denominator excludes no-data rows so % reflects what we can measure.
+  const measuredCost=rows.reduce((a,r)=>a+(r.hasLive?r.costUSD:0),0);
+  const pct=measuredCost?(pnl/measuredCost)*100:0;
   return {cost,value,pnl,pct};
 }
 
@@ -1083,16 +1091,21 @@ function renderPositionsTable(rows){
   const body=rows.map(x=>{
     const pnlCls=x.pnlUSD>=0?'up':'dn';
     const pctCls=x.pctReturn>=0?'up':'dn';
+    const noData=!x.hasLive;
+    const priceCell=noData?'<span style="color:var(--di);font-style:italic" title="No Yahoo Finance data for this symbol">no price</span>':fmtCcyLocal(x.px,x.ccy);
+    const pnlCell=noData?'<span style="color:var(--di)">—</span>':`${x.pnlUSD>=0?'+':''}${usd(x.pnlUSD)}`;
+    const pctCell=noData?'<span style="color:var(--di)">—</span>':`<b>${pct(x.pctReturn)}</b>`;
+    const valueCell=noData?'<span style="color:var(--di)">—</span>':usd(x.valueUSD);
     return `<tr>
       <td class="broker">${esc(x.broker||'—')}</td>
       <td class="sym">${esc(x.sym)}</td>
       <td class="num">${fmtN(x.units,6)}</td>
       <td class="num">${fmtCcyLocal(x.avg,x.ccy)}</td>
-      <td class="num">${x.px!=null?fmtCcyLocal(x.px,x.ccy):'—'}</td>
+      <td class="num">${priceCell}</td>
       <td class="num">${usd(x.costUSD)}</td>
-      <td class="num">${usd(x.valueUSD)}</td>
-      <td class="num ${pnlCls}">${x.pnlUSD>=0?'+':''}${usd(x.pnlUSD)}</td>
-      <td class="num ${pctCls}"><b>${pct(x.pctReturn)}</b></td>
+      <td class="num">${valueCell}</td>
+      <td class="num ${noData?'':pnlCls}">${pnlCell}</td>
+      <td class="num ${noData?'':pctCls}">${pctCell}</td>
     </tr>`;
   }).join('');
   const foot=`<tr>
@@ -1142,9 +1155,19 @@ function renderTodayCards(rows){
     s.pctReturn=s.cost?((s.value-s.cost)/s.cost)*100:0;
   }
   const cards=Object.values(bySym).map(x=>{
-    const verdict=heuristicVerdict(x);
+    const noData=!x.hasLive;
+    const verdict=noData?{v:'NO DATA',color:'SLATE'}:heuristicVerdict(x);
     const pnlCls=x.pnlUSD>=0?'up':'dn';
-    const range=(x.high52&&x.low52&&x.high52!==x.low52)?renderRangeBar(x):'';
+    const range=(!noData&&x.high52&&x.low52&&x.high52!==x.low52)?renderRangeBar(x):'';
+    const priceHtml=noData
+      ?'<span style="color:var(--di);font-style:italic;font-size:11px">no Yahoo data</span>'
+      :fmtCcyLocal(x.px,x.ccy);
+    const pnlHtml=noData
+      ?'<span style="color:var(--di);font-size:11px">—</span>'
+      :`<span class="${pnlCls}">${x.pnlUSD>=0?'+':''}${usd(x.pnlUSD)}</span> <span style="color:var(--mu);font-size:10px">${pct(x.pctReturn)}</span>`;
+    const pending=noData
+      ?'Try a Yahoo-compatible symbol (e.g. <code>VUSA.AS</code> for European ETFs).'
+      :'Daily analysis will appear after the next 14:30 UTC cron.';
     return `<div class="pos-card">
       <div class="pos-card-head">
         <div class="pos-card-left">
@@ -1153,12 +1176,12 @@ function renderTodayCards(rows){
           <span class="pos-name">${esc(x.name||'')}</span>
         </div>
         <div class="pos-card-right">
-          <div class="pos-price">${x.px!=null?fmtCcyLocal(x.px,x.ccy):'—'}</div>
-          <div class="pos-pnl ${pnlCls}">${x.pnlUSD>=0?'+':''}${usd(x.pnlUSD)} <span style="color:var(--mu);font-size:10px">${pct(x.pctReturn)}</span></div>
+          <div class="pos-price">${priceHtml}</div>
+          <div class="pos-pnl">${pnlHtml}</div>
         </div>
       </div>
       ${range}
-      <div class="pos-analysis-pending">Daily analysis will appear after the next 14:30 UTC cron.</div>
+      <div class="pos-analysis-pending">${pending}</div>
     </div>`;
   }).join('');
   el.innerHTML=cards;
