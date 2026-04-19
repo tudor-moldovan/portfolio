@@ -1272,6 +1272,9 @@ async function loadPositions(){
   }catch{}
 }
 
+// Known tickers that live on BT Asset Management (Romanian funds)
+const BTAM_TICKERS=new Set(['ROTX','BT_USA','BT_WORLD','BT_EURO','BT_MAXI','BT_CLASIC','BT_OBLIG']);
+
 async function refreshPortfolio(){
   // Fetch live quotes for all position symbols + FX pairs we care about.
   // FX pairs go FIRST so they can't get truncated by the quote endpoint's
@@ -1299,6 +1302,44 @@ async function refreshPortfolio(){
       }
     }
   }catch{}
+
+  // Fallback 1: BT Asset Management for Romanian funds (ROTX, BT-USA, etc.)
+  const btamNeeded=syms.filter(s=>BTAM_TICKERS.has(s)&&!liveQuotes[s]?.price);
+  if(btamNeeded.length){
+    await Promise.all(btamNeeded.map(async s=>{
+      try{
+        const r=await fetch('/api/btam?symbol='+encodeURIComponent(s));
+        if(!r.ok)return;
+        const d=await r.json();
+        if(d.price){
+          liveQuotes[s]={
+            price:d.price,
+            name:s==='ROTX'?'BT Index Romania (ROTX)':'BT fund',
+            changePercent:0,
+            fiftyTwoWeekHigh:null,fiftyTwoWeekLow:null,
+            currency:'RON',
+            source:'btam',
+          };
+        }
+      }catch{}
+    }));
+  }
+
+  // Fallback 2: manual lastPrice on the position JSON (universal escape hatch).
+  // Anyone can write {"sym":"XXX","lastPrice":42.00} and have it counted.
+  for(const p of positionsData.positions){
+    if(!liveQuotes[p.sym]?.price&&typeof p.lastPrice==='number'){
+      liveQuotes[p.sym]={
+        price:p.lastPrice,
+        name:p.name||p.sym,
+        changePercent:0,
+        fiftyTwoWeekHigh:null,fiftyTwoWeekLow:null,
+        currency:p.ccy||'USD',
+        source:'manual',
+      };
+    }
+  }
+
   const rows=positionsData.positions.map(computeRow);
   renderPortfolioHeader(rows);
   renderPositionsTable(rows);

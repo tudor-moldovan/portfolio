@@ -33,13 +33,17 @@ function validateAndNormalize(payload) {
     const ccy = (p.ccy || 'USD').toUpperCase();
     if (!['USD', 'EUR', 'RON', 'GBP', 'CHF'].includes(ccy)) return { error: `positions[${i}].ccy unsupported` };
     if (p.broker && typeof p.broker !== 'string') return { error: `positions[${i}].broker must be a string` };
-    positions.push({
+    const pos = {
       broker: p.broker || null,
       sym: p.sym.toUpperCase().trim(),
       units: p.units,
       avg: p.avg,
       ccy,
-    });
+    };
+    // Optional manual price override for symbols Yahoo/BT can't resolve
+    if (typeof p.lastPrice === 'number' && p.lastPrice > 0) pos.lastPrice = p.lastPrice;
+    if (typeof p.name === 'string' && p.name.trim()) pos.name = p.name.trim();
+    positions.push(pos);
   }
   if (payload.fx && typeof payload.fx !== 'object') return { error: 'fx must be an object' };
   return { positions, fx: payload.fx || {} };
