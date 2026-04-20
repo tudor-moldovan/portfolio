@@ -416,6 +416,112 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
   .wg{grid-template-columns:1fr}
 }
 
+/* ── Portfolio tabs: Today / Positions / Actions ────────────────────── */
+.pf-hero{padding:22px 26px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--bd)}
+.pf-hero-l{display:flex;flex-direction:column;gap:4px}
+.pf-hero-title{font-family:var(--display);font-size:26px;font-weight:300;letter-spacing:-0.01em;line-height:1.1;color:var(--tx)}
+.pf-hero-sub{font-size:11px;color:var(--mu);font-weight:500;letter-spacing:.08em}
+.pf-hero-r{text-align:right}
+.pf-hero-total{font-family:var(--display);font-size:34px;font-weight:300;letter-spacing:-0.015em;line-height:1;color:var(--tx);font-variant-numeric:tabular-nums}
+.pf-hero-pl{font-size:12px;font-family:var(--mo);font-variant-numeric:tabular-nums;margin-top:6px}
+
+.pf-strip{display:flex;flex-wrap:wrap;gap:20px;padding:14px 26px;border-bottom:1px solid var(--bd);background:var(--sf2)}
+.pf-tick{display:flex;flex-direction:column;gap:1px}
+.pf-tick-l{font-size:9px;color:var(--di);letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.pf-tick-v{font-family:var(--mo);font-size:12px;font-weight:600;color:var(--tx);font-variant-numeric:tabular-nums}
+.pf-tick-c{font-size:10px;font-family:var(--mo);font-variant-numeric:tabular-nums;margin-top:1px}
+
+.pf-macro{padding:18px 26px;background:var(--sf);border-bottom:1px solid var(--bd);font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--tx);font-weight:400;letter-spacing:-0.005em;font-feature-settings:'ss01','kern'}
+.pf-macro .placeholder{font-family:var(--sans);font-size:13px;color:var(--di);font-style:italic}
+
+.pf-stale{margin:14px 26px;padding:12px 16px;background:var(--rd2);border:1px solid rgba(194,138,117,0.28);border-left:3px solid var(--rd);border-radius:6px;font-size:12px;color:var(--rd);line-height:1.5}
+.pf-stale strong{font-family:var(--serif);font-weight:600;letter-spacing:.04em}
+
+.pf-cards{display:flex;flex-direction:column;gap:10px;padding:18px 26px 26px}
+.pf-c{background:var(--sf2);border:1px solid var(--bd);border-left:3px solid transparent;border-radius:10px;padding:14px 16px;transition:border-color .2s}
+.pf-c:hover{border-color:var(--bd2)}
+.pf-c-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.pf-c-id{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0}
+.pf-c-sym{font-family:var(--display);font-weight:500;font-size:20px;letter-spacing:-0.005em;color:var(--ac);line-height:1.1}
+.pf-c-name{font-size:11px;color:var(--mu);font-family:var(--sans)}
+.pf-c-broker{font-size:9px;color:var(--di);background:var(--sf);padding:2px 7px;border-radius:3px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;border:1px solid var(--bd)}
+.pf-c-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.pf-badge{font-family:var(--sans);font-size:9px;font-weight:700;letter-spacing:.14em;padding:3px 9px;border-radius:99px;text-transform:uppercase;border:1px solid transparent}
+.pf-flags{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.pf-flag{font-family:var(--sans);font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 7px;border-radius:3px;text-transform:uppercase;border:1px solid transparent}
+.pf-c-pl{font-family:var(--mo);font-size:12px;font-variant-numeric:tabular-nums;font-weight:600}
+.pf-c-note{font-family:var(--serif);font-size:13.5px;line-height:1.6;color:var(--tx);font-weight:400;letter-spacing:-0.005em}
+.pf-c-note .placeholder{font-family:var(--sans);font-size:12px;color:var(--di);font-style:italic}
+.pf-c-meta{margin-top:10px;padding-top:9px;border-top:1px solid var(--bd);display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--di);font-family:var(--mo);font-variant-numeric:tabular-nums}
+.pf-c-meta > span{display:flex;gap:5px;align-items:baseline}
+.pf-c-meta .mv{color:var(--mu);font-weight:600}
+
+/* Refresh row */
+.pf-refresh{display:flex;justify-content:flex-end;gap:10px;padding:12px 26px;border-top:1px solid var(--bd);align-items:center;flex-wrap:wrap}
+.pf-refresh-btn{background:var(--ac2);border:1px solid var(--ac3);color:var(--ac);padding:8px 16px;border-radius:8px;font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:.2s}
+.pf-refresh-btn:hover{background:var(--ac);color:#1b1814}
+.pf-refresh-btn:disabled{opacity:.5;cursor:not-allowed}
+.pf-refresh-when{font-size:10px;color:var(--di);font-family:var(--mo)}
+
+/* Positions tab */
+.pf-tbl{width:100%;border-collapse:collapse}
+.pf-tbl thead th{padding:10px 14px;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--di);background:var(--sf2);border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+.pf-tbl th.r,.pf-tbl td.r{text-align:right}
+.pf-tbl tbody td{padding:10px 14px;border-bottom:1px solid var(--bd);font-family:var(--mo);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pf-tbl .grp td{font-family:var(--sans);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--di);font-weight:700;padding:14px 14px 6px;background:var(--sf2);border-bottom:1px solid var(--bd)}
+.pf-tbl .sub td{font-family:var(--mo);font-size:11px;color:var(--mu);background:var(--sf2);border-bottom:1px solid var(--bd);font-weight:600}
+.pf-tbl .sub .lbl{font-family:var(--sans);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--di);font-weight:700}
+.pf-tbl .tot td{font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:-0.005em;color:var(--tx);border-top:1px solid var(--ac3);padding-top:14px;padding-bottom:14px;background:transparent}
+.pf-tbl .tot .num{font-family:var(--mo);font-size:13px;font-weight:600}
+.pf-sym-s{font-family:var(--display);font-weight:500;font-size:14px;color:var(--ac);letter-spacing:-0.005em}
+.pf-sym-n{font-family:var(--sans);font-size:10px;color:var(--mu);margin-left:4px}
+.pf-bar-wrap{display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px}
+.pf-bar-bg{width:48px;height:3px;background:var(--bd2);border-radius:2px;overflow:hidden}
+.pf-bar-fill{height:100%;background:var(--ac);border-radius:2px}
+.pf-alloc-n{font-size:9px;color:var(--di);font-family:var(--mo)}
+
+/* Actions tab */
+.pf-actions{display:flex;flex-direction:column;gap:10px;padding:18px 26px}
+.pf-act{display:flex;gap:14px;align-items:flex-start;background:var(--sf2);border:1px solid var(--bd);border-left:2px solid var(--ac);border-radius:8px;padding:14px 16px;transition:.2s}
+.pf-act:hover{border-color:var(--bd2);background:var(--sf)}
+.pf-act-n{font-family:var(--display);font-weight:400;font-size:26px;color:var(--ac);width:30px;flex-shrink:0;line-height:1;letter-spacing:-0.02em;padding-top:2px}
+.pf-act-body{flex:1;min-width:0}
+.pf-act-title{font-family:var(--serif);font-weight:600;font-size:14px;color:var(--tx);margin-bottom:5px;line-height:1.35;letter-spacing:-0.005em}
+.pf-act-desc{font-family:var(--serif);font-size:13px;color:var(--tx);line-height:1.6;font-weight:400}
+.pf-act-tags{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+.pf-act-tag{font-family:var(--sans);font-size:9px;font-weight:700;letter-spacing:.12em;padding:2px 8px;border-radius:3px;text-transform:uppercase;border:1px solid transparent}
+
+.pf-dates{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;padding:18px 26px 26px}
+.pf-date-c{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px 13px;transition:.2s}
+.pf-date-c:hover{border-color:var(--ac3)}
+.pf-date-c .d{font-size:9px;color:var(--di);letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin-bottom:2px}
+.pf-date-c .e{font-family:var(--display);font-weight:500;font-size:16px;color:var(--tx);letter-spacing:-0.005em;line-height:1.2}
+.pf-date-c .s{font-size:10px;color:var(--mu);font-family:var(--sans);margin-top:3px}
+.pf-date-c .k{display:inline-block;font-size:8px;color:var(--ac);letter-spacing:.12em;text-transform:uppercase;margin-top:4px;font-weight:700}
+
+/* Empty state for brief tabs */
+.pf-empty{padding:40px 20px;text-align:center;color:var(--di)}
+.pf-empty .em{font-family:var(--display);font-size:18px;font-weight:400;color:var(--mu);margin-bottom:6px;letter-spacing:-0.005em}
+.pf-empty .es{font-size:12px;color:var(--di)}
+
+/* Mobile overrides for portfolio cards */
+@media(max-width:600px){
+  .pf-hero{padding:16px 18px 14px}
+  .pf-hero-title{font-size:20px}
+  .pf-hero-total{font-size:26px}
+  .pf-strip{padding:10px 18px;gap:14px}
+  .pf-macro{padding:14px 18px;font-size:14px}
+  .pf-cards,.pf-actions,.pf-dates{padding-left:16px;padding-right:16px}
+  .pf-c-sym{font-size:17px}
+  .pf-c-meta{font-size:9px;gap:10px}
+  .pf-tbl thead th{padding:7px 8px;font-size:8px;letter-spacing:.1em}
+  .pf-tbl tbody td{padding:8px 8px;font-size:11px}
+  .pf-tbl .grp td{padding:10px 8px 4px}
+  .pf-act-n{font-size:22px;width:24px}
+  .pf-act-title{font-size:13px}
+  .pf-act-desc{font-size:12px}
+}
+
 /* ── Scrollbar ──────────────────────────────────────────────────────── */
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -443,7 +549,10 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
 
 <nav class="tabs-bar">
   <div class="tabs">
-    <button class="tab on" data-tab="universe" onclick="selectTab('universe')">Moat Universe</button>
+    <button class="tab on" data-tab="analysis" onclick="selectTab('analysis')">Today</button>
+    <button class="tab" data-tab="positions" onclick="selectTab('positions')">Positions</button>
+    <button class="tab" data-tab="actions" onclick="selectTab('actions')">Actions</button>
+    <button class="tab" data-tab="universe" onclick="selectTab('universe')">Moat Universe</button>
     <button class="tab" data-tab="macro" onclick="selectTab('macro')">Macro</button>
   </div>
 </nav>
@@ -458,9 +567,66 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
   </div>
 </div>
 
-<!-- === TAB: TODAY ======================================================= -->
+<!-- === TAB: TODAY (Analysis) =========================================== -->
+<div class="tab-pane on" data-pane="analysis">
+  <main class="single-col">
+    <div class="card">
+      <div class="pf-hero">
+        <div class="pf-hero-l">
+          <div class="pf-hero-title">Today</div>
+          <div class="pf-hero-sub" id="pfHeroSub">—</div>
+        </div>
+        <div class="pf-hero-r">
+          <div class="pf-hero-total" id="pfHeroTotal">—</div>
+          <div class="pf-hero-pl" id="pfHeroPL">&nbsp;</div>
+        </div>
+      </div>
+      <div class="pf-strip" id="pfStrip"></div>
+      <div class="pf-macro" id="pfMacro"><span class="placeholder">Waiting for today's brief…</span></div>
+      <div id="pfStale"></div>
+      <div class="pf-cards" id="pfCards">
+        <div class="pf-empty"><div class="em">Generating today's brief…</div><div class="es">First load can take ~20–30 seconds while Claude writes the analysis.</div></div>
+      </div>
+      <div class="pf-refresh">
+        <span class="pf-refresh-when" id="pfRefreshWhen"></span>
+        <button class="pf-refresh-btn" id="pfRefreshBtn" onclick="regenerateBrief()">Refresh brief</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- === TAB: POSITIONS ================================================== -->
+<div class="tab-pane" data-pane="positions">
+  <main class="single-col">
+    <div class="card">
+      <div class="ch"><div class="ct">Positions</div><div class="cb" id="pfPosTime">—</div></div>
+      <div id="pfPositionsBody">
+        <div class="pf-empty"><div class="em">Loading positions…</div><div class="es">Live prices + P&amp;L</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- === TAB: ACTIONS ==================================================== -->
+<div class="tab-pane" data-pane="actions">
+  <main class="single-col">
+    <div class="card">
+      <div class="ch"><div class="ct">Priority Actions</div><div class="cb">Today's decisions</div></div>
+      <div class="pf-actions" id="pfActionsList">
+        <div class="pf-empty"><div class="em">No actions yet</div><div class="es">The brief will populate this shortly</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">Key Dates</div><div class="cb">Upcoming catalysts</div></div>
+      <div class="pf-dates" id="pfDatesList">
+        <div class="pf-empty" style="grid-column:1/-1"><div class="em">Loading calendar…</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
 <!-- === TAB: MOAT UNIVERSE ============================================= -->
-<div class="tab-pane on" data-pane="universe">
+<div class="tab-pane" data-pane="universe">
   <main class="single-col">
     <div class="card">
       <div class="ch"><div class="ct">Moat Universe</div><div class="cb" id="pTime">—</div></div>
@@ -855,10 +1021,265 @@ function toggleTheme(){
 }
 function loadTheme(){if(localStorage.getItem('p50k_theme')==='light')document.documentElement.classList.add('light');}
 
+// ── Today / Positions / Actions: unified brief loader ──────────────────
+// The brief is what Claude generated overnight (or on first visit of the day)
+// plus the live-updated prices we fold in when we render. Narrative comes
+// from the brief; prices and P&L are refreshed client-side.
+let BRIEF=null;              // latest { brief, stale } response
+let BRIEF_LIVE=null;         // positions with live prices folded in
+const VERDICT_COLORS={BUY_ZONE:'var(--gr)',ACCUMULATE:'var(--gr)',HOLD:'var(--go)',HOLD_WATCH:'var(--go)',WAIT:'var(--rd)',MONITOR:'var(--bl)',TRIM:'var(--rd)',AVOID:'var(--rd)'};
+const FLAG_COLORS={LAYOFF_NEWS:'var(--rd)',ACT_THIS_WEEK:'var(--gr)',TARGET_APPROACHING:'var(--ac)',STOP_HIT:'var(--rd)',AT_BUY:'var(--gr)',AT_SELL:'var(--go)',NEAR_BUY:'var(--gr)',NEAR_SELL:'var(--go)'};
+
+function fmtUSD(n){if(n==null||isNaN(n))return '—';return '$'+Math.round(n).toLocaleString('en-US');}
+function fmtUSD2(n){if(n==null||isNaN(n))return '—';return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtPct(n){if(n==null||isNaN(n))return '—';return (n>=0?'+':'')+n.toFixed(2)+'%';}
+function fmtPL(n){if(n==null||isNaN(n))return '—';return (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');}
+function gc(n){return n>=0?'var(--gr)':'var(--rd)';}
+function localPriceFmt(p,ccy){if(p==null)return '—';const n=p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});return ccy==='EUR'?'€'+n:ccy==='RON'?n+' RON':'$'+n;}
+
+// Fold current /api/quote prices into the brief's positions, recomputing P&L.
+function foldLivePrices(brief){
+  if(!brief||!Array.isArray(brief.positions))return brief;
+  const fx=brief.fx||{EURUSD:1.18,USDRON:4.41};
+  const out={...brief,positions:[]};
+  let totalCost=0,totalValue=0;
+  for(const p of brief.positions){
+    const q=quotes[p.quoteSym||p.symbol];
+    const live=q?.price??p.livePrice??null;
+    const chg=q?.changePercent??p.changePct??null;
+    const localCost=p.isLump?p.avgCost:p.units*p.avgCost;
+    const localVal=p.isLump?(live??p.avgCost):p.units*(live??p.avgCost);
+    let costUSD,valueUSD;
+    if(p.currency==='EUR'){costUSD=localCost*fx.EURUSD;valueUSD=localVal*fx.EURUSD;}
+    else if(p.currency==='RON'){costUSD=localCost/fx.USDRON;valueUSD=localVal/fx.USDRON;}
+    else{costUSD=localCost;valueUSD=localVal;}
+    totalCost+=costUSD;totalValue+=valueUSD;
+    out.positions.push({...p,livePrice:live,changePct:chg,pl:{localCost,localValue:localVal,costUSD,valueUSD,plUSD:valueUSD-costUSD,plPct:costUSD?((valueUSD-costUSD)/costUSD)*100:0}});
+  }
+  out.totals={valueUSD:totalValue,costUSD:totalCost,plUSD:totalValue-totalCost,plPct:totalCost?((totalValue-totalCost)/totalCost)*100:0};
+  return out;
+}
+
+// Target proximity: client-side because live prices move faster than Claude.
+function targetSignal(p){
+  const live=p.livePrice;if(live==null)return null;
+  if(p.stopLoss&&live<=p.stopLoss)return 'STOP_HIT';
+  if(p.targetBuy){if(live<=p.targetBuy)return 'AT_BUY';if(live<=p.targetBuy*1.03)return 'NEAR_BUY';}
+  if(p.targetSell){if(live>=p.targetSell)return 'AT_SELL';if(live>=p.targetSell*0.97)return 'NEAR_SELL';}
+  return null;
+}
+
+function renderToday(){
+  if(!BRIEF_LIVE)return;
+  const b=BRIEF_LIVE;
+  const subBits=[];
+  if(b.date)subBits.push(new Date(b.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}));
+  subBits.push((b.positions?.length||0)+' positions');
+  const brokers=[...new Set((b.positions||[]).map(p=>p.broker))].filter(Boolean);
+  if(brokers.length)subBits.push(brokers.length+' broker'+(brokers.length>1?'s':''));
+  document.getElementById('pfHeroSub').textContent=subBits.join(' · ');
+  document.getElementById('pfHeroTotal').textContent=fmtUSD(b.totals.valueUSD);
+  const plEl=document.getElementById('pfHeroPL');
+  plEl.innerHTML=`<span style="color:${gc(b.totals.plUSD)}">${fmtPL(b.totals.plUSD)} (${fmtPct(b.totals.plPct)})</span>`;
+
+  // Ticker strip — BTC, ETH, SPY index, VIX (fetched live), EUR/USD, USD/RON
+  const tickSpec=[
+    {l:'BTC',sym:'BTC'},{l:'ETH',sym:'ETH'},
+    {l:'S&P 500',sym:'^GSPC'},{l:'VIX',sym:'^VIX'},
+    {l:'EUR/USD',sym:'EURUSD=X'},{l:'USD/RON',sym:'USDRON=X'},
+  ];
+  const strip=document.getElementById('pfStrip');
+  strip.innerHTML=tickSpec.map(t=>{
+    const q=quotes[t.sym];
+    if(!q)return `<div class="pf-tick"><span class="pf-tick-l">${t.l}</span><span class="pf-tick-v">—</span></div>`;
+    const v=t.sym.includes('USD=X')?q.price.toFixed(3):t.sym==='^GSPC'?Math.round(q.price).toLocaleString('en-US'):t.sym==='^VIX'?q.price.toFixed(2):'$'+Math.round(q.price).toLocaleString('en-US');
+    const c=q.changePercent;
+    return `<div class="pf-tick"><span class="pf-tick-l">${t.l}</span><span class="pf-tick-v">${v}</span><span class="pf-tick-c" style="color:${c==null?'var(--di)':gc(c)}">${c==null?'—':fmtPct(c)}</span></div>`;
+  }).join('');
+
+  // Macro narrative
+  const macroEl=document.getElementById('pfMacro');
+  if(b.macroNarrative)macroEl.textContent=b.macroNarrative;
+  else macroEl.innerHTML='<span class="placeholder">No macro narrative in this brief.</span>';
+
+  // Stale banner
+  const staleEl=document.getElementById('pfStale');
+  if(BRIEF.stale){
+    staleEl.innerHTML=`<div class="pf-stale"><strong>STALE</strong> — showing brief from ${BRIEF.staleDate||'a prior day'}. A fresh one is generating in the background; refresh in ~30s to get it.</div>`;
+  }else{staleEl.innerHTML='';}
+
+  // Cards: merge brief.perPosition notes by symbol
+  const byNote={};
+  for(const n of(b.perPosition||[]))byNote[n.symbol]=n;
+  const cards=document.getElementById('pfCards');
+  cards.innerHTML=(b.positions||[]).map(p=>{
+    const n=byNote[p.symbol]||{};
+    const v=n.verdict||'HOLD';
+    const vc=VERDICT_COLORS[v]||'var(--mu)';
+    const clientSig=targetSignal(p);
+    const flags=[...new Set([...(n.flags||[]),clientSig].filter(Boolean))];
+    const flagsHtml=flags.map(f=>{const c=FLAG_COLORS[f]||'var(--mu)';return `<span class="pf-flag" style="color:${c};background:${c}22;border-color:${c}44">${f.replace(/_/g,' ')}</span>`;}).join('');
+    const meta=[
+      ['PRICE',localPriceFmt(p.livePrice,p.currency)],
+      ['COST',localPriceFmt(p.avgCost,p.currency)],
+      ['UNITS',p.isLump?`${Math.round(p.avgCost)} ${p.currency}`:(p.asset==='Crypto'?p.units.toFixed(4):p.units.toFixed(3))],
+      ['VALUE',fmtUSD(p.pl.valueUSD)],
+      ['DAY',p.changePct==null?'—':fmtPct(p.changePct)],
+    ];
+    const displaySym=p.symbol.replace(/-R$/,'');
+    const name=p.broker+' · '+p.asset;
+    return `<div class="pf-c" style="border-left-color:${vc}88">
+      <div class="pf-c-top">
+        <div class="pf-c-id">
+          <span class="pf-c-sym">${esc(displaySym)}</span>
+          <span class="pf-c-name">${esc(name)}</span>
+          <span class="pf-c-broker">${esc(p.broker)}</span>
+        </div>
+        <div class="pf-c-right">
+          <span class="pf-badge" style="color:${vc};background:${vc}22;border-color:${vc}44">${esc(v.replace(/_/g,' '))}</span>
+          ${flags.length?`<div class="pf-flags">${flagsHtml}</div>`:''}
+          <span class="pf-c-pl" style="color:${gc(p.pl.plUSD)}">${fmtPL(p.pl.plUSD)} (${fmtPct(p.pl.plPct)})</span>
+        </div>
+      </div>
+      <div class="pf-c-note">${n.note?esc(n.note):'<span class="placeholder">No note from today\'s brief.</span>'}</div>
+      <div class="pf-c-meta">${meta.map(([k,val])=>`<span><span>${k}</span><span class="mv" style="${k==='DAY'&&p.changePct!=null?'color:'+gc(p.changePct):''}">${typeof val==='string'?esc(val):val}</span></span>`).join('')}</div>
+    </div>`;
+  }).join('');
+
+  // Refresh when
+  const when=document.getElementById('pfRefreshWhen');
+  if(b.generatedAt){when.textContent='Brief generated '+new Date(b.generatedAt).toLocaleString('en-GB',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});}
+}
+
+function renderPositions(){
+  if(!BRIEF_LIVE)return;
+  const b=BRIEF_LIVE;
+  // Group by broker + asset class.
+  const groups={};
+  for(const p of b.positions){
+    const key=`${p.broker} — ${p.asset==='Stock'?'Equities':p.asset}`;
+    (groups[key]=groups[key]||[]).push(p);
+  }
+  let html='<table class="pf-tbl"><thead><tr><th>Asset</th><th class="r">Price</th><th class="r">Avg Cost</th><th class="r">Value (USD)</th><th class="r">P&amp;L (USD)</th><th class="r">P&amp;L %</th><th class="r">Alloc</th></tr></thead><tbody>';
+  for(const[g,rows]of Object.entries(groups)){
+    const gv=rows.reduce((s,r)=>s+r.pl.valueUSD,0);
+    const gc_=rows.reduce((s,r)=>s+r.pl.costUSD,0);
+    const gp=gv-gc_,gpp=gc_?(gp/gc_)*100:0;
+    html+=`<tr class="grp"><td colspan="7">${esc(g)}</td></tr>`;
+    for(const p of rows){
+      const alloc=b.totals.valueUSD?(p.pl.valueUSD/b.totals.valueUSD)*100:0;
+      const disp=p.symbol.replace(/-R$/,'');
+      const priceStr=localPriceFmt(p.livePrice,p.currency);
+      const costStr=localPriceFmt(p.avgCost,p.currency);
+      html+=`<tr>
+        <td><span class="pf-sym-s">${esc(disp)}</span><span class="pf-sym-n">${esc(p.broker)}</span></td>
+        <td class="r">${priceStr}</td>
+        <td class="r" style="color:var(--di)">${costStr}</td>
+        <td class="r">${fmtUSD(p.pl.valueUSD)}</td>
+        <td class="r" style="color:${gc(p.pl.plUSD)}">${fmtPL(p.pl.plUSD)}</td>
+        <td class="r" style="color:${gc(p.pl.plUSD)}">${fmtPct(p.pl.plPct)}</td>
+        <td class="r"><span class="pf-bar-wrap"><span class="pf-alloc-n">${alloc.toFixed(1)}%</span><span class="pf-bar-bg"><span class="pf-bar-fill" style="width:${Math.min(alloc*2.5,100).toFixed(0)}%"></span></span></span></td>
+      </tr>`;
+    }
+    html+=`<tr class="sub"><td colspan="3" class="lbl">Subtotal · ${esc(g)}</td><td class="r">${fmtUSD(gv)}</td><td class="r" style="color:${gc(gp)}">${fmtPL(gp)}</td><td class="r" style="color:${gc(gp)}">${fmtPct(gpp)}</td><td></td></tr>`;
+  }
+  html+=`<tr class="tot"><td colspan="3">Total</td><td class="r num">${fmtUSD(b.totals.valueUSD)}</td><td class="r num" style="color:${gc(b.totals.plUSD)}">${fmtPL(b.totals.plUSD)}</td><td class="r num" style="color:${gc(b.totals.plUSD)}">${fmtPct(b.totals.plPct)}</td><td></td></tr>`;
+  html+='</tbody></table>';
+  document.getElementById('pfPositionsBody').innerHTML=html;
+  const when=b.generatedAt?'Brief '+new Date(b.generatedAt).toLocaleString('en-GB',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}):'—';
+  document.getElementById('pfPosTime').textContent=when;
+}
+
+function renderActions(){
+  if(!BRIEF_LIVE)return;
+  const b=BRIEF_LIVE;
+  // Priority actions from brief, prepended by client-side "AT_BUY" target-hit signals.
+  const extras=[];
+  for(const p of b.positions){
+    const sig=targetSignal(p);
+    if(sig==='AT_BUY')extras.push({title:`${p.symbol.replace(/-R$/,'')} hit buy target`,desc:`Live price ${localPriceFmt(p.livePrice,p.currency)} at or below your ${localPriceFmt(p.targetBuy,p.currency)} buy target. Your thesis said this was the zone.`,tags:['ACCUMULATE','TARGET HIT']});
+    else if(sig==='AT_SELL')extras.push({title:`${p.symbol.replace(/-R$/,'')} hit sell target`,desc:`Live price ${localPriceFmt(p.livePrice,p.currency)} at or above your ${localPriceFmt(p.targetSell,p.currency)} trim target.`,tags:['TRIM','TARGET HIT']});
+    else if(sig==='STOP_HIT')extras.push({title:`${p.symbol.replace(/-R$/,'')} breached stop`,desc:`Live price ${localPriceFmt(p.livePrice,p.currency)} below your ${localPriceFmt(p.stopLoss,p.currency)} stop. Revisit thesis.`,tags:['REVIEW','STOP HIT']});
+  }
+  const all=[...extras,...(b.priorityActions||[])];
+  const list=document.getElementById('pfActionsList');
+  if(!all.length){list.innerHTML='<div class="pf-empty"><div class="em">No priority actions</div><div class="es">Hold and let positions work.</div></div>';}
+  else list.innerHTML=all.map((a,i)=>{
+    const tags=(a.tags||[]).map(t=>{
+      const up=t.toUpperCase();
+      let c='var(--mu)';
+      if(/BUY|ACCUMULATE|TARGET HIT/.test(up))c='var(--gr)';
+      else if(/SELL|TRIM|AVOID|STOP|WAIT/.test(up))c='var(--rd)';
+      else if(/HOLD|WATCH/.test(up))c='var(--go)';
+      else if(/DEADLINE|CATALYST|MONITOR|TARGET/.test(up))c='var(--bl)';
+      return `<span class="pf-act-tag" style="color:${c};background:${c}22;border-color:${c}44">${esc(t)}</span>`;
+    }).join('');
+    return `<div class="pf-act"><div class="pf-act-n">${String(i+1).padStart(2,'0')}</div><div class="pf-act-body"><div class="pf-act-title">${esc(a.title||'')}</div><div class="pf-act-desc">${esc(a.desc||'')}</div>${tags?`<div class="pf-act-tags">${tags}</div>`:''}</div></div>`;
+  }).join('');
+
+  // Key dates from brief.catalysts
+  const datesEl=document.getElementById('pfDatesList');
+  const cats=b.catalysts||[];
+  if(!cats.length){datesEl.innerHTML='<div class="pf-empty" style="grid-column:1/-1"><div class="em">No upcoming catalysts</div></div>';}
+  else datesEl.innerHTML=cats.map(c=>{
+    const d=new Date(c.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    const kind=(c.kind||'').toUpperCase();
+    return `<div class="pf-date-c"><div class="d">${d}</div><div class="e">${esc(c.label||'')}</div>${c.sub?`<div class="s">${esc(c.sub)}</div>`:''}${kind?`<div class="k">${kind}</div>`:''}</div>`;
+  }).join('');
+}
+
+async function loadBrief(){
+  try{
+    const r=await fetch('/api/brief');
+    const d=await r.json();
+    if(d.error){
+      document.getElementById('pfCards').innerHTML=`<div class="pf-empty"><div class="em">Brief unavailable</div><div class="es">${esc(d.error)}</div></div>`;
+      return;
+    }
+    BRIEF=d;
+    BRIEF_LIVE=foldLivePrices(d.brief);
+    // Ensure all position tickers are in the live-price fetch loop
+    for(const p of(BRIEF_LIVE.positions||[])){
+      const sym=p.quoteSym||p.symbol;
+      if(!WATCHLIST.includes(sym))WATCHLIST.push(sym);
+    }
+    // Also add FX + index symbols for the strip
+    for(const s of ['EURUSD=X','USDRON=X','^GSPC','^VIX']){if(!WATCHLIST.includes(s))WATCHLIST.push(s);}
+    fetchPrices();
+    renderToday();renderPositions();renderActions();
+  }catch(e){
+    document.getElementById('pfCards').innerHTML=`<div class="pf-empty"><div class="em">Brief unavailable</div><div class="es">${esc(e.message)}</div></div>`;
+  }
+}
+
+async function regenerateBrief(){
+  const btn=document.getElementById('pfRefreshBtn');
+  const key=prompt('Admin key to regenerate:');
+  if(!key)return;
+  btn.disabled=true;btn.textContent='Regenerating…';
+  try{
+    const r=await fetch('/api/brief?force=1&key='+encodeURIComponent(key),{method:'POST'});
+    const d=await r.json();
+    if(!r.ok||d.error){toast(d.error||'Failed',false);btn.disabled=false;btn.textContent='Refresh brief';return;}
+    BRIEF={brief:d.brief,stale:false};
+    BRIEF_LIVE=foldLivePrices(d.brief);
+    renderToday();renderPositions();renderActions();
+    toast('Brief regenerated',true);
+  }catch(e){toast(e.message,false);}
+  btn.disabled=false;btn.textContent='Refresh brief';
+}
+
+// Re-render Today tab whenever live prices tick so day changes + P&L stay fresh.
+const _origFetchPrices=fetchPrices;
+fetchPrices=async function(){
+  await _origFetchPrices();
+  if(BRIEF_LIVE){BRIEF_LIVE=foldLivePrices(BRIEF.brief);renderToday();renderPositions();}
+};
+
 // ── Tab navigation ──────────────────────────────────────────────────────
-const VALID_TABS=['universe','macro'];
+const VALID_TABS=['analysis','positions','actions','universe','macro'];
 function selectTab(id){
-  if(!VALID_TABS.includes(id))id='universe';
+  if(!VALID_TABS.includes(id))id='analysis';
   for(const btn of document.querySelectorAll('.tabs .tab'))btn.classList.toggle('on',btn.dataset.tab===id);
   for(const pane of document.querySelectorAll('.tab-pane'))pane.classList.toggle('on',pane.dataset.pane===id);
   try{localStorage.setItem('activeTab',id);}catch{}
@@ -868,8 +1289,10 @@ function selectTab(id){
 loadTheme();
 // Restore last-active tab
 try{const t=localStorage.getItem('activeTab');if(t)selectTab(t);}catch{}
-// Universe tab: live prices, moat badges, valuation sparklines
+// Kick off live prices; loadBrief will expand the watchlist with user positions.
 fetchPrices();setInterval(fetchPrices,60000);
+loadBrief();
+// Universe tab: moat badges, valuation sparklines
 loadMoats();
 loadHistory();
 // Macro tab

@@ -4,6 +4,13 @@
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/img/(.*)", "dest": "/img/$1" },
     {
+      "src": "/edit(\\.html)?",
+      "dest": "/edit.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
       "src": "/(index.html)?",
       "dest": "/index.html",
       "headers": {

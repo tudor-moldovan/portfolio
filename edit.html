@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edit Positions — Moat Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1b1814;--sf:#24201b;--sf2:#2e2a23;--bd:rgba(238,220,186,.12);--tx:#eedcba;--mu:#a9a08c;--di:#6e6552;--ac:#d4b88b;--ac2:rgba(212,184,139,.12);--ac3:rgba(212,184,139,.28);--gr:#9eaf8a;--rd:#c28a75}
+body{background:var(--bg);color:var(--tx);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.55;min-height:100vh;padding:28px}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:32px;letter-spacing:-0.01em;margin-bottom:6px}
+.sub{color:var(--mu);font-size:12px;margin-bottom:22px;letter-spacing:.02em}
+.row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+input[type="password"]{background:var(--sf);border:1px solid var(--bd);color:var(--tx);padding:9px 14px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;flex:1;min-width:180px}
+input[type="password"]:focus{outline:none;border-color:var(--ac3)}
+textarea{width:100%;min-height:60vh;background:var(--sf);border:1px solid var(--bd);color:var(--tx);padding:14px 16px;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.5;resize:vertical}
+textarea:focus{outline:none;border-color:var(--ac3)}
+button{background:var(--ac2);border:1px solid var(--ac3);color:var(--ac);padding:9px 18px;border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:.2s}
+button:hover{background:var(--ac);color:#1b1814}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.ghost{background:transparent;color:var(--mu)}
+.msg{margin-top:14px;padding:11px 14px;border-radius:8px;font-size:13px;line-height:1.5;display:none}
+.msg.on{display:block}
+.msg.ok{background:rgba(158,175,138,.12);border:1px solid rgba(158,175,138,.28);color:var(--gr)}
+.msg.err{background:rgba(194,138,117,.12);border:1px solid rgba(194,138,117,.28);color:var(--rd)}
+.help{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;margin-bottom:20px;font-size:12px;color:var(--mu);line-height:1.7}
+.help code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--sf2);padding:1px 6px;border-radius:3px;color:var(--ac)}
+a{color:var(--ac)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Edit Positions</h1>
+  <div class="sub">JSON array · stored in Vercel KV · takes effect on next <a href="/">home</a> load</div>
+
+  <div class="help">
+    Each position needs: <code>symbol</code>, <code>quoteSym</code>, <code>broker</code>, <code>asset</code>, <code>currency</code> (USD|EUR|RON), <code>units</code>, <code>avgCost</code>. Optional: <code>targetBuy</code>, <code>targetSell</code>, <code>stopLoss</code>, <code>isLump</code>.
+    For duplicates (same ticker on two brokers), suffix the symbol (e.g. <code>BTC-R</code>) but set <code>quoteSym: "BTC"</code>.
+    For index-tracker accounts where only RON invested is known, set <code>isLump: true</code> and use <code>avgCost</code> as total RON and <code>units: 1</code>.
+  </div>
+
+  <div class="row">
+    <input type="password" id="key" placeholder="Admin key (APP_KEY env var)">
+    <button class="ghost" id="loadBtn">Load current</button>
+  </div>
+
+  <textarea id="ta" spellcheck="false" placeholder="[{...}, {...}]"></textarea>
+
+  <div class="row" style="margin-top:14px">
+    <button id="saveBtn">Save to KV</button>
+    <button class="ghost" id="fmtBtn">Format JSON</button>
+  </div>
+
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function showMsg(text,ok){const m=$('msg');m.textContent=text;m.className='msg on '+(ok?'ok':'err');}
+
+async function loadCurrent(){
+  try{
+    const r=await fetch('/api/positions');
+    const d=await r.json();
+    if(!r.ok||d.error){showMsg(d.error||'Failed to load',false);return;}
+    $('ta').value=JSON.stringify(d.positions,null,2);
+    showMsg('Loaded '+d.positions.length+' positions from '+d.source,true);
+  }catch(e){showMsg(e.message,false);}
+}
+
+async function save(){
+  const key=$('key').value.trim();
+  if(!key){showMsg('Admin key required',false);return;}
+  let parsed;
+  try{parsed=JSON.parse($('ta').value);}catch(e){showMsg('Invalid JSON: '+e.message,false);return;}
+  $('saveBtn').disabled=true;
+  try{
+    const r=await fetch('/api/positions?key='+encodeURIComponent(key),{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({positions:parsed}),
+    });
+    const d=await r.json();
+    if(!r.ok||d.error){showMsg(d.error||'Save failed',false);}
+    else showMsg('Saved '+d.count+' positions. Reload home to see them.',true);
+  }catch(e){showMsg(e.message,false);}
+  $('saveBtn').disabled=false;
+}
+
+function format(){
+  try{$('ta').value=JSON.stringify(JSON.parse($('ta').value),null,2);showMsg('Formatted',true);}
+  catch(e){showMsg('Invalid JSON: '+e.message,false);}
+}
+
+$('loadBtn').onclick=loadCurrent;
+$('saveBtn').onclick=save;
+$('fmtBtn').onclick=format;
+
+// Auto-load on first open.
+loadCurrent();
+
+// Pre-fill key from ?key= so you can bookmark /edit?key=XXX on your phone.
+const qs=new URLSearchParams(location.search);
+if(qs.get('key'))$('key').value=qs.get('key');
+</script>
+</body>
+</html>

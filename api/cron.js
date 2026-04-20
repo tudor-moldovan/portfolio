@@ -2,6 +2,22 @@ import { getFundamentalsWithCache } from './_lib/moat.js';
 
 export const config = { maxDuration: 60 };
 
+async function stepRegenBrief(reqUrl) {
+  try {
+    const origin = new URL(reqUrl, 'http://localhost').origin;
+    const key = process.env.APP_KEY || '';
+    const r = await fetch(`${origin}/api/brief?force=1${key ? `&key=${encodeURIComponent(key)}` : ''}`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(50000),
+    });
+    if (!r.ok) return { ok: false, error: `brief HTTP ${r.status}` };
+    const d = await r.json();
+    return { ok: true, date: d.brief?.date, actions: (d.brief?.priorityActions || []).length };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 const SCAN_UNIVERSE = [
   'AAPL','MSFT','NVDA','GOOGL','AMZN','META','ASML','TSM',
   'NFLX','V','MA','BRK-B',
@@ -127,8 +143,9 @@ export default async function handler(req) {
 
   const kv = await getKV();
   const t0 = Date.now();
-  // Scan + warm moats run in parallel — both are independent.
+  // Scan + warm moats run in parallel; they feed the brief, so brief runs after.
   const [scanR, moatsR] = await Promise.allSettled([stepScan(kv), stepWarmMoats(kv)]);
+  const briefR = await stepRegenBrief(req.url);
   const result = {
     steps: {
       scan: scanR.status === 'fulfilled'
@@ -137,6 +154,7 @@ export default async function handler(req) {
       moats: moatsR.status === 'fulfilled'
         ? { ok: true, ...moatsR.value }
         : { ok: false, error: moatsR.reason?.message },
+      brief: briefR,
     },
     totalMs: Date.now() - t0,
   };
