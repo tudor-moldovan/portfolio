@@ -353,6 +353,9 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
 .macro-cell{background:var(--sf);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .macro-label{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:2px 7px;border-radius:99px;background:var(--sf2);color:var(--mu);margin-left:6px;vertical-align:middle}
 .macro-hint{font-size:11px;color:var(--mu);line-height:1.5;margin-top:6px;padding-top:6px;border-top:1px dashed var(--bd)}
+.macro-regime{margin-bottom:16px;padding:14px 18px;background:linear-gradient(135deg,var(--sf) 0%,var(--sf2) 100%);border:1px solid var(--go);border-left:3px solid var(--go);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm)}
+.macro-regime-tag{display:inline-block;font-family:var(--serif);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--go);margin-right:10px}
+.macro-regime-text{font-size:13px;line-height:1.55;color:var(--tx)}
 
 /* ── Daily scan signals panel ───────────────────────────────────────── */
 .sig-panel{max-width:1360px;margin:0 auto;padding:0 28px 14px;display:none}
@@ -385,6 +388,8 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
 .insider-sell{color:var(--rd)}
 .analyst-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;margin:6px 0}
 .analyst-bar div{height:100%;min-width:2px}
+@keyframes intelFlash{0%{box-shadow:0 0 0 0 rgba(212,184,139,0)}30%{box-shadow:0 0 0 6px rgba(212,184,139,.45)}100%{box-shadow:0 0 0 0 rgba(212,184,139,0)}}
+.intel-flash{animation:intelFlash 1s ease-out}
 
 /* ── Stock lookup input ─────────────────────────────────────────────── */
 .lookup{display:flex;gap:8px;align-items:center;padding:0 22px 16px}
@@ -423,14 +428,9 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
 <header>
   <div class="logo">
     <div class="logo-mark" aria-label="Moat Portfolio">M</div>
-    <div><div class="logo-name">Moat Portfolio</div><div class="logo-sub" id="logoSub">Loading…</div></div>
+    <div><div class="logo-name">Moat Portfolio</div><div class="logo-sub">12 Elite Compounders</div></div>
   </div>
-  <div class="hc" id="hcPortfolio" style="display:none">
-    <div class="hc-lbl">Portfolio</div>
-    <div class="hc-val" id="portTotal">—</div>
-    <div class="hc-sub"><span id="portPnl"></span> <span id="portPct" style="color:var(--mu)"></span></div>
-  </div>
-  <div class="hc" id="hcSpy">
+  <div class="hc">
     <div class="hc-lbl">S&amp;P 500</div>
     <div class="hc-val" id="sSpy">—</div>
   </div>
@@ -443,20 +443,10 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
 
 <nav class="tabs-bar">
   <div class="tabs">
-    <button class="tab on" data-tab="today" onclick="selectTab('today')">Today</button>
-    <button class="tab" data-tab="positions" onclick="selectTab('positions')">Positions</button>
-    <button class="tab" data-tab="universe" onclick="selectTab('universe')">Universe</button>
+    <button class="tab on" data-tab="universe" onclick="selectTab('universe')">Moat Universe</button>
     <button class="tab" data-tab="macro" onclick="selectTab('macro')">Macro</button>
   </div>
 </nav>
-
-<div class="dr-panel" id="drPanel">
-  <div class="dr-inner">
-    <span class="dr-mark">Today</span>
-    <span class="dr-text" id="drText"></span>
-    <button class="dr-dismiss" onclick="dismissDailyRead()" title="Dismiss" aria-label="Dismiss">&times;</button>
-  </div>
-</div>
 
 <div class="sig-panel" id="sigPanel">
   <div class="sig-inner">
@@ -469,102 +459,22 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
 </div>
 
 <!-- === TAB: TODAY ======================================================= -->
-<div class="tab-pane on" data-pane="today">
-  <main class="single-col">
-    <div class="card" id="brief-card">
-      <div class="ch">
-        <div class="ct">Today</div>
-        <span id="briefTime" style="font-size:11px;color:var(--di);font-weight:500"></span>
-      </div>
-      <div class="cbody">
-        <div id="briefMacro" class="brief-macro"></div>
-        <div id="briefActions" class="brief-actions"></div>
-      </div>
-    </div>
-
-    <div class="card" id="earnings-card">
-      <div class="ch"><div class="ct">Earnings calendar</div><div class="cb">Next 60 days — your holdings</div></div>
-      <div class="cbody">
-        <div id="earningsBody"><div class="empty"><div class="em" style="color:var(--di)">Loading earnings…</div></div></div>
-      </div>
-    </div>
-
-    <div class="card" id="todayPosCard">
-      <div class="ch"><div class="ct">Your Holdings</div><div class="cb" id="todayPosSubtitle">—</div></div>
-      <div class="cbody" style="padding:0">
-        <div id="todayPosBody"><div class="empty"><div class="em" style="color:var(--di)">No positions yet</div><div class="es">Go to Positions tab to add yours</div></div></div>
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- === TAB: POSITIONS =================================================== -->
-<div class="tab-pane" data-pane="positions">
+<!-- === TAB: MOAT UNIVERSE ============================================= -->
+<div class="tab-pane on" data-pane="universe">
   <main class="single-col">
     <div class="card">
-      <div class="ch">
-        <div class="ct">Positions</div>
-        <div style="display:flex;gap:8px">
-          <button class="bt-btn" onclick="openPositionsEditor()">Edit</button>
-        </div>
-      </div>
-      <div class="cbody" style="padding:0">
-        <div id="positionsTable"><div class="empty"><div class="em" style="color:var(--di)">No positions configured yet</div><div class="es">Click Edit to paste your holdings JSON</div></div></div>
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- === TAB: UNIVERSE (the original moat research tooling) =============== -->
-<div class="tab-pane" data-pane="universe">
-  <main>
-    <div class="col">
-      <div class="card">
-        <div class="ch"><div class="ct">Moat Universe</div><div class="cb" id="pTime">—</div></div>
-        <div class="wg" id="wGrid"></div>
-      </div>
-
-      <div class="card" id="intelCard">
-        <div class="ch"><div class="ct">Stock Intelligence</div><div class="cb">Click a stock above or search below</div></div>
-        <div class="lookup">
-          <input type="text" id="intelSym" placeholder="Ticker" maxlength="6" onkeydown="if(event.key==='Enter')loadIntel()">
-          <button onclick="loadIntel()">Analyze</button>
-          <span style="font-size:11px;color:var(--di)" id="intelStatus"></span>
-        </div>
-        <div id="intelBody"></div>
-      </div>
+      <div class="ch"><div class="ct">Moat Universe</div><div class="cb" id="pTime">—</div></div>
+      <div class="wg" id="wGrid"></div>
     </div>
 
-    <div class="col">
-      <div class="card">
-        <div class="ch">
-          <div class="ct">Valuation Snapshot</div>
-          <span id="valTime" style="font-size:11px;color:var(--di);font-weight:500"></span>
-        </div>
-        <div class="cbody" style="display:flex;flex-direction:column;gap:14px">
-          <div id="valBody"><div class="empty"><div class="em">Loading…</div><div class="es">Computing 52-week position + RSI for all 12 names</div></div></div>
-        </div>
+    <div class="card" id="intelCard">
+      <div class="ch"><div class="ct">Stock Intelligence</div><div class="cb">Tap a ticker above or search below</div></div>
+      <div class="lookup">
+        <input type="text" id="intelSym" placeholder="Ticker" maxlength="6" onkeydown="if(event.key==='Enter')loadIntel()">
+        <button onclick="loadIntel()">Analyze</button>
+        <span style="font-size:11px;color:var(--di)" id="intelStatus"></span>
       </div>
-
-      <div class="card">
-        <div class="ch"><div class="ct">Strategy Backtester</div><div class="cb">1-year test with costs</div></div>
-        <div class="cbody">
-          <div class="bt-row">
-            <select class="bt-sel" id="btSym">
-              <option>SPY</option><option>AAPL</option><option>MSFT</option><option>NVDA</option><option>GOOGL</option><option>AMZN</option><option>META</option><option>ASML</option>
-              <option>TSM</option><option>NFLX</option><option>V</option><option>MA</option><option>BRK-B</option>
-            </select>
-            <select class="bt-sel" id="btStrat">
-              <option value="rsi-mean-reversion">RSI Mean Reversion</option>
-              <option value="sma-crossover">SMA 20/50 Crossover</option>
-              <option value="buy-and-hold">Buy &amp; Hold</option>
-            </select>
-            <button class="bt-btn" id="btBtn" onclick="runBacktest()">Run</button>
-            <span style="font-size:11px;color:var(--di)" id="btStatus"></span>
-          </div>
-          <div id="btResults"></div>
-        </div>
-      </div>
+      <div id="intelBody"><div class="empty" style="padding:32px 20px"><div class="em" style="color:var(--di)">Choose a stock to see the deep-dive</div><div class="es">Moat rating, valuation, technicals, risks, catalysts + peer comparison</div></div></div>
     </div>
   </main>
 </div>
@@ -579,29 +489,6 @@ main.single-col{grid-template-columns:1fr;display:flex;flex-direction:column;gap
       </div>
     </div>
   </section>
-</div>
-
-<!-- Edit Positions Modal -->
-<div class="modal" id="positionsModal">
-  <div class="modal-card">
-    <div class="modal-head">
-      <div class="ct">Edit Positions</div>
-      <button class="modal-close" onclick="closePositionsEditor()" aria-label="Close">&times;</button>
-    </div>
-    <div class="modal-body">
-      <p class="modal-hint">Paste a JSON object with <code>positions</code> (array) and optional <code>fx</code> rates. Example:</p>
-      <pre class="modal-example">{"positions":[
-  {"broker":"eToro","sym":"MSFT","units":19.524,"avg":401.37,"ccy":"USD"},
-  {"broker":"IBKR","sym":"VUSA","units":120.76,"avg":107.86,"ccy":"EUR"}
-],"fx":{"EURUSD":1.18,"USDRON":4.41}}</pre>
-      <textarea id="positionsJson" class="modal-textarea" placeholder="Paste JSON here..."></textarea>
-      <div class="modal-row">
-        <input type="password" id="positionsPin" class="modal-pin" placeholder="PIN (if set)">
-        <button class="bt-btn" onclick="savePositions()">Save</button>
-      </div>
-      <div id="positionsSaveMsg" class="modal-msg"></div>
-    </div>
-  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -710,44 +597,20 @@ async function loadHistory(){
     if(d.history){historyBySymbol=d.history;renderWatchlist();}
   }catch{}
 }
-async function loadDailyRead(){
-  try{
-    const r=await fetch('/api/dailyread');
-    if(!r.ok)return;
-    const d=await r.json();
-    const dr=d.dailyread;
-    if(!dr||!dr.text)return;
-    // Show the read if it was generated in the last ~36h. Strict
-    // 'today only' was hiding the banner during the pre-14:30 UTC
-    // window each day and on days cron is delayed.
-    if(dr.generatedAt){
-      const ageMs=Date.now()-new Date(dr.generatedAt).getTime();
-      if(ageMs>36*3600*1000)return;
-    }
-    // Per-read dismissal (by generatedAt timestamp) so a dismissed
-    // read stays dismissed but tomorrow's shows up.
-    const dismissKey=dr.generatedAt||dr.date;
-    if(localStorage.getItem('dr_dismissed')===dismissKey)return;
-    document.getElementById('drText').textContent=dr.text;
-    // Show relative age in the banner so stale reads are honest
-    const mark=document.querySelector('.dr-mark');
-    if(mark&&dr.generatedAt){
-      const hrs=Math.round((Date.now()-new Date(dr.generatedAt).getTime())/3600000);
-      mark.textContent=hrs<2?'Today':(hrs<24?`${hrs}h ago`:'Yesterday');
-    }
-    document.getElementById('drPanel').classList.add('on');
-    document.getElementById('drPanel').dataset.dismissKey=dismissKey;
-  }catch{}
-}
-function dismissDailyRead(){
-  const key=document.getElementById('drPanel').dataset.dismissKey||new Date().toISOString().slice(0,10);
-  localStorage.setItem('dr_dismissed',key);
-  document.getElementById('drPanel').classList.remove('on');
+function flashIntelCard(){
+  const el=document.getElementById('intelCard');
+  if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  el.classList.remove('intel-flash');
+  // Restart the animation reliably.
+  void el.offsetWidth;
+  el.classList.add('intel-flash');
+  setTimeout(()=>el.classList.remove('intel-flash'),1100);
 }
 function analyzeStock(sym){
   document.getElementById('intelSym').value=sym;
+  flashIntelCard();
   loadIntel();
-  document.getElementById('intelCard').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 // ── Data & Actions ──────────────────────────────────────────────────────
@@ -766,101 +629,13 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;',
 
 function deepDive(sym){
   document.getElementById('intelSym').value=sym;
+  flashIntelCard();
   loadIntel();
-  document.getElementById('intelCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-// ── Valuation Snapshot ──────────────────────────────────────────────────
-async function loadValuation(){
-  try{
-    const r=await fetch('/api/valuation');
-    if(!r.ok){renderValError('HTTP '+r.status);return;}
-    const d=await r.json();
-    if(d.error){renderValError(d.error);return;}
-    renderValuation(d);
-  }catch(e){renderValError(e.message);}
-}
-
-function renderValError(msg){
-  document.getElementById('valBody').innerHTML='<div class="err on" style="margin:0">'+esc(msg)+'</div>';
-}
-
-function renderValuation(d){
-  if(d.timestamp){
-    const ts=new Date(d.timestamp);
-    document.getElementById('valTime').textContent='Updated '+ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-  }
-  const pill=(s)=>{
-    const parts=[];
-    if(s.trailingPE!=null)parts.push('P/E '+s.trailingPE.toFixed(0));
-    if(s.fiftyTwoWeekPosition!=null)parts.push(Math.round(s.fiftyTwoWeekPosition)+'% 52w');
-    if(!s.hasFundamentals)parts.push('tech-only');
-    return `<button class="val-pill" onclick="deepDive('${s.symbol}')">
-      <span class="val-sym">${s.symbol}</span>
-      <span class="val-meta">${parts.join(' · ')}</span>
-    </button>`;
-  };
-  const under=(d.undervalued||[]).map(pill).join('')||'<span style="font-size:11px;color:var(--di)">none</span>';
-  const over=(d.overvalued||[]).map(pill).join('')||'<span style="font-size:11px;color:var(--di)">none</span>';
-  // Warn if fundamentals are missing for a bunch of stocks — otherwise the
-  // score silently degrades to technical-only and NVDA-style false flags
-  // come back with no user-visible signal.
-  const missing=d.methodology?.missingFundamentals||[];
-  let warn='';
-  if(missing.length>=6){
-    warn=`<div class="val-warn">⚠ Fundamentals unavailable for ${missing.length}/12 stocks — ranking is technical-only this cycle. Try again later.</div>`;
-  }else if(missing.length>0){
-    warn=`<div class="val-warn-mini">Tech-only for: ${missing.join(', ')}</div>`;
-  }
-  document.getElementById('valBody').innerHTML=`
-    <div class="val-grid">
-      <div class="val-box under">
-        <div class="val-box-lbl">Most Undervalued</div>
-        <div class="val-pills">${under}</div>
-      </div>
-      <div class="val-box over">
-        <div class="val-box-lbl">Most Overvalued</div>
-        <div class="val-pills">${over}</div>
-      </div>
-    </div>
-    ${warn}
-    <div class="val-foot">55% valuation (sector-relative P/E + forward-vs-trailing) + 45% technical (52w position + RSI). Tap a ticker for full Stock Intel.</div>`;
 }
 
 function toast(msg,ok){
   const el=document.getElementById('toast');el.textContent=msg;el.className='toast on '+(ok?'ok':'fail');
   clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),3000);
-}
-
-// ── Backtesting ─────────────────────────────────────────────────────────
-async function runBacktest(){
-  const sym=document.getElementById('btSym').value;
-  const strat=document.getElementById('btStrat').value;
-  const btn=document.getElementById('btBtn');
-  const st=document.getElementById('btStatus');
-  btn.disabled=true;st.textContent='Running...';
-  try{
-    const r=await fetch('/api/backtest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:sym,strategy:strat})});
-    const d=await r.json();
-    if(!r.ok||d.error){st.textContent=d.error||'Failed';btn.disabled=false;return;}
-    st.textContent=d.period+' ('+d.dataPoints+' days)';
-    const rc=parseFloat(d.totalReturn)>=0?'up':'dn';
-    const sc=v=>parseFloat(v)>1?'up':parseFloat(v)>0?'nt':'dn';
-    document.getElementById('btResults').innerHTML=`
-      <div class="bt-results">
-        <div class="bt-stat"><div class="st-lbl">Return</div><div class="st-val ${rc}">${d.totalReturn}</div><div class="st-sub">${d.costModel}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Sharpe</div><div class="st-val ${sc(d.sharpe)}">${d.sharpe}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Sortino</div><div class="st-val ${sc(d.sortino)}">${d.sortino}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Calmar</div><div class="st-val ${sc(d.calmar)}">${d.calmar}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Win Rate</div><div class="st-val nt">${d.winRate}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Max Drawdown</div><div class="st-val dn">-${d.maxDrawdown}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Avg Win</div><div class="st-val up">${d.avgWin}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Avg Loss</div><div class="st-val dn">${d.avgLoss}</div></div>
-        <div class="bt-stat"><div class="st-lbl">Final Value</div><div class="st-val ${rc}">$${parseFloat(d.finalValue).toFixed(0)}</div><div class="st-sub">from $10,000</div></div>
-        <div class="bt-stat"><div class="st-lbl">Trades</div><div class="st-val nt">${d.roundTrips} round-trips</div></div>
-      </div>`;
-  }catch(e){st.textContent='Error: '+e.message;}
-  finally{btn.disabled=false;}
 }
 
 // ── Daily Scan Results ──────────────────────────────────────────────────
@@ -952,6 +727,19 @@ async function loadIntel(){
       if(mc2.health)html+=bar('Financial Health',mc2.health.score,'D/E '+mc2.health.debtToEquity?.toFixed(1));
       html+='</div>';
     }
+    // Peers — same-sector comparison (quick glance at relative valuation)
+    if(Array.isArray(d.peers)&&d.peers.length){
+      html+=`<div class="intel-section" style="margin-top:10px"><div class="intel-title">Peers <span style="font-weight:400;font-size:11px;color:var(--mu)">· ${esc(d.peers[0].sector||'')}</span></div>`;
+      html+='<div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Ticker</th><th>Price</th><th>1D</th><th>P/E</th><th>Fwd P/E</th><th>Mkt Cap</th><th>Moat</th></tr></thead><tbody>';
+      for(const p of d.peers){
+        const chg=p.changePercent;
+        const chgCls=chg>=0?'up':'dn';
+        const mc=p.marketCap?'$'+(p.marketCap/1e9).toFixed(0)+'B':'—';
+        const moatC={FORTRESS:'var(--gr)',STRONG:'var(--bl)',INTACT:'var(--go)',ERODING:'var(--rd)'}[p.moatRating]||'var(--mu)';
+        html+=`<tr style="cursor:pointer" onclick="deepDive('${esc(p.symbol)}')"><td style="font-family:var(--mo);font-weight:600;color:var(--bl)">${esc(p.symbol)}</td><td style="font-family:var(--mo)">$${p.price!=null?p.price.toFixed(2):'—'}</td><td class="${chgCls}" style="font-family:var(--mo)">${chg!=null?(chg>=0?'+':'')+chg.toFixed(2)+'%':'—'}</td><td style="font-family:var(--mo)">${p.trailingPE?p.trailingPE.toFixed(1):'—'}</td><td style="font-family:var(--mo)">${p.forwardPE?p.forwardPE.toFixed(1):'—'}</td><td style="font-family:var(--mo)">${mc}</td><td style="font-size:11px;font-weight:600;color:${moatC}">${p.moatRating||'—'}</td></tr>`;
+      }
+      html+='</tbody></table></div></div>';
+    }
     // Financials trend table
     if(d.fundamentals?.incomeStatement?.length>=2){
       const inc=d.fundamentals.incomeStatement.slice(-5);
@@ -1014,6 +802,24 @@ function interpretMacro(id,val,prev){
   }
 }
 
+// Deterministic regime read from VIX + yield spread + Fed Funds.
+// No AI call, no judgement — just "if these three numbers are here, the label is X".
+function computeRegime(macro){
+  const vix=macro?.VIXCLS?.latest;
+  const spread=macro?.T10Y2Y?.latest;
+  const ff=macro?.FEDFUNDS?.latest;
+  if(vix==null||spread==null||ff==null)return null;
+  const fearPart=vix<15?'Low volatility':vix<22?'Calm':vix<30?'Elevated fear':'High stress';
+  const curvePart=spread<0?'inverted yield curve':spread<0.5?'flat curve':'normal curve';
+  const ratePart=ff<1.5?'Fed accommodative':ff<3?'Fed neutral':ff<4.5?'Fed restrictive':'Fed tight';
+  let tag='NORMAL';
+  if(vix>=30||spread<0)tag='RISK-OFF';
+  else if(vix<15&&spread>=0.5&&ff<4.5)tag='RISK-ON';
+  else if(vix>=22||ff>=4.5)tag='CAUTIOUS';
+  const sentence=`${fearPart} (VIX ${vix.toFixed(1)}), ${curvePart} (${spread>=0?'+':''}${spread.toFixed(2)}), ${ratePart} (${ff.toFixed(2)}%).`;
+  return {tag,sentence};
+}
+
 async function loadMacro(){
   try{
     const r=await fetch('/api/macro');
@@ -1021,7 +827,10 @@ async function loadMacro(){
     const d=await r.json();
     if(d.error){document.getElementById('macroBody').innerHTML=`<div style="padding:18px;color:var(--di);font-size:12px">${d.error}</div>`;return;}
     document.getElementById('macroTime').textContent=d.fetchedAt?'Updated '+new Date(d.fetchedAt).toLocaleDateString():'';
-    let html='<div class="macro-grid">';
+    let html='';
+    const regime=computeRegime(d.macro||{});
+    if(regime)html+=`<div class="macro-regime"><span class="macro-regime-tag">${esc(regime.tag)}</span><span class="macro-regime-text">${esc(regime.sentence)}</span></div>`;
+    html+='<div class="macro-grid">';
     for(const[id,m]of Object.entries(d.macro||{})){
       const tc=m.trend==='RISING'?'up':m.trend==='FALLING'?'dn':'nt';
       const arrow=m.trend==='RISING'?'&#9650;':m.trend==='FALLING'?'&#9660;':'&#9654;';
@@ -1047,567 +856,29 @@ function toggleTheme(){
 function loadTheme(){if(localStorage.getItem('p50k_theme')==='light')document.documentElement.classList.add('light');}
 
 // ── Tab navigation ──────────────────────────────────────────────────────
-const VALID_TABS=['today','positions','universe','macro'];
+const VALID_TABS=['universe','macro'];
 function selectTab(id){
-  // Guard against stale values from localStorage for tabs that no longer exist
-  if(!VALID_TABS.includes(id))id='today';
+  if(!VALID_TABS.includes(id))id='universe';
   for(const btn of document.querySelectorAll('.tabs .tab'))btn.classList.toggle('on',btn.dataset.tab===id);
   for(const pane of document.querySelectorAll('.tab-pane'))pane.classList.toggle('on',pane.dataset.pane===id);
   try{localStorage.setItem('activeTab',id);}catch{}
-  // Lazy-initialize tab content on first visit
-  if(id==='universe'&&!universeInitialized){initUniverseTab();universeInitialized=true;}
-}
-let universeInitialized=false;
-function initUniverseTab(){
-  loadMoats();loadHistory();
-}
-
-// ── Portfolio state ─────────────────────────────────────────────────────
-// positions: [{broker, sym, units, avg, ccy}, ...]
-// fx: {EURUSD: 1.18, USDRON: 4.41, ...}
-// live: {SYM: {price, changePercent, fiftyTwoWeekHigh, fiftyTwoWeekLow, name}, ...}
-let positionsData={positions:[],fx:{}};
-let liveQuotes={}; // keyed by symbol, populated from /api/quote
-let liveFx={};     // keyed like 'EURUSD', populated from /api/quote
-
-const FX_SYMBOLS={EURUSD:'EURUSD=X',USDRON:'USDRON=X',GBPUSD:'GBPUSD=X',USDCHF:'USDCHF=X'};
-
-function positionSymbols(){
-  return [...new Set(positionsData.positions.map(p=>p.sym).filter(Boolean))];
-}
-
-// Convert an amount in `ccy` to USD using fx rates. Fallbacks: live fx > configured fx > identity.
-function toUSD(amount,ccy){
-  if(!ccy||ccy==='USD')return amount;
-  if(ccy==='EUR'){
-    const rate=liveFx.EURUSD??positionsData.fx?.EURUSD;
-    return rate?amount*rate:amount;
-  }
-  if(ccy==='RON'){
-    const rate=liveFx.USDRON??positionsData.fx?.USDRON;
-    return rate?amount/rate:amount;
-  }
-  if(ccy==='GBP'){
-    const rate=liveFx.GBPUSD??positionsData.fx?.GBPUSD;
-    return rate?amount*rate:amount;
-  }
-  if(ccy==='CHF'){
-    const rate=liveFx.USDCHF??positionsData.fx?.USDCHF;
-    return rate?amount/rate:amount;
-  }
-  return amount; // unknown currency → treat as USD
-}
-
-function computeRow(p){
-  const live=liveQuotes[p.sym]||{};
-  const px=live.price??null;
-  const hasLive=px!=null;
-  const cost=p.units*p.avg;
-  // If no live price, value falls back to cost so totals aren't corrupted,
-  // but we flag hasLive:false so the UI can show "no price" clearly and
-  // not pretend P&L is $0.
-  const value=hasLive?p.units*px:cost;
-  const pnl=hasLive?value-cost:0;
-  const pctReturn=hasLive&&cost?(pnl/cost)*100:0;
-  const costUSD=toUSD(cost,p.ccy||'USD');
-  const valueUSD=toUSD(value,p.ccy||'USD');
-  const pnlUSD=hasLive?valueUSD-costUSD:0;
-  return {...p,px,hasLive,name:live.name,changePercent:live.changePercent,cost,value,pnl,pctReturn,costUSD,valueUSD,pnlUSD,high52:live.fiftyTwoWeekHigh,low52:live.fiftyTwoWeekLow};
-}
-
-function computePortfolioTotals(rows){
-  // Include ALL rows in cost; value only counts rows with live data so
-  // a symbol Yahoo can't price doesn't fake a $0 P&L against its cost.
-  const cost=rows.reduce((a,r)=>a+r.costUSD,0);
-  const value=rows.reduce((a,r)=>a+(r.hasLive?r.valueUSD:r.costUSD),0);
-  const pnl=rows.reduce((a,r)=>a+(r.hasLive?(r.valueUSD-r.costUSD):0),0);
-  // Denominator excludes no-data rows so % reflects what we can measure.
-  const measuredCost=rows.reduce((a,r)=>a+(r.hasLive?r.costUSD:0),0);
-  const pct=measuredCost?(pnl/measuredCost)*100:0;
-  return {cost,value,pnl,pct};
-}
-
-function fmtCcyLocal(n,ccy){
-  if(ccy==='EUR')return new Intl.NumberFormat('en-US',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n);
-  if(ccy==='RON')return new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(n)+' RON';
-  if(ccy==='GBP')return new Intl.NumberFormat('en-US',{style:'currency',currency:'GBP',maximumFractionDigits:2}).format(n);
-  if(ccy==='CHF')return new Intl.NumberFormat('en-US',{style:'currency',currency:'CHF',maximumFractionDigits:2}).format(n);
-  return usd(n);
-}
-
-// Simple heuristic verdict while Claude briefing is pending. Anchors on
-// the row's 52wk position, RSI isn't fetched here so we use P&L + range.
-function heuristicVerdict(row){
-  const pct=row.pctReturn;
-  const pos=row.high52&&row.low52&&row.high52!==row.low52
-    ?((row.px-row.low52)/(row.high52-row.low52))*100:null;
-  if(pos==null)return {v:'HOLD',color:'SLATE'};
-  if(pos<25&&pct<0)return {v:'ACCUMULATE',color:'GREEN'};
-  if(pos<35)return {v:'WATCH ADD',color:'GREEN'};
-  if(pos>80&&pct>20)return {v:'TRIM',color:'AMBER'};
-  if(pos>75)return {v:'HOLD',color:'AMBER'};
-  return {v:'HOLD',color:'SLATE'};
-}
-
-function renderPortfolioHeader(rows){
-  const totals=computePortfolioTotals(rows);
-  const portEl=document.getElementById('hcPortfolio');
-  const spyEl=document.getElementById('hcSpy');
-  const subEl=document.getElementById('logoSub');
-  if(!rows.length){
-    portEl.style.display='none';
-    spyEl.style.display='';
-    subEl.textContent='No positions set';
-    return;
-  }
-  portEl.style.display='';
-  spyEl.style.display='none'; // hide S&P block when portfolio is primary
-  document.getElementById('portTotal').textContent=usd(totals.value);
-  const pnlCls=totals.pnl>=0?'up':'dn';
-  document.getElementById('portPnl').innerHTML=`<span class="${pnlCls}">${totals.pnl>=0?'+':''}${usd(totals.pnl)}</span>`;
-  document.getElementById('portPct').innerHTML=`<span class="${pnlCls}">${pct(totals.pct)}</span>`;
-  subEl.textContent=rows.length+' position'+(rows.length===1?'':'s');
-}
-
-function renderPositionsTable(rows){
-  const el=document.getElementById('positionsTable');
-  if(!rows.length){
-    el.innerHTML='<div class="empty"><div class="em" style="color:var(--di)">No positions configured yet</div><div class="es">Click Edit to paste your holdings JSON</div></div>';
-    return;
-  }
-  const totals=computePortfolioTotals(rows);
-  const r=(v,cls='')=>`<td class="num ${cls}">${v}</td>`;
-  const body=rows.map(x=>{
-    const pnlCls=x.pnlUSD>=0?'up':'dn';
-    const pctCls=x.pctReturn>=0?'up':'dn';
-    const noData=!x.hasLive;
-    const priceCell=noData?'<span style="color:var(--di);font-style:italic" title="No Yahoo Finance data for this symbol">no price</span>':fmtCcyLocal(x.px,x.ccy);
-    const pnlCell=noData?'<span style="color:var(--di)">—</span>':`${x.pnlUSD>=0?'+':''}${usd(x.pnlUSD)}`;
-    const pctCell=noData?'<span style="color:var(--di)">—</span>':`<b>${pct(x.pctReturn)}</b>`;
-    const valueCell=noData?'<span style="color:var(--di)">—</span>':usd(x.valueUSD);
-    return `<tr>
-      <td class="broker">${esc(x.broker||'—')}</td>
-      <td class="sym">${esc(x.sym)}</td>
-      <td class="num">${fmtN(x.units,6)}</td>
-      <td class="num">${fmtCcyLocal(x.avg,x.ccy)}</td>
-      <td class="num">${priceCell}</td>
-      <td class="num">${usd(x.costUSD)}</td>
-      <td class="num">${valueCell}</td>
-      <td class="num ${noData?'':pnlCls}">${pnlCell}</td>
-      <td class="num ${noData?'':pctCls}">${pctCell}</td>
-    </tr>`;
-  }).join('');
-  const foot=`<tr>
-    <td class="label" colspan="5">Total (USD)</td>
-    <td class="num">${usd(totals.cost)}</td>
-    <td class="num">${usd(totals.value)}</td>
-    <td class="num ${totals.pnl>=0?'up':'dn'}">${totals.pnl>=0?'+':''}${usd(totals.pnl)}</td>
-    <td class="num ${totals.pnl>=0?'up':'dn'}"><b>${pct(totals.pct)}</b></td>
-  </tr>`;
-  el.innerHTML=`<div style="overflow-x:auto"><table class="pt-table">
-    <thead><tr>
-      <th>Broker</th><th>Symbol</th><th class="num">Units</th><th class="num">Avg</th>
-      <th class="num">Price</th><th class="num">Cost (USD)</th><th class="num">Value (USD)</th>
-      <th class="num">P&amp;L (USD)</th><th class="num">%</th>
-    </tr></thead>
-    <tbody>${body}</tbody>
-    <tfoot>${foot}</tfoot>
-  </table></div>
-  <div style="padding:10px 14px;font-size:11px;color:var(--di)">
-    FX: ${positionsData.fx?.EURUSD?'EUR/USD '+positionsData.fx.EURUSD:''}${positionsData.fx?.USDRON?' · USD/RON '+positionsData.fx.USDRON:''}${positionsData.updatedAt?' · Updated '+new Date(positionsData.updatedAt).toLocaleDateString():''}
-  </div>`;
-}
-
-function fmtN(n,d=2){return new Intl.NumberFormat('en-US',{maximumFractionDigits:d}).format(n);}
-
-function renderTodayCards(rows){
-  const el=document.getElementById('todayPosBody');
-  const sub=document.getElementById('todayPosSubtitle');
-  if(!rows.length){
-    el.innerHTML='<div class="empty"><div class="em" style="color:var(--di)">No positions yet</div><div class="es">Go to Positions tab to add yours</div></div>';
-    sub.textContent='—';
-    return;
-  }
-  const hasBriefing=Object.keys(briefingPositions).length>0;
-  sub.textContent=rows.length+' position'+(rows.length===1?'':'s')+(hasBriefing?'':' · daily analysis pending');
-  // Consolidate duplicate symbols (same symbol across brokers) for cards — show one card per symbol
-  const bySym={};
-  for(const r of rows){
-    if(!bySym[r.sym])bySym[r.sym]={...r,units:0,cost:0,value:0,pnl:0,costUSD:0,valueUSD:0,pnlUSD:0,brokers:[]};
-    bySym[r.sym].units+=r.units;
-    bySym[r.sym].cost+=r.cost;bySym[r.sym].value+=r.value;bySym[r.sym].pnl+=r.pnl;
-    bySym[r.sym].costUSD+=r.costUSD;bySym[r.sym].valueUSD+=r.valueUSD;bySym[r.sym].pnlUSD+=r.pnlUSD;
-    if(r.broker)bySym[r.sym].brokers.push(r.broker);
-  }
-  for(const s of Object.values(bySym)){
-    const weightedAvg=s.cost/s.units;
-    s.avg=weightedAvg;
-    s.pctReturn=s.cost?((s.value-s.cost)/s.cost)*100:0;
-  }
-  const cards=Object.values(bySym).map(x=>{
-    const noData=!x.hasLive;
-    const briefing=briefingPositions[x.sym];
-    // Prefer Claude's verdict/color when available; fall back to heuristic.
-    // Whitelist values so a malformed Claude response can't break the DOM
-    // or silently render unstyled pills.
-    const VALID_VERDICTS=new Set(['HOLD','ACCUMULATE','TRIM','WAIT','WATCH','SELL']);
-    const VALID_COLORS=new Set(['GREEN','AMBER','RED','SLATE']);
-    let verdict;
-    if(noData&&!briefing){verdict={v:'NO DATA',color:'SLATE'};}
-    else if(briefing){
-      const rawV=String(briefing.verdict||'HOLD').toUpperCase();
-      const rawC=String(briefing.color||'SLATE').toUpperCase();
-      verdict={
-        v:VALID_VERDICTS.has(rawV)?rawV:'HOLD',
-        color:VALID_COLORS.has(rawC)?rawC:'SLATE',
-      };
-    }
-    else{verdict=heuristicVerdict(x);}
-    const pnlCls=x.pnlUSD>=0?'up':'dn';
-    const range=(!noData&&x.high52&&x.low52&&x.high52!==x.low52)?renderRangeBar(x):'';
-    const priceHtml=noData
-      ?'<span style="color:var(--di);font-style:italic;font-size:11px">no Yahoo data</span>'
-      :fmtCcyLocal(x.px,x.ccy);
-    const pnlHtml=noData
-      ?'<span style="color:var(--di);font-size:11px">—</span>'
-      :`<span class="${pnlCls}">${x.pnlUSD>=0?'+':''}${usd(x.pnlUSD)}</span> <span style="color:var(--mu);font-size:10px">${pct(x.pctReturn)}</span>`;
-    // Rich analysis body from Claude (if present), else the fallback hint
-    let analysisHtml;
-    if(briefing){
-      const rows2=[];
-      if(briefing.thesis)rows2.push(`<div class="pos-thesis-line">${esc(briefing.thesis)}</div>`);
-      if(briefing.body)rows2.push(`<div class="pos-body">${esc(briefing.body)}</div>`);
-      const row=(k,v)=>v?`<div class="pos-row"><span class="pos-row-k">${k}</span><span class="pos-row-v">${esc(v)}</span></div>`:'';
-      let detail='';
-      detail+=row('Bull',briefing.bullCase);
-      detail+=row('Bear',briefing.bearCase);
-      detail+=row('Entry',briefing.entryZone);
-      detail+=row('Risk',briefing.risk);
-      detail+=row('Catalyst',briefing.catalyst);
-      if(detail)rows2.push(`<div class="pos-detail">${detail}</div>`);
-      analysisHtml=rows2.join('');
-    }else{
-      const pending=noData
-        ?'Try a Yahoo-compatible symbol (e.g. <code>VUSA.AS</code> for European ETFs).'
-        :'Daily analysis will appear after the next 14:30 UTC cron.';
-      analysisHtml=`<div class="pos-analysis-pending">${pending}</div>`;
-    }
-    return `<div class="pos-card">
-      <div class="pos-card-head">
-        <div class="pos-card-left">
-          <span class="pos-sym">${esc(x.sym)}</span>
-          <span class="pos-verdict ${verdict.color}">${verdict.v}</span>
-          <span class="pos-name">${esc(x.name||'')}</span>
-        </div>
-        <div class="pos-card-right">
-          <div class="pos-price">${priceHtml}</div>
-          <div class="pos-pnl">${pnlHtml}</div>
-        </div>
-      </div>
-      ${range}
-      ${analysisHtml}
-    </div>`;
-  }).join('');
-  el.innerHTML=cards;
-}
-
-function renderRangeBar(row){
-  const {low52,high52,px,avg}=row;
-  const clamp=(v)=>Math.max(0,Math.min(100,((v-low52)/(high52-low52))*100));
-  const cost=avg!=null?clamp(avg):null;
-  const cur=px!=null?clamp(px):null;
-  return `<div>
-    <div class="range-bar">
-      ${cost!=null?`<div class="range-bar-cost" style="left:${cost}%" title="Your avg cost ${avg?.toFixed(2)}"></div>`:''}
-      ${cur!=null?`<div class="range-bar-cur" style="left:${cur}%" title="Current price ${px?.toFixed(2)}"></div>`:''}
-    </div>
-    <div class="range-labels"><span>${fmtN(low52,0)}</span><span>52-week range</span><span>${fmtN(high52,0)}</span></div>
-    <div class="range-legend">
-      <span class="range-legend-item"><span class="range-dot cost"></span>Your cost</span>
-      <span class="range-legend-item"><span class="range-dot cur"></span>Now</span>
-    </div>
-  </div>`;
-}
-
-// Claude-generated per-position briefing (keyed by symbol), set by
-// renderTodayBriefing(). renderTodayCards merges this in when present.
-let briefingPositions={};
-let briefingActions=[];
-
-function renderBriefingPlaceholder(){
-  const macro=document.getElementById('briefMacro');
-  const actions=document.getElementById('briefActions');
-  macro.innerHTML='<span class="placeholder">Claude\'s daily briefing will appear here after the next 14:30 UTC cron run.</span>';
-  actions.innerHTML='';
-}
-
-function renderActions(actions){
-  const el=document.getElementById('briefActions');
-  if(!Array.isArray(actions)||!actions.length){el.innerHTML='';return;}
-  el.innerHTML=actions.slice(0,6).map(a=>`
-    <div class="brief-action">
-      <span class="brief-action-num">#${esc(String(a.priority??''))}</span>
-      <div class="brief-action-body">
-        <div class="brief-action-label">${esc(a.label||'')}</div>
-        <div class="brief-action-note">${esc(a.note||'')}</div>
-      </div>
-      ${a.tag?`<span class="brief-action-tag">${esc(a.tag)}</span>`:''}
-    </div>
-  `).join('');
-}
-
-// Primary: /api/briefing (rich, per-position + actions). Fallback to
-// /api/dailyread (2-sentence macro only).
-async function renderTodayBriefing(){
-  // 1) Try the rich briefing endpoint
-  try{
-    const r=await fetch('/api/briefing');
-    if(r.ok){
-      const d=await r.json();
-      const b=d.briefing;
-      if(b&&(b.macroTake||b.positions||b.actions)){
-        const macro=document.getElementById('briefMacro');
-        const timeEl=document.getElementById('briefTime');
-        if(b.macroTake)macro.textContent=b.macroTake;
-        if(b.generatedAt){
-          const hrs=Math.round((Date.now()-new Date(b.generatedAt).getTime())/3600000);
-          timeEl.textContent=hrs<2?'Today':(hrs<24?hrs+'h ago':'Yesterday');
-        }
-        briefingPositions=b.positions||{};
-        briefingActions=b.actions||[];
-        renderActions(briefingActions);
-        // Re-render position cards now that we have analysis
-        if(positionsData.positions?.length){
-          const rows=positionsData.positions.map(computeRow);
-          renderTodayCards(rows);
-        }
-        return;
-      }
-    }
-  }catch{}
-  // 2) Fallback to the legacy daily read (just the 2-sentence macro line)
-  try{
-    const r=await fetch('/api/dailyread');
-    if(!r.ok)return renderBriefingPlaceholder();
-    const d=await r.json();
-    const dr=d.dailyread;
-    if(!dr||!dr.text)return renderBriefingPlaceholder();
-    const macro=document.getElementById('briefMacro');
-    const timeEl=document.getElementById('briefTime');
-    macro.textContent=dr.text;
-    if(dr.generatedAt){
-      const hrs=Math.round((Date.now()-new Date(dr.generatedAt).getTime())/3600000);
-      timeEl.textContent=hrs<2?'Today':(hrs<24?hrs+'h ago':'Yesterday');
-    }
-  }catch{renderBriefingPlaceholder();}
-}
-
-// Earnings calendar for the user's actual positions
-const EARNINGS_WINDOW_DAYS=60;
-async function renderEarningsCalendar(){
-  const syms=positionSymbols();
-  if(!syms.length){
-    document.getElementById('earningsBody').innerHTML='<div class="empty" style="padding:16px"><div class="em" style="color:var(--di)">No positions \u2014 no earnings to track</div></div>';
-    return;
-  }
-  // Manual nextEarnings overrides from positions JSON (always trusted as primary).
-  const manual={};
-  const now=Date.now();
-  const windowEnd=now+EARNINGS_WINDOW_DAYS*86400000;
-  for(const p of positionsData.positions){
-    if(p.nextEarnings){
-      const t=new Date(p.nextEarnings).getTime();
-      if(t>=now-86400000&&t<=windowEnd){
-        manual[p.sym]={
-          symbol:p.sym,
-          name:p.name||p.sym,
-          earningsDate:new Date(t).toISOString(),
-          earningsWindowEnd:new Date(t).toISOString(),
-          isEstimate:false,
-          source:'manual',
-        };
-      }
-    }
-  }
-  try{
-    const r=await fetch('/api/earnings?days='+EARNINGS_WINDOW_DAYS+'&symbols='+syms.map(encodeURIComponent).join(','));
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const d=await r.json();
-    const fromApi=d.earnings||[];
-    // Merge: manual takes precedence over API, then add API entries that aren't in manual
-    const merged={};
-    for(const e of fromApi)merged[e.symbol]=e;
-    for(const sym in manual)merged[sym]=manual[sym]; // manual wins
-    const list=Object.values(merged).sort((a,b)=>new Date(a.earningsDate)-new Date(b.earningsDate));
-    const windowDays=d.windowDays||EARNINGS_WINDOW_DAYS;
-    if(!list.length){
-      document.getElementById('earningsBody').innerHTML=`<div class="empty" style="padding:16px"><div class="em" style="color:var(--di)">No upcoming earnings in the next ${windowDays} days</div><div class="es">Yahoo and Nasdaq returned nothing. Add <code>"nextEarnings": "2026-04-28"</code> to a position in your JSON to display it manually.</div></div>`;
-      return;
-    }
-    const now=Date.now();
-    const rows=list.slice(0,10).map(e=>{
-      const dt=new Date(e.earningsDate);
-      const days=Math.round((dt.getTime()-now)/86400000);
-      const when=days<=0?'today':days===1?'tomorrow':'in '+days+'d';
-      const ds=dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-      return `<div class="earn-row">
-        <div class="earn-date">${ds}</div>
-        <div class="earn-sym">${esc(e.symbol)}</div>
-        <div class="earn-name">${esc(e.name||'')}</div>
-        <div class="earn-when">${when}</div>
-      </div>`;
-    }).join('');
-    document.getElementById('earningsBody').innerHTML=rows;
-  }catch(e){
-    document.getElementById('earningsBody').innerHTML='<div class="empty" style="padding:16px"><div class="em" style="color:var(--rd)">Failed to load earnings: '+esc(e.message)+'</div></div>';
-  }
-}
-
-// ── Positions loading + editor ─────────────────────────────────────────
-async function loadPositions(){
-  try{
-    const r=await fetch('/api/positions');
-    if(!r.ok)return;
-    const d=await r.json();
-    positionsData={positions:d.positions||[],fx:d.fx||{},updatedAt:d.updatedAt};
-    await refreshPortfolio();
-  }catch{}
-}
-
-// Known tickers that live on BT Asset Management (Romanian funds)
-const BTAM_TICKERS=new Set(['ROTX','BT_USA','BT_WORLD','BT_EURO','BT_MAXI','BT_CLASIC','BT_OBLIG']);
-
-async function refreshPortfolio(){
-  // Fetch live quotes for all position symbols + FX pairs we care about.
-  // FX pairs go FIRST so they can't get truncated by the quote endpoint's
-  // slice() cap on a large portfolio.
-  const syms=positionSymbols();
-  const fxSyms=Object.values(FX_SYMBOLS);
-  const all=[...fxSyms,...syms];
-  if(!all.length){
-    renderPortfolioHeader([]);renderPositionsTable([]);renderTodayCards([]);
-    renderEarningsCalendar();
-    return;
-  }
-  try{
-    const r=await fetch('/api/quote?symbols='+all.map(encodeURIComponent).join(','));
-    if(r.ok){
-      const quotes=await r.json();
-      // Live FX
-      liveFx={};
-      for(const[key,sym]of Object.entries(FX_SYMBOLS)){
-        if(quotes[sym]?.price)liveFx[key]=quotes[sym].price;
-      }
-      // Live stock quotes (merge with existing to not wipe ^GSPC etc.)
-      for(const sym of syms){
-        if(quotes[sym])liveQuotes[sym]=quotes[sym];
-      }
-    }
-  }catch{}
-
-  // Fallback 1: BT Asset Management for Romanian funds (ROTX, BT-USA, etc.)
-  const btamNeeded=syms.filter(s=>BTAM_TICKERS.has(s)&&!liveQuotes[s]?.price);
-  if(btamNeeded.length){
-    await Promise.all(btamNeeded.map(async s=>{
-      try{
-        const r=await fetch('/api/btam?symbol='+encodeURIComponent(s));
-        if(!r.ok)return;
-        const d=await r.json();
-        if(d.price){
-          liveQuotes[s]={
-            price:d.price,
-            name:s==='ROTX'?'BT Index Romania (ROTX)':'BT fund',
-            changePercent:0,
-            fiftyTwoWeekHigh:null,fiftyTwoWeekLow:null,
-            currency:'RON',
-            source:'btam',
-          };
-        }
-      }catch{}
-    }));
-  }
-
-  // Fallback 2: manual lastPrice on the position JSON (universal escape hatch).
-  // Anyone can write {"sym":"XXX","lastPrice":42.00} and have it counted.
-  for(const p of positionsData.positions){
-    if(!liveQuotes[p.sym]?.price&&typeof p.lastPrice==='number'){
-      liveQuotes[p.sym]={
-        price:p.lastPrice,
-        name:p.name||p.sym,
-        changePercent:0,
-        fiftyTwoWeekHigh:null,fiftyTwoWeekLow:null,
-        currency:p.ccy||'USD',
-        source:'manual',
-      };
-    }
-  }
-
-  const rows=positionsData.positions.map(computeRow);
-  renderPortfolioHeader(rows);
-  renderPositionsTable(rows);
-  renderTodayCards(rows);
-  renderEarningsCalendar();
-}
-
-function openPositionsEditor(){
-  const modal=document.getElementById('positionsModal');
-  const ta=document.getElementById('positionsJson');
-  // Pre-fill with current data
-  ta.value=JSON.stringify({positions:positionsData.positions,fx:positionsData.fx},null,2);
-  try{
-    const savedPin=localStorage.getItem('positionsPin');
-    if(savedPin)document.getElementById('positionsPin').value=savedPin;
-  }catch{}
-  document.getElementById('positionsSaveMsg').textContent='';
-  modal.classList.add('on');
-}
-function closePositionsEditor(){
-  document.getElementById('positionsModal').classList.remove('on');
-}
-
-async function savePositions(){
-  const msg=document.getElementById('positionsSaveMsg');
-  const txt=document.getElementById('positionsJson').value.trim();
-  const pin=document.getElementById('positionsPin').value;
-  let body;
-  try{body=JSON.parse(txt);}
-  catch(e){msg.className='modal-msg err';msg.textContent='Invalid JSON: '+e.message;return;}
-  msg.className='modal-msg';msg.textContent='Saving…';
-  try{
-    const r=await fetch('/api/positions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-pin':pin||''},
-      body:JSON.stringify(body),
-    });
-    const d=await r.json();
-    if(!r.ok||d.error){msg.className='modal-msg err';msg.textContent=d.error||'Save failed ('+r.status+')';return;}
-    try{if(pin)localStorage.setItem('positionsPin',pin);}catch{}
-    msg.className='modal-msg ok';msg.textContent='Saved.';
-    positionsData={positions:d.positions,fx:d.fx,updatedAt:d.updatedAt};
-    await refreshPortfolio();
-    setTimeout(closePositionsEditor,600);
-  }catch(e){msg.className='modal-msg err';msg.textContent=e.message;}
 }
 
 // ── Init ────────────────────────────────────────────────────────────────
 loadTheme();
 // Restore last-active tab
 try{const t=localStorage.getItem('activeTab');if(t)selectTab(t);}catch{}
-// Load user-facing data (fast, cached): briefing, earnings come from KV or tiny fetches
-renderTodayBriefing();
-loadPositions(); // drives header + Today cards + Positions table + Earnings
-// Universe-tab data loads lazily on first visit. Valuation Snapshot + scan
-// + watchlist prices still load up front so the Universe tab is warm.
+// Universe tab: live prices, moat badges, valuation sparklines
 fetchPrices();setInterval(fetchPrices,60000);
-loadLatestScan();
+loadMoats();
+loadHistory();
+// Macro tab
 loadMacro();
-loadValuation();
-setInterval(loadValuation,5*60*1000);
-// Refresh positions-dependent data periodically too
-setInterval(refreshPortfolio,60000);
+// Market signals (auto-appears when signals present)
+loadLatestScan();
 // Log deployed version so we can confirm the browser isn't on a stale HTML
 fetch('/api/version').then(r=>r.json()).then(v=>{
-  console.log('%cMoat Portfolio','color:#d97757;font-weight:bold;font-size:14px','build',v.shaShort,'@',v.region);
+  console.log('%cMoat Portfolio','color:#d4b88b;font-weight:bold;font-size:14px','build',v.shaShort,'@',v.region);
 }).catch(()=>{});
 </script>
 </body>

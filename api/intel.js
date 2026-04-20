@@ -88,8 +88,57 @@ async function fetchChartEnriched(symbol) {
   return chart;
 }
 
-// Ask Claude to generate the moat/valuation analysis
-// Fetch fundamentals from our own endpoint
+// Sector map for peer comparison — mirrors the Moat Universe structure.
+const UNIVERSE_SECTORS = {
+  AAPL:'Tech — Platform', MSFT:'Tech — Platform', GOOGL:'Tech — Platform',
+  AMZN:'Tech — Platform', META:'Tech — Platform',
+  NVDA:'Tech — AI/Chips', ASML:'Tech — AI/Chips', TSM:'Tech — AI/Chips',
+  V:'Payments', MA:'Payments',
+  NFLX:'Consumer',
+  'BRK-B':'Conglomerate',
+};
+
+async function fetchPeerQuick(symbol) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const q = data?.quoteResponse?.result?.[0];
+    if (!q) return null;
+    return {
+      symbol: q.symbol,
+      name: q.shortName || q.longName || q.symbol,
+      price: q.regularMarketPrice,
+      changePercent: q.regularMarketChangePercent,
+      trailingPE: q.trailingPE || null,
+      forwardPE: q.forwardPE || null,
+      marketCap: q.marketCap || null,
+    };
+  } catch { return null; }
+}
+
+async function getPeers(sym, kv) {
+  const sector = UNIVERSE_SECTORS[sym];
+  if (!sector) return [];
+  // Same-sector universe symbols, excluding the viewed one
+  const peerSyms = Object.keys(UNIVERSE_SECTORS)
+    .filter(s => s !== sym && UNIVERSE_SECTORS[s] === sector)
+    .slice(0, 3);
+  if (!peerSyms.length) return [];
+  // Fetch live v7 quotes + read moat ratings from KV
+  const [peerQuotes, moatsRaw] = await Promise.all([
+    Promise.all(peerSyms.map(fetchPeerQuick)),
+    kv ? kv.get('moats:all').catch(() => null) : Promise.resolve(null),
+  ]);
+  const moats = moatsRaw ? (typeof moatsRaw === 'string' ? JSON.parse(moatsRaw) : moatsRaw) : {};
+  return peerQuotes.filter(Boolean).map(q => ({
+    ...q,
+    moatRating: moats?.[q.symbol]?.rating || null,
+    moatScore: moats?.[q.symbol]?.score || null,
+    sector,
+  }));
+}
 async function fetchFundamentals(symbol, reqUrl) {
   try {
     const origin = new URL(reqUrl).origin;
@@ -214,9 +263,12 @@ export default async function handler(req) {
     }
 
     const sym = symbol.toUpperCase();
-    const [stockData, fund] = await Promise.all([
+    let kv = null;
+    try { kv = (await import('@vercel/kv')).kv; } catch {}
+    const [stockData, fund, peers] = await Promise.all([
       fetchChartEnriched(sym),
       fetchFundamentals(sym, req.url),
+      getPeers(sym, kv),
     ]);
     if (!stockData) {
       return new Response(JSON.stringify({ error: `Could not fetch price data for ${sym}. Check the ticker symbol.` }), {
@@ -234,6 +286,7 @@ export default async function handler(req) {
       moatScore: moat?.moatScore || null,
       moatComponents: moat?.components || null,
       fundamentals: fund ? { source: fund.source, incomeStatement: fund.incomeStatement, cashFlow: fund.cashFlow, ratios: fund.ratios } : null,
+      peers,
       ...analysis,
     }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600', ...CORS },
