@@ -11,6 +11,17 @@ const YF_HEADERS = {
   Accept: 'application/json',
 };
 
+// Yahoo's chart endpoint sometimes lacks marketCap. Fill from /v7/finance/quote.
+async function fetchMarketCapFromV7(symbol) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+    const res = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.quoteResponse?.result?.[0]?.marketCap || null;
+  } catch { return null; }
+}
+
 // Fetch 1-year chart data (this endpoint works reliably)
 async function fetchChartData(symbol) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y&includePrePost=false`;
@@ -61,9 +72,20 @@ async function fetchChartData(symbol) {
     sma50, sma200,
     rsi,
     yearReturn,
-    marketCap: meta.marketCap,
+    marketCap: meta.marketCap || null,
     volume: meta.regularMarketVolume,
   };
+}
+
+// Fetch chart + v7 marketCap in parallel, merge.
+async function fetchChartEnriched(symbol) {
+  const [chart, mcap] = await Promise.all([
+    fetchChartData(symbol),
+    fetchMarketCapFromV7(symbol),
+  ]);
+  if (!chart) return null;
+  if (!chart.marketCap && mcap) chart.marketCap = mcap;
+  return chart;
 }
 
 // Ask Claude to generate the moat/valuation analysis
@@ -193,7 +215,7 @@ export default async function handler(req) {
 
     const sym = symbol.toUpperCase();
     const [stockData, fund] = await Promise.all([
-      fetchChartData(sym),
+      fetchChartEnriched(sym),
       fetchFundamentals(sym, req.url),
     ]);
     if (!stockData) {
