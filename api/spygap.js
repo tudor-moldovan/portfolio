@@ -134,18 +134,29 @@ export default async function handler(req) {
       fetchSpyHistory(earliest, kv).catch(err => ({ byDate: {}, latestPrice: null, error: err.message })),
     ]);
 
+    const todayStr = new Date().toISOString().slice(0, 10);
     const enriched = positions.map(p => {
       const q = quotes[p.quoteSym || p.symbol];
       const livePrice = q?.price ?? null;
       const changePct = q?.changePercent ?? null;
       const gap = computePositionSpyGap(p, spy, fx, livePrice);
       const sum = summarize(p);
+      // Review status — fully derivable here; saves the client the date math.
+      let reviewStatus = 'ok';
+      let reviewDays = null;
+      if (p.reviewBy) {
+        const ms = new Date(p.reviewBy).getTime() - new Date(todayStr).getTime();
+        reviewDays = Math.round(ms / (24 * 3600 * 1000));
+        if (reviewDays < 0) reviewStatus = 'overdue';
+        else if (reviewDays <= 14) reviewStatus = 'due-soon';
+      }
       return {
         ...p,
         livePrice, changePct,
         totalUnits: sum.totalUnits,
         avgCost: sum.avgCost,
         ...gap,
+        reviewStatus, reviewDays,
       };
     });
 

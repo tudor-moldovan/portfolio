@@ -20,7 +20,9 @@ function parseJSON(v, fb) {
 // Shape check. buys[] is the source of truth; if someone pastes a legacy
 // schema with units+avgCost, coerce it into a single-lot buys[] with an
 // unknown date so the app still renders (SPY gap will be approximate).
+// Phase 2: thesis + invalidation + reviewBy are required on write.
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MIN_THESIS_CHARS = 20;
 function normalizePositions(arr) {
   if (!Array.isArray(arr)) throw new Error('positions must be an array');
   if (arr.length > 50) throw new Error('too many positions (max 50)');
@@ -46,6 +48,21 @@ function normalizePositions(arr) {
       if (typeof b.units !== 'number' || b.units <= 0) throw new Error(`${raw.symbol}: buy.units must be > 0`);
       if (typeof b.price !== 'number' || b.price <= 0) throw new Error(`${raw.symbol}: buy.price must be > 0`);
     }
+    // The Thesis Contract — non-negotiable.
+    const thesis = typeof raw.thesis === 'string' ? raw.thesis.trim() : '';
+    const invalidation = typeof raw.invalidation === 'string' ? raw.invalidation.trim() : '';
+    const reviewBy = typeof raw.reviewBy === 'string' ? raw.reviewBy.trim() : '';
+    if (thesis.length < MIN_THESIS_CHARS) throw new Error(`${raw.symbol}: thesis must be at least ${MIN_THESIS_CHARS} chars — why did you buy this?`);
+    if (invalidation.length < MIN_THESIS_CHARS) throw new Error(`${raw.symbol}: invalidation must be at least ${MIN_THESIS_CHARS} chars — what would make you sell?`);
+    if (!ISO_DATE.test(reviewBy)) throw new Error(`${raw.symbol}: reviewBy must be YYYY-MM-DD — when will you re-evaluate?`);
+    // Journal: optional, but if present must be a well-formed array.
+    let journal = Array.isArray(raw.journal) ? raw.journal : [];
+    journal = journal.map(e => {
+      if (!e || typeof e !== 'object') throw new Error(`${raw.symbol}: malformed journal entry`);
+      if (!ISO_DATE.test(e.date || '')) throw new Error(`${raw.symbol}: journal.date must be YYYY-MM-DD`);
+      if (typeof e.note !== 'string') throw new Error(`${raw.symbol}: journal.note must be a string`);
+      return { date: e.date, note: e.note, action: e.action || 'note' };
+    });
     out.push({
       symbol: raw.symbol,
       quoteSym: raw.quoteSym || raw.symbol,
@@ -54,6 +71,8 @@ function normalizePositions(arr) {
       currency: raw.currency,
       buys: buys.map(b => ({ date: b.date, units: b.units, price: b.price })),
       isLump: !!raw.isLump,
+      thesis, invalidation, reviewBy,
+      journal,
       ...(raw.targetBuy != null ? { targetBuy: raw.targetBuy } : {}),
       ...(raw.targetSell != null ? { targetSell: raw.targetSell } : {}),
       ...(raw.stopLoss != null ? { stopLoss: raw.stopLoss } : {}),

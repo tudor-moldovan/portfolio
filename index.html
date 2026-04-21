@@ -151,6 +151,75 @@ main{max-width:1080px;margin:0 auto;padding:28px;display:flex;flex-direction:col
 /* Loading skeleton */
 .skeleton{background:linear-gradient(90deg,var(--sf2) 0%,var(--sf) 50%,var(--sf2) 100%);background-size:200% 100%;animation:shimmer 1.8s infinite;border-radius:4px;display:inline-block;height:1em;width:80px;vertical-align:middle}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── Review badges ──────────────────────────────────────────────────────── */
+.rv-badge{display:inline-block;font-family:var(--sans);font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;padding:3px 7px;border-radius:3px;margin-left:6px;vertical-align:middle;border:1px solid transparent}
+.rv-ok{color:var(--di);background:transparent;border-color:var(--bd)}
+.rv-due{color:var(--ac);background:var(--ac2);border-color:var(--ac3)}
+.rv-overdue{color:var(--rd);background:var(--rd2);border-color:rgba(194,138,117,.35)}
+.rv-missing{color:var(--rd);background:var(--rd2);border-color:rgba(194,138,117,.35);font-weight:700}
+
+/* Row click affordance */
+.pos-tbl tbody tr{cursor:pointer}
+.pos-tbl tbody tr:hover .pos-sym{color:var(--ac-hi)}
+
+/* ── Detail drawer overlay ──────────────────────────────────────────────── */
+.drawer-bg{position:fixed;inset:0;background:rgba(10,6,2,.6);backdrop-filter:blur(6px);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
+.drawer-bg.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;width:min(520px,100%);height:100vh;background:var(--bg);border-left:1px solid var(--bd2);box-shadow:var(--shadow-md);z-index:201;transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);overflow-y:auto;display:flex;flex-direction:column}
+.drawer.on{transform:translateX(0)}
+@media(max-width:720px){.drawer{width:100%;border-left:none}}
+.drawer-hd{padding:18px 22px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;background:var(--sf);position:sticky;top:0;z-index:2}
+.drawer-hd-l{display:flex;align-items:baseline;gap:10px;min-width:0}
+.drawer-sym{font-family:var(--display);font-weight:500;font-size:26px;color:var(--ac);letter-spacing:-0.005em}
+.drawer-broker{font-size:10px;color:var(--mu);letter-spacing:.14em;text-transform:uppercase;font-weight:600;font-family:var(--sans)}
+.drawer-x{background:none;border:1px solid var(--bd2);color:var(--mu);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;justify-content:center}
+.drawer-x:hover{color:var(--ac);border-color:var(--ac3);background:var(--ac2)}
+.drawer-body{padding:22px;display:flex;flex-direction:column;gap:22px;flex:1}
+
+.sec-lbl{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--di);margin-bottom:8px}
+.sec-val{font-family:var(--serif);font-size:14.5px;line-height:1.6;color:var(--tx);font-weight:400;letter-spacing:-0.005em}
+.sec-val.muted{color:var(--mu)}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.kpi{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px 14px}
+.kpi .l{font-size:9px;color:var(--di);letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin-bottom:5px}
+.kpi .v{font-family:var(--mo);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+
+.review-line{padding:12px 14px;background:var(--sf2);border-left:3px solid var(--mu);border-radius:6px;font-size:13px;line-height:1.5}
+.review-line.overdue{border-left-color:var(--rd);background:var(--rd2);color:var(--rd)}
+.review-line.due{border-left-color:var(--ac);background:var(--ac2);color:var(--ac)}
+.review-line strong{font-family:var(--serif);font-weight:600}
+
+/* Journal */
+.jn-list{display:flex;flex-direction:column;gap:8px}
+.jn{background:var(--sf2);border:1px solid var(--bd);border-left:2px solid var(--mu);border-radius:6px;padding:10px 13px}
+.jn .hd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;font-size:10px;color:var(--di);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.jn .n{font-family:var(--serif);font-size:13px;line-height:1.55;color:var(--tx)}
+.jn-add{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.jn-add textarea{width:100%;background:var(--sf);border:1px solid var(--bd2);color:var(--tx);padding:10px 12px;border-radius:6px;font-family:var(--sans);font-size:13px;resize:vertical;min-height:70px;line-height:1.5}
+.jn-add textarea:focus{outline:none;border-color:var(--ac3)}
+.jn-add .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.jn-add select{background:var(--sf);border:1px solid var(--bd2);color:var(--tx);padding:8px 10px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer}
+.jn-add input[type=password]{background:var(--sf);border:1px solid var(--bd2);color:var(--tx);padding:8px 10px;border-radius:6px;font-family:var(--mo);font-size:12px;min-width:140px}
+.jn-add input:focus,.jn-add select:focus{outline:none;border-color:var(--ac3)}
+.jn-add button{background:var(--ac2);border:1px solid var(--ac3);color:var(--ac);padding:8px 16px;border-radius:6px;font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:.2s}
+.jn-add button:hover{background:var(--ac);color:#1b1814}
+.jn-add button:disabled{opacity:.5;cursor:not-allowed}
+.jn-empty{padding:14px;text-align:center;font-size:12px;color:var(--di);font-style:italic}
+
+/* Hero chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-family:var(--sans);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:4px 9px;border-radius:3px;border:1px solid transparent}
+.chip-ok{color:var(--gr);background:var(--gr2);border-color:rgba(158,175,138,.28)}
+.chip-warn{color:var(--ac);background:var(--ac2);border-color:var(--ac3)}
+.chip-bad{color:var(--rd);background:var(--rd2);border-color:rgba(194,138,117,.28)}
+
+/* Toast */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);background:var(--sf);color:var(--tx);border:1px solid var(--bd2);padding:11px 18px;border-radius:10px;font-size:12px;font-weight:500;z-index:210;transition:transform .3s;box-shadow:var(--shadow-md);max-width:90vw}
+.toast.on{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(158,175,138,.45);color:var(--gr)}
+.toast.fail{border-color:rgba(194,138,117,.45);color:var(--rd)}
 </style>
 </head>
 <body>
@@ -199,6 +268,20 @@ main{max-width:1080px;margin:0 auto;padding:28px;display:flex;flex-direction:col
     &nbsp;·&nbsp;<a href="/edit">Edit positions</a>
   </div>
 </main>
+
+<div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true">
+  <div class="drawer-hd">
+    <div class="drawer-hd-l">
+      <span class="drawer-sym" id="dSym">—</span>
+      <span class="drawer-broker" id="dBroker"></span>
+    </div>
+    <button class="drawer-x" onclick="closeDrawer()" aria-label="Close">&times;</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
 
 <script>
 // ── Formatting helpers ───────────────────────────────────────────────────
@@ -261,21 +344,34 @@ function renderGap(d){
   document.getElementById('gapHeadline').innerHTML=h.html;
 }
 
+let POSITIONS_BY_SYMBOL={};
+let PORTFOLIO=null;
+
+function reviewBadge(p){
+  if(!p.thesis||!p.invalidation||!p.reviewBy)return '<span class="rv-badge rv-missing">No thesis</span>';
+  if(p.reviewStatus==='overdue')return `<span class="rv-badge rv-overdue">Review overdue · ${Math.abs(p.reviewDays)}d ago</span>`;
+  if(p.reviewStatus==='due-soon')return `<span class="rv-badge rv-due">Review in ${p.reviewDays}d</span>`;
+  return '';
+}
+
 function renderPositions(d){
   const rows=d.positions||[];
+  PORTFOLIO=d.portfolio;
+  POSITIONS_BY_SYMBOL={};
+  for(const p of rows)POSITIONS_BY_SYMBOL[p.symbol]=p;
   if(!rows.length){
     document.getElementById('posBody').innerHTML='<div class="empty"><div class="empty-t">No positions</div><div class="empty-s">Add some via <a href="/edit" style="color:var(--ac)">Edit</a></div></div>';
     return;
   }
-  // Sort by |gap|, biggest losers first — the things that need attention
+  // Sort by gap (most negative first — the things that need attention).
   const sorted=[...rows].sort((a,b)=>(a.gapUSD||0)-(b.gapUSD||0));
   let html='<table class="pos-tbl"><thead><tr><th>Asset</th><th class="r">Price</th><th class="r">Value (USD)</th><th class="r">P&amp;L</th><th class="r">vs SPY</th></tr></thead><tbody>';
   for(const p of sorted){
     const disp=p.symbol.replace(/-R$/,'');
     const priceStr=fmtLocalPrice(p.livePrice,p.currency);
     const dayStr=p.changePct!=null?`<span style="color:${gc(p.changePct)}">${fmtPct(p.changePct)}</span> today`:'&nbsp;';
-    html+=`<tr>
-      <td class="head" data-l=""><span><span class="pos-sym">${esc(disp)}</span><span class="pos-broker">${esc(p.broker||'')}</span></span><span style="font-size:10px;color:var(--mu);letter-spacing:.12em;text-transform:uppercase">${esc(p.asset||'')}</span></td>
+    html+=`<tr onclick="openDrawer('${esc(p.symbol)}')" tabindex="0" onkeydown="if(event.key==='Enter')openDrawer('${esc(p.symbol)}')">
+      <td class="head" data-l=""><span><span class="pos-sym">${esc(disp)}</span><span class="pos-broker">${esc(p.broker||'')}</span>${reviewBadge(p)}</span><span style="font-size:10px;color:var(--mu);letter-spacing:.12em;text-transform:uppercase">${esc(p.asset||'')}</span></td>
       <td class="r" data-l="Price">${priceStr}<div class="pos-price-sub">${dayStr}</div></td>
       <td class="r" data-l="Value">${fmtUSD0(p.valueUSD)}</td>
       <td class="r" data-l="P&L" style="color:${gc(p.plUSD)}">${fmtUSD0(p.plUSD)}<div class="pos-price-sub" style="color:${gc(p.plUSD)}">${fmtPct(p.plPct)}</div></td>
@@ -291,8 +387,147 @@ function renderPositions(d){
     <td class="r" data-l="vs SPY"><span class="n" style="color:${gc(p.gapUSD)}">${fmtUSD0(p.gapUSD)} (${fmtPct(p.gapPct)})</span></td>
   </tr></tfoot></table>`;
   document.getElementById('posBody').innerHTML=html;
-  document.getElementById('posMeta').textContent=`${rows.length} positions · sorted by gap`;
+  const overdueCount=rows.filter(p=>p.reviewStatus==='overdue').length;
+  document.getElementById('posMeta').innerHTML=`${rows.length} positions · sorted by gap${overdueCount?` <span class="rv-badge rv-overdue" style="margin-left:8px">${overdueCount} overdue</span>`:''}`;
 }
+
+// ── Detail drawer ───────────────────────────────────────────────────────
+function openDrawer(sym){
+  const p=POSITIONS_BY_SYMBOL[sym];
+  if(!p){toast('Position not found',false);return;}
+  const disp=p.symbol.replace(/-R$/,'');
+  document.getElementById('dSym').textContent=disp;
+  document.getElementById('dBroker').textContent=[p.broker,p.asset].filter(Boolean).join(' · ');
+  const body=document.getElementById('drawerBody');
+
+  const hasThesis=!!(p.thesis&&p.invalidation&&p.reviewBy);
+  const journal=Array.isArray(p.journal)?p.journal:[];
+  const lastJournal=journal[journal.length-1];
+  const broken=lastJournal&&lastJournal.action==='thesis-broken';
+
+  const chips=[];
+  if(broken)chips.push('<span class="chip chip-bad">Thesis marked broken</span>');
+  if(p.reviewStatus==='overdue')chips.push(`<span class="chip chip-bad">Review overdue ${Math.abs(p.reviewDays)}d</span>`);
+  else if(p.reviewStatus==='due-soon')chips.push(`<span class="chip chip-warn">Review in ${p.reviewDays}d</span>`);
+  if(p.gapUSD>0)chips.push('<span class="chip chip-ok">Ahead of SPY</span>');
+  else if(p.gapUSD<0)chips.push('<span class="chip chip-bad">Behind SPY</span>');
+
+  let html='';
+
+  // KPIs first — always visible, anchor reality
+  html+=`<div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="l">Value (USD)</div><div class="v">${fmtUSD(p.valueUSD)}</div></div>
+      <div class="kpi"><div class="l">P&amp;L</div><div class="v" style="color:${gc(p.plUSD)}">${fmtUSD0(p.plUSD)} · ${fmtPct(p.plPct)}</div></div>
+      <div class="kpi"><div class="l">vs SPY (USD)</div><div class="v" style="color:${gc(p.gapUSD)}">${fmtUSD0(p.gapUSD)}</div></div>
+      <div class="kpi"><div class="l">vs SPY %</div><div class="v" style="color:${gc(p.gapUSD)}">${fmtPct(p.gapPct)}</div></div>
+    </div>
+    ${chips.length?`<div class="chips">${chips.join('')}</div>`:''}
+  </div>`;
+
+  // Thesis contract
+  if(hasThesis){
+    const reviewCls=p.reviewStatus==='overdue'?'overdue':(p.reviewStatus==='due-soon'?'due':'');
+    const reviewLabel=p.reviewStatus==='overdue'
+      ? `Review was due <strong>${esc(p.reviewBy)}</strong> — ${Math.abs(p.reviewDays)} days ago. Write an entry below.`
+      : p.reviewStatus==='due-soon'
+        ? `Review scheduled <strong>${esc(p.reviewBy)}</strong> (in ${p.reviewDays} days).`
+        : `Review scheduled <strong>${esc(p.reviewBy)}</strong> (${p.reviewDays} days away).`;
+    html+=`<div><div class="sec-lbl">Thesis — why I bought</div><div class="sec-val">${esc(p.thesis)}</div></div>`;
+    html+=`<div><div class="sec-lbl">Invalidation — what makes me sell</div><div class="sec-val">${esc(p.invalidation)}</div></div>`;
+    html+=`<div class="review-line ${reviewCls}">${reviewLabel}</div>`;
+  }else{
+    html+=`<div class="review-line overdue"><strong>No thesis written.</strong> Go to <a href="/edit" style="color:var(--rd);font-weight:600;border-bottom:1px dashed">/edit</a> and add <code>thesis</code>, <code>invalidation</code>, and <code>reviewBy</code> for ${esc(disp)} — or close the position.</div>`;
+  }
+
+  // Buy lots
+  if(Array.isArray(p.buys)&&p.buys.length){
+    html+=`<div><div class="sec-lbl">Buy lots (${p.buys.length})</div>`;
+    for(const b of p.buys){
+      html+=`<div style="display:flex;justify-content:space-between;font-family:var(--mo);font-size:12px;padding:5px 0;border-bottom:1px dashed var(--bd)"><span style="color:var(--mu)">${esc(b.date)}</span><span>${b.units.toLocaleString('en-US',{maximumFractionDigits:6})} @ ${fmtLocalPrice(b.price,p.currency)}</span></div>`;
+    }
+    html+='</div>';
+  }
+
+  // Journal
+  html+=`<div>
+    <div class="sec-lbl">Journal · ${journal.length} ${journal.length===1?'entry':'entries'}</div>`;
+  if(!journal.length){
+    html+='<div class="jn-empty">No entries yet. Log your first note below when price action prompts a thought.</div>';
+  }else{
+    html+='<div class="jn-list">';
+    for(let i=journal.length-1;i>=0;i--){
+      const e=journal[i];
+      html+=`<div class="jn"><div class="hd"><span>${esc(e.date)}</span><span>${esc(e.action||'note')}</span></div><div class="n">${esc(e.note||'')}</div></div>`;
+    }
+    html+='</div>';
+  }
+  html+=`
+    <div class="jn-add" style="margin-top:10px">
+      <textarea id="jnNote" placeholder="What happened? What does it mean for the thesis?"></textarea>
+      <div class="row">
+        <select id="jnAction">
+          <option value="note">note</option>
+          <option value="add">add (bought more)</option>
+          <option value="trim">trim (sold some)</option>
+          <option value="close">close (sold all)</option>
+          <option value="rewrite-thesis">rewrite thesis</option>
+          <option value="thesis-broken">thesis broken</option>
+          <option value="target-hit">target hit</option>
+          <option value="stop-hit">stop hit</option>
+        </select>
+        <input type="password" id="jnKey" placeholder="Admin key" value="${esc(sessionStorage.getItem('pl_adminkey')||'')}">
+        <button onclick="submitJournal('${esc(p.symbol)}')" id="jnSubmitBtn">Append</button>
+      </div>
+      <div style="font-size:10px;color:var(--di);letter-spacing:.02em">Entry appends immutably to this position's journal (date = today).</div>
+    </div>
+  </div>`;
+
+  body.innerHTML=html;
+  document.getElementById('drawer').classList.add('on');
+  document.getElementById('drawerBg').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('on');
+  document.getElementById('drawerBg').classList.remove('on');
+  document.body.style.overflow='';
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+
+async function submitJournal(symbol){
+  const note=(document.getElementById('jnNote').value||'').trim();
+  const action=document.getElementById('jnAction').value;
+  const key=(document.getElementById('jnKey').value||'').trim();
+  if(!note){toast('Note cannot be empty',false);return;}
+  if(!key){toast('Admin key required',false);return;}
+  const btn=document.getElementById('jnSubmitBtn');
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    const r=await fetch('/api/journal?key='+encodeURIComponent(key),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({symbol,note,action}),
+    });
+    const d=await r.json();
+    if(!r.ok||d.error){toast(d.error||'Save failed',false);btn.disabled=false;btn.textContent='Append';return;}
+    try{sessionStorage.setItem('pl_adminkey',key);}catch{}
+    toast('Entry saved',true);
+    await loadAll();
+    openDrawer(symbol);
+  }catch(e){toast(e.message,false);btn.disabled=false;btn.textContent='Append';}
+}
+
+function toast(msg,ok){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast on '+(ok?'ok':'fail');
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.remove('on'),2800);
+}
+
 
 // ── Load ────────────────────────────────────────────────────────────────
 async function loadAll(){
