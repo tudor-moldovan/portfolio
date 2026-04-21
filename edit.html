@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Edit Positions — Moat Portfolio</title>
+<title>Edit Positions — The Pick Log</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -37,9 +37,10 @@ a{color:var(--ac)}
   <div class="sub">JSON array · stored in Vercel KV · takes effect on next <a href="/">home</a> load</div>
 
   <div class="help">
-    Each position needs: <code>symbol</code>, <code>quoteSym</code>, <code>broker</code>, <code>asset</code>, <code>currency</code> (USD|EUR|RON), <code>units</code>, <code>avgCost</code>. Optional: <code>targetBuy</code>, <code>targetSell</code>, <code>stopLoss</code>, <code>isLump</code>.
-    For duplicates (same ticker on two brokers), suffix the symbol (e.g. <code>BTC-R</code>) but set <code>quoteSym: "BTC"</code>.
-    For index-tracker accounts where only RON invested is known, set <code>isLump: true</code> and use <code>avgCost</code> as total RON and <code>units: 1</code>.
+    Each position needs: <code>symbol</code>, <code>quoteSym</code>, <code>broker</code>, <code>asset</code>, <code>currency</code> (USD|EUR|RON), and <code>buys</code> — an array of lots <code>[{ date: "YYYY-MM-DD", units, price }]</code>. The buy dates drive the SPY-equivalent math: pick real dates for honest alpha. Optional: <code>targetBuy</code>, <code>targetSell</code>, <code>stopLoss</code>, <code>isLump</code>.
+    <br><br>
+    Duplicates on two brokers (e.g. BTC on Binance and Revolut): suffix the symbol (<code>BTC-R</code>) but set <code>quoteSym: "BTC"</code>.
+    Index-tracker accounts where only local-currency invested is known: set <code>isLump: true</code> and use <code>buys: [{date, units: &lt;total-local-amount&gt;, price: 1.0}]</code>.
   </div>
 
   <div class="row">

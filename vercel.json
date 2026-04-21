@@ -17,11 +17,5 @@
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron",
-      "schedule": "30 14 * * *"
-    }
   ]
 }
