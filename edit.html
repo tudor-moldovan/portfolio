@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Edit Positions — The Pick Log</title>
+<title>Edit Positions — Holdings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -37,17 +37,11 @@ a{color:var(--ac)}
   <div class="sub">JSON array · stored in Vercel KV · takes effect on next <a href="/">home</a> load</div>
 
   <div class="help">
-    <strong style="color:var(--ac)">The thesis contract is required.</strong> Each position must define:
-    <br>
-    <code>thesis</code> (≥20 chars): <em>why you bought this, specifically</em>.
-    <code>invalidation</code> (≥20 chars): <em>what exactly would make you sell</em>. Be specific — "if X drops 10%" not "if things go bad".
-    <code>reviewBy</code>: <em>YYYY-MM-DD — when you'll re-evaluate</em>.
+    Each position needs: <code>symbol</code>, <code>quoteSym</code>, <code>broker</code>, <code>asset</code> (Stock|ETF|Crypto|Index), <code>currency</code> (USD|EUR|RON), <code>units</code>, <code>avgCost</code>. That's it.
     <br><br>
-    Plus the mechanics: <code>symbol</code>, <code>quoteSym</code>, <code>broker</code>, <code>asset</code>, <code>currency</code> (USD|EUR|RON), and <code>buys</code> — an array of lots <code>[{ date: "YYYY-MM-DD", units, price }]</code>. The buy dates drive the SPY-equivalent math: pick real dates for honest alpha.
+    <code>quoteSym</code> is what FMP / Yahoo look up — drop any duplicate suffix. For BTC on two brokers: use <code>symbol: "BTC-R"</code> with <code>quoteSym: "BTC"</code>.
     <br><br>
-    Optional: <code>targetBuy</code>, <code>targetSell</code>, <code>stopLoss</code>, <code>isLump</code>, <code>journal: [...]</code> (append via the drawer on home, don't hand-edit).
-    <br><br>
-    Duplicates on two brokers (e.g. BTC on Binance and Revolut): suffix the symbol (<code>BTC-R</code>) but set <code>quoteSym: "BTC"</code>. Index-tracker accounts where only local-currency invested is known: set <code>isLump: true</code>.
+    Asset class drives which tools apply: <em>Stock</em> → all three (valuation percentile, reverse DCF, drawdowns). <em>ETF/Crypto</em> → drawdowns only. <em>Index</em> → skipped (no data source).
   </div>
 
   <div class="row">
