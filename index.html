@@ -140,7 +140,6 @@ main{max-width:1080px;margin:0 auto;padding:24px 28px 36px;display:flex;flex-dir
     </div>
   </div>
   <div class="hr">
-    <a href="/edit" class="hb">Edit</a>
     <button class="tb" onclick="toggleTheme()" title="Theme">&#9681;</button>
   </div>
 </header>
@@ -185,7 +184,7 @@ main{max-width:1080px;margin:0 auto;padding:24px 28px 36px;display:flex;flex-dir
   </section>
 
   <div class="footer">
-    <span id="footerMeta">—</span> · <a href="/edit">Edit positions</a>
+    <span id="footerMeta">—</span>
   </div>
 </main>
 
@@ -205,7 +204,19 @@ function loadTheme(){try{if(localStorage.getItem('hl_theme')==='light')document.
 function toast(msg,ok){const el=document.getElementById('toast');el.textContent=msg;el.className='toast on '+(ok?'ok':'fail');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),2800);}
 function showError(msg){document.getElementById('errBox').innerHTML=`<div class="err"><strong>ERROR</strong> · ${esc(msg)}</div>`;}
 function clearError(){document.getElementById('errBox').innerHTML='';}
-let POSITIONS=[];
+// Edit this list in place — the three tools drive entirely off `symbol` + `quoteSym`.
+// asset gates which tools run: Stock → all three; ETF/Crypto/Index → drawdowns only.
+const POSITIONS=[
+  {symbol:'MSFT', quoteSym:'MSFT',    broker:'eToro',   asset:'Stock'},
+  {symbol:'AMZN', quoteSym:'AMZN',    broker:'eToro',   asset:'Stock'},
+  {symbol:'GOOG', quoteSym:'GOOG',    broker:'eToro',   asset:'Stock'},
+  {symbol:'META', quoteSym:'META',    broker:'eToro',   asset:'Stock'},
+  {symbol:'V',    quoteSym:'V',       broker:'eToro',   asset:'Stock'},
+  {symbol:'VUSA', quoteSym:'VUSA.AS', broker:'IBKR',    asset:'ETF'},
+  {symbol:'BTC',  quoteSym:'BTC',     broker:'Binance', asset:'Crypto'},
+  {symbol:'ETH',  quoteSym:'ETH',     broker:'Binance', asset:'Crypto'},
+  {symbol:'ROTX', quoteSym:'ROTX',    broker:'BT Bank', asset:'Index'},
+];
 </script>
 <script id="app-render">
 function renderValuation(d){
@@ -312,12 +323,7 @@ function renderDrawdowns(d){
 }
 </script>
 <script id="app-boot">
-async function loadPositions(){
-  const r=await fetch('/api/positions');
-  const d=await r.json();
-  if(!r.ok||d.error){throw new Error(d.error||'failed to load positions');}
-  POSITIONS=d.positions||[];
-  // Populate the DCF quick-pick with stocks only.
+function initDcfPicker(){
   const sel=document.getElementById('dcfQuick');
   sel.innerHTML='<option value="">— quick pick —</option>'+POSITIONS.filter(p=>p.asset==='Stock').map(p=>`<option value="${esc(p.quoteSym||p.symbol)}">${esc(p.symbol)}</option>`).join('');
   sel.onchange=()=>{if(sel.value)document.getElementById('dcfSym').value=sel.value;};
@@ -345,16 +351,13 @@ async function loadDrawdowns(){
   }catch(e){document.getElementById('ddBody').innerHTML=`<div class="empty">${esc(e.message)}</div>`;}
 }
 
-async function boot(){
+function boot(){
   loadTheme();
-  try{await loadPositions();}catch(e){showError(e.message);return;}
+  initDcfPicker();
   // Fire valuation + drawdowns in parallel; both can be slow on cold caches.
   loadValuation();
   loadDrawdowns();
   document.getElementById('footerMeta').textContent='Loaded '+new Date().toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-  fetch('/api/version').then(r=>r.json()).then(v=>{
-    console.log('%cHoldings','color:#d4b88b;font-weight:bold','build',v.shaShort,'@',v.region);
-  }).catch(()=>{});
 }
 boot();
 </script>
