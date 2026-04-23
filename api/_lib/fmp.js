@@ -73,3 +73,21 @@ export async function profile(symbol, kv) {
   const url = `${BASE}/profile/${encodeURIComponent(symbol)}?apikey=${k}`;
   return fetchCached(url, `fmp:profile:${symbol}`, kv, 3600);
 }
+// Up to 10 years of annual revenue / op income / EPS.
+export async function incomeAnnual(symbol, kv) {
+  const k = apiKey();
+  const url = `${BASE}/income-statement/${encodeURIComponent(symbol)}?period=annual&limit=10&apikey=${k}`;
+  return fetchCached(url, `fmp:income:a:${symbol}`, kv, 24 * 3600);
+}
+// TTM ratios: P/E, margins, ROE/ROIC, dividend yield.
+export async function ratiosTTM(symbol, kv) {
+  const k = apiKey();
+  const url = `${BASE}/ratios-ttm/${encodeURIComponent(symbol)}?apikey=${k}`;
+  return fetchCached(url, `fmp:ratios-ttm:${symbol}`, kv, 12 * 3600);
+}
+// TTM key metrics: EV/EBITDA, FCF yield, net debt / EBITDA.
+export async function keyMetricsTTM(symbol, kv) {
+  const k = apiKey();
+  const url = `${BASE}/key-metrics-ttm/${encodeURIComponent(symbol)}?apikey=${k}`;
+  return fetchCached(url, `fmp:key-metrics-ttm:${symbol}`, kv, 12 * 3600);
+}
