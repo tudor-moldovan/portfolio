@@ -1,4 +1,4 @@
-import { incomeQuarterly, cashFlowQuarterly, balanceQuarterly, historicalPrice, profile, ratiosTTM, keyMetricsTTM, incomeAnnual, cashFlowAnnual } from './_lib/fmp.js';
+import { incomeQuarterly, cashFlowQuarterly, balanceQuarterly, historicalPrice, profile, ratiosTTM, keyMetricsTTM, incomeAnnual, cashFlowAnnual, historicalSeries } from './_lib/fmp.js';
 import { percentile, median, ttmSum, priceOnOrBefore, cagr } from './_lib/finance.js';
 
 export const config = { runtime: 'edge' };
@@ -36,7 +36,7 @@ async function ownHistory(symbol, kv, currentPrice) {
   const bsA = [...bs].reverse();
   const cfByDate = Object.fromEntries(cfA.map(q => [q.date, q]));
   const bsByDate = Object.fromEntries(bsA.map(q => [q.date, q]));
-  const prices = (hist?.historical || []).map(p => ({ date: p.date, close: p.close })).sort((a, b) => a.date.localeCompare(b.date));
+  const prices = historicalSeries(hist).map(p => ({ date: p.date, close: p.close })).sort((a, b) => a.date.localeCompare(b.date));
 
   const series = [];
   for (let i = 0; i + 3 < incA.length; i++) {

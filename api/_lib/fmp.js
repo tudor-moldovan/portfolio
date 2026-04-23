@@ -1,10 +1,11 @@
 // FMP (financialmodelingprep.com) client with KV caching.
-// Free tier: 250 req/day. We cache each endpoint per symbol for 24h.
+// Uses the /stable/ API — the legacy /api/v3/ endpoints were deprecated and now
+// return 403 for non-grandfathered accounts. New pattern is query-string based:
+//   /stable/<endpoint>?symbol=<SYMBOL>&<params>&apikey=<KEY>
 //
-// Set FMP_API_KEY on Vercel (free tier works — register at the site).
-// If unset, calls throw so the UI can render a "missing key" state.
+// Set FMP_API_KEY on Vercel. Free tier works.
 
-const BASE = 'https://financialmodelingprep.com/api/v3';
+const BASE = 'https://financialmodelingprep.com/stable';
 
 async function kvGet(kv, key) {
   if (!kv) return null;
@@ -25,6 +26,11 @@ function apiKey() {
   return k;
 }
 
+function buildUrl(path, params) {
+  const qs = new URLSearchParams({ ...params, apikey: apiKey() }).toString();
+  return `${BASE}/${path}?${qs}`;
+}
+
 // Cached fetch. ttlSec: how long to cache successful responses.
 async function fetchCached(url, cacheKey, kv, ttlSec) {
   const cached = await kvGet(kv, cacheKey);
@@ -41,53 +47,54 @@ async function fetchCached(url, cacheKey, kv, ttlSec) {
 
 // 40 quarters ≈ 10 years of fundamentals.
 export async function incomeQuarterly(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/income-statement/${encodeURIComponent(symbol)}?period=quarter&limit=40&apikey=${k}`;
+  const url = buildUrl('income-statement', { symbol, period: 'quarter', limit: 40 });
   return fetchCached(url, `fmp:income:q:${symbol}`, kv, 24 * 3600);
 }
 export async function cashFlowQuarterly(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/cash-flow-statement/${encodeURIComponent(symbol)}?period=quarter&limit=40&apikey=${k}`;
+  const url = buildUrl('cash-flow-statement', { symbol, period: 'quarter', limit: 40 });
   return fetchCached(url, `fmp:cash:q:${symbol}`, kv, 24 * 3600);
 }
 export async function balanceQuarterly(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/balance-sheet-statement/${encodeURIComponent(symbol)}?period=quarter&limit=40&apikey=${k}`;
+  const url = buildUrl('balance-sheet-statement', { symbol, period: 'quarter', limit: 40 });
   return fetchCached(url, `fmp:balance:q:${symbol}`, kv, 24 * 3600);
 }
-// Up to 10 years of daily closes.
+// Up to 10 years of daily OHLC + volume. Stable returns either a bare array
+// or {historical: [...]}; caller should normalise via historicalSeries().
 export async function historicalPrice(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/historical-price-full/${encodeURIComponent(symbol)}?serietype=line&timeseries=2600&apikey=${k}`;
+  const url = buildUrl('historical-price-eod/full', { symbol });
   return fetchCached(url, `fmp:hist:${symbol}`, kv, 6 * 3600);
 }
-// Annual FCF — used for the 5y trailing CAGR in reverse DCF.
+// Annual cash flow — used for 5y FCF CAGR.
 export async function cashFlowAnnual(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/cash-flow-statement/${encodeURIComponent(symbol)}?period=annual&limit=10&apikey=${k}`;
+  const url = buildUrl('cash-flow-statement', { symbol, period: 'annual', limit: 10 });
   return fetchCached(url, `fmp:cash:a:${symbol}`, kv, 24 * 3600);
 }
-// Current profile: latest price, shares outstanding, mkt cap.
+// Current profile: latest price, shares outstanding, mkt cap, sector.
 export async function profile(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/profile/${encodeURIComponent(symbol)}?apikey=${k}`;
+  const url = buildUrl('profile', { symbol });
   return fetchCached(url, `fmp:profile:${symbol}`, kv, 3600);
 }
 // Up to 10 years of annual revenue / op income / EPS.
 export async function incomeAnnual(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/income-statement/${encodeURIComponent(symbol)}?period=annual&limit=10&apikey=${k}`;
+  const url = buildUrl('income-statement', { symbol, period: 'annual', limit: 10 });
   return fetchCached(url, `fmp:income:a:${symbol}`, kv, 24 * 3600);
 }
 // TTM ratios: P/E, margins, ROE/ROIC, dividend yield.
 export async function ratiosTTM(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/ratios-ttm/${encodeURIComponent(symbol)}?apikey=${k}`;
+  const url = buildUrl('ratios-ttm', { symbol });
   return fetchCached(url, `fmp:ratios-ttm:${symbol}`, kv, 12 * 3600);
 }
 // TTM key metrics: EV/EBITDA, FCF yield, net debt / EBITDA.
 export async function keyMetricsTTM(symbol, kv) {
-  const k = apiKey();
-  const url = `${BASE}/key-metrics-ttm/${encodeURIComponent(symbol)}?apikey=${k}`;
+  const url = buildUrl('key-metrics-ttm', { symbol });
   return fetchCached(url, `fmp:key-metrics-ttm:${symbol}`, kv, 12 * 3600);
+}
+
+// Normalise historical-price response — stable may return a bare array or
+// {historical: [...]} depending on the endpoint variant. Callers should use
+// this helper instead of reaching into the raw payload.
+export function historicalSeries(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw?.historical)) return raw.historical;
+  return [];
 }
