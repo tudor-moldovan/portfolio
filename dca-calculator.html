@@ -7,119 +7,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
         integrity="sha384-rRoXxn2yHlrZYB587Ki9RO1tONhLdM6XfORg7Rw4uwH4/Fh/5nP7IUX91bkaKUgs"
         crossorigin="anonymous"></script>
+<link rel="stylesheet" href="/shared.css" />
 <style>
-  :root {
-    --bg: #0f1115;
-    --surface: #181b22;
-    --surface-2: #1f2330;
-    --border: #2a2f3d;
-    --text: #e7eaf0;
-    --muted: #9aa3b2;
-    --accent: #4f9dff;
-    --accent-2: #5ee0a4;
-    --warn: #ffb454;
-    --c1: #4f9dff;
-    --c2: #5ee0a4;
-    --c3: #ffb454;
-    --c4: #f06292;
-    --c5: #b388ff;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.5;
-  }
-  header {
-    padding: 32px 24px 16px;
-    text-align: center;
-    border-bottom: 1px solid var(--border);
-  }
-  header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 600; }
-  header p { margin: 0; color: var(--muted); font-size: 14px; }
-  main { max-width: 1200px; margin: 0 auto; padding: 24px; }
-  .holding {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 24px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-  }
-  .holding .label, .field label, .card .sub-label {
-    color: var(--muted);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 4px;
-  }
-  .holding .value { font-size: 20px; font-weight: 600; }
-  .controls {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 24px;
-  }
-  .controls h3 {
-    margin: 0 0 14px;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
-    font-weight: 500;
-  }
-  .controls h3:not(:first-child) { margin-top: 22px; }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-  }
-  .field label { display: block; margin-bottom: 6px; }
-  .field input, .field select {
-    width: 100%;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 16px;
-    font-family: inherit;
-  }
-  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
-  .field .hint { margin-top: 4px; font-size: 11px; color: var(--muted); }
+  /* DCA-specific tweaks */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .field input, .field select { font-size: 16px; }
   .checkbox-row { display: flex; align-items: center; gap: 10px; padding-top: 22px; }
   .checkbox-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
-  .checkbox-row label { font-size: 14px; color: var(--text); }
+  .checkbox-row label { font-size: 14px; color: var(--text); text-transform: none; letter-spacing: 0; margin-bottom: 0; }
   .charts { display: grid; grid-template-columns: 1fr; gap: 24px; }
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 24px;
-  }
-  .card h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
-  .card .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
-  .chart-wrap { position: relative; height: 380px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  table th, table td {
-    text-align: right;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  table th:first-child, table td:first-child { text-align: left; }
-  table th {
-    color: var(--muted);
-    font-weight: 500;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  table tr:last-child td { border-bottom: none; }
   .goal-result {
     background: var(--surface-2);
     border-radius: 8px;
@@ -129,30 +25,8 @@
   }
   .goal-result .big { font-size: 28px; font-weight: 600; color: var(--accent-2); display: block; margin-top: 4px; }
   .goal-result .warn { color: var(--warn); }
-  details {
-    background: var(--surface-2);
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-top: 16px;
-    font-size: 13px;
-    color: var(--muted);
-  }
-  details summary { cursor: pointer; color: var(--text); font-weight: 500; }
-  details > *:not(summary) { margin-top: 8px; }
-  details ul { padding-left: 20px; margin: 6px 0; }
-  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
-  .back-link {
-    display: inline-block;
-    margin: 16px 0 0 24px;
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 13px;
-  }
-  .back-link:hover { color: var(--accent); }
-  @media (max-width: 600px) {
-    .chart-wrap { height: 320px; }
-    header h1 { font-size: 22px; }
-  }
+  table { font-size: 14px; }
+  table th, table td { padding: 10px 12px; }
 </style>
 </head>
 <body>
