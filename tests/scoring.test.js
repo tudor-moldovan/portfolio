@@ -37,7 +37,7 @@ function loadAdvisor() {
   };
   const wrapped =
     '(function(){' + data + '\n' + truncated +
-    '\n; return { ARCHETYPES, MODELS, modelsForArchetype, pickModelsForRender, rankArchetypes, budgetAdjustment, computeTCO };})()';
+    '\n; return { ARCHETYPES, MODELS, modelsForArchetype, pickModelsForRender, rankArchetypes, budgetAdjustment, computeTCO, blockerFor, rankModelsForUser, bestVariantFor };})()';
   // eslint-disable-next-line no-eval
   return eval(wrapped);
 }
@@ -264,4 +264,120 @@ test('most archetypes have a premium/luxury model (LPG + pickup are mainstream-o
     assert.ok(fancy.length >= 1,
       `archetype ${arch.id} has no premium/luxury options`);
   }
+});
+
+// ---------- algorithm overhaul (hard blockers + absolute fit) ----------
+
+const baseAns2 = { ...baseAns, tierPref: 'open' };
+
+test('BEV archetypes are blocked when user has no charging access', () => {
+  const ans = { ...baseAns2, fuelPref: 'bev', charging: 'none' };
+  const ranked = advisor.rankArchetypes(ans);
+  const urbanBev = ranked.find((r) => r.arch.id === 'urban-bev');
+  const longBev = ranked.find((r) => r.arch.id === 'long-range-bev');
+  assert.equal(typeof urbanBev.blocker, 'string', 'urban-bev should be blocked');
+  assert.equal(typeof longBev.blocker, 'string', 'long-range-bev should be blocked');
+  assert.equal(urbanBev.fit, 0, 'blocked → fit % is 0');
+});
+
+test('PHEV is blocked when user has no charging access', () => {
+  const ans = { ...baseAns2, fuelPref: 'phev', charging: 'none' };
+  const ranked = advisor.rankArchetypes(ans);
+  const phev = ranked.find((r) => r.arch.id === 'phev-family');
+  assert.equal(typeof phev.blocker, 'string', 'PHEV without charging should be blocked');
+});
+
+test('cabrio with 2 child seats is blocked', () => {
+  const ans = { ...baseAns2, bodyPref: 'cabrio', childSeats: 2 };
+  const ranked = advisor.rankArchetypes(ans);
+  const cab = ranked.find((r) => r.arch.id === 'cabrio');
+  assert.equal(typeof cab.blocker, 'string', 'cabrio + 2 child seats should be blocked');
+});
+
+test('off-road 4x4 is blocked for city-only low-mileage drivers', () => {
+  const ans = { ...baseAns2, drivingMix: 'city', annualKm: 5000 };
+  const ranked = advisor.rankArchetypes(ans);
+  const offroad = ranked.find((r) => r.arch.id === 'offroad-4x4');
+  assert.equal(typeof offroad.blocker, 'string',
+    'off-road 4x4 + city + 5k km should be blocked');
+});
+
+test('diesel is blocked for very-low-km city users (DPF risk)', () => {
+  const ans = { ...baseAns2, drivingMix: 'city', annualKm: 5000 };
+  const ranked = advisor.rankArchetypes(ans);
+  const dieselArchs = ['highway-diesel-sedan', 'family-combi-diesel', 'mid-suv-diesel'];
+  for (const id of dieselArchs) {
+    const r = ranked.find((x) => x.arch.id === id);
+    assert.equal(typeof r.blocker, 'string',
+      `${id} should be blocked for city + low km, got blocker=${r.blocker}`);
+  }
+});
+
+test('absolute fit % caps at 100, never relative', () => {
+  // A profile with everything aligned should hit 100 on the top match.
+  const ans = { ...baseAns2, drivingMix: 'offroad', climate: 'mountain',
+    drivePref: '4x4', fuelPref: 'diesel', budget: 50000 };
+  const ranked = advisor.rankArchetypes(ans);
+  const top = ranked.find((r) => r.arch.id === 'offroad-4x4');
+  assert.equal(top.fit, 100, 'perfectly-aligned scenario should hit 100% fit');
+  // And a meh profile shouldn't have a top match at 100.
+  const ans2 = { ...baseAns2, fuelPref: 'open', bodyPref: 'open', drivingMix: 'mixed',
+    annualKm: 15000, budget: 30000 };
+  const ranked2 = advisor.rankArchetypes(ans2).filter((r) => !r.blocker);
+  assert.ok(ranked2[0].fit < 100,
+    'a vanilla profile should NOT show 100% fit (relative scoring would always show 100)');
+});
+
+// ---------- variant picker ----------
+
+test('best variant for BEV archetype picks a BEV variant of the model', () => {
+  const ans = { ...baseAns2, fuelPref: 'bev', charging: 'home' };
+  const arch = advisor.ARCHETYPES.find((a) => a.id === 'long-range-bev');
+  const kona = advisor.MODELS.find((m) => m.id === 'hyundai-kona');
+  const bv = advisor.bestVariantFor(kona, ans, arch);
+  assert.equal(bv.variant.fuel, 'bev', 'BEV archetype should pick BEV variant of Kona, got ' + bv.variant.fuel);
+});
+
+test('best variant for diesel archetype picks a diesel variant of the model', () => {
+  const ans = { ...baseAns2, drivingMix: 'highway', annualKm: 27500, budget: 35000 };
+  const arch = advisor.ARCHETYPES.find((a) => a.id === 'family-combi-diesel');
+  const v60 = advisor.MODELS.find((m) => m.id === 'volvo-s60-v60');
+  const bv = advisor.bestVariantFor(v60, ans, arch);
+  assert.equal(bv.variant.fuel, 'diesel',
+    'diesel archetype should pick diesel variant of V60, got ' + bv.variant.fuel);
+});
+
+test('high-mileage highway pulls the variant picker toward diesel within mixed-fuel models', () => {
+  const ans = { ...baseAns2, drivingMix: 'highway', annualKm: 35000, budget: 40000 };
+  const arch = advisor.ARCHETYPES.find((a) => a.id === 'highway-diesel-sedan');
+  // Audi A4 has both diesel and MHEV petrol — should pick diesel
+  const a4 = advisor.MODELS.find((m) => m.id === 'audi-a4-b9');
+  const bv = advisor.bestVariantFor(a4, ans, arch);
+  assert.equal(bv.variant.fuel, 'diesel');
+});
+
+// ---------- TCO realism ----------
+
+test('5-yr TCO for a used family combi diesel lands in a realistic €25-35k band', () => {
+  // A user with €30k budget, used condition, 20k km/yr, mild climate should
+  // end up with a 5-year ownership cost in this real-world band.
+  global.document = { getElementById: (id) => ({
+    value: ({ tcoYears:'5', tcoKm:'20000', tcoPurchase:'30000', tcoPetrol:'1.50', tcoDiesel:'1.55', tcoLpg:'0.80', tcoElec:'0.20' }[id]) || '15000',
+    dataset: {}, addEventListener: () => {} }) };
+  const ans = { ...baseAns2, condition: 'used', annualKm: 20000, budget: 30000 };
+  const arch = advisor.ARCHETYPES.find((a) => a.id === 'family-combi-diesel');
+  const tco = advisor.computeTCO(arch, ans);
+  assert.ok(tco.totals.total >= 22000 && tco.totals.total <= 35000,
+    `family-combi-diesel 5-yr TCO landed at €${Math.round(tco.totals.total)} (expected 22-35k band)`);
+});
+
+test('hybrid SUV TCO is lower than diesel SUV TCO for a city-leaning user', () => {
+  global.document = { getElementById: (id) => ({
+    value: ({ tcoYears:'5', tcoKm:'15000', tcoPurchase:'30000', tcoPetrol:'1.50', tcoDiesel:'1.55', tcoLpg:'0.80', tcoElec:'0.20' }[id]) || '15000',
+    dataset: {}, addEventListener: () => {} }) };
+  const ans = { ...baseAns2, condition: 'used', drivingMix: 'mixed', annualKm: 15000 };
+  const diesel = advisor.computeTCO(advisor.ARCHETYPES.find((a) => a.id === 'mid-suv-diesel'), ans);
+  const hybrid = advisor.computeTCO(advisor.ARCHETYPES.find((a) => a.id === 'mid-suv-hybrid'), ans);
+  assert.ok(hybrid.totals.total < diesel.totals.total,
+    `expected hybrid TCO €${Math.round(hybrid.totals.total)} < diesel TCO €${Math.round(diesel.totals.total)}`);
 });

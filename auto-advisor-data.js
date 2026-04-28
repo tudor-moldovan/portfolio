@@ -749,8 +749,9 @@
       id: 'volvo-s60-v60', archetypes: ['highway-diesel-sedan', 'family-combi-diesel', 'mhev-premium'],
       name: 'Volvo S60 / V60 III', years: '2018–present', body: 'combi',
       variants: [
-        { name: 'B4 MHEV 197hp', fuel: 'mhev', cons: 6.7, co2: 152, hp: 197, gearbox: 'auto' },
-        { name: 'B5 MHEV 250hp AWD', fuel: 'mhev', cons: 7.5, co2: 170, hp: 250, gearbox: 'auto' },
+        { name: 'D3 / D4 2.0 diesel 150 / 190hp (pre-2020)', fuel: 'diesel', cons: 4.7, co2: 122, hp: 190, gearbox: 'auto' },
+        { name: 'B4 MHEV petrol 197hp', fuel: 'mhev', cons: 6.7, co2: 152, hp: 197, gearbox: 'auto' },
+        { name: 'B5 MHEV petrol 250hp AWD', fuel: 'mhev', cons: 7.5, co2: 170, hp: 250, gearbox: 'auto' },
         { name: 'T6 Recharge PHEV 350hp', fuel: 'phev', cons: 1.7, co2: 38, hp: 350, gearbox: 'auto' },
       ],
       priceUsedEUR: [18000, 38000], priceNewEUR: [50000, 68000],
@@ -1713,17 +1714,17 @@
       weaknesses: 'W205 air suspension expensive long-term; S206 MBUX has had software gremlins.',
     },
     {
-      id: 'volvo-v60-v90', archetypes: ['family-combi-diesel', 'family-combi-petrol', 'phev-family', 'mhev-premium'],
-      name: 'Volvo V60 / V90 (II) Recharge', years: '2018–present', body: 'combi',
+      id: 'volvo-v90-recharge', archetypes: ['family-combi-petrol', 'phev-family', 'mhev-premium'],
+      name: 'Volvo V90 (II) Recharge (large estate)', years: '2016–present', body: 'combi',
       variants: [
-        { name: 'B4 / B5 MHEV 197 / 250hp', fuel: 'mhev', cons: 6.7, co2: 152, hp: 250, gearbox: 'auto' },
-        { name: 'T6 Recharge PHEV 350hp', fuel: 'phev', cons: 1.7, co2: 38, hp: 350, gearbox: 'auto' },
-        { name: 'T8 Recharge PHEV 455hp (V90)', fuel: 'phev', cons: 1.6, co2: 36, hp: 455, gearbox: 'auto' },
+        { name: 'B5 MHEV petrol 250hp AWD', fuel: 'mhev', cons: 7.5, co2: 170, hp: 250, gearbox: 'auto' },
+        { name: 'B6 MHEV petrol 300hp AWD', fuel: 'mhev', cons: 8.0, co2: 184, hp: 300, gearbox: 'auto' },
+        { name: 'T8 Recharge PHEV 455hp', fuel: 'phev', cons: 1.6, co2: 36, hp: 455, gearbox: 'auto' },
       ],
-      priceUsedEUR: [22000, 45000], priceNewEUR: [55000, 78000],
+      priceUsedEUR: [22000, 50000], priceNewEUR: [60000, 85000],
       euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4, tier: 'premium',
-      strengths: 'V90 is the most spacious and serene combi cabin on sale; 50+ km real EV on PHEVs.',
-      weaknesses: 'Diesels dropped post-2020; Sensus / Android Automotive lag; soft brake pedal feel.',
+      strengths: 'The most spacious and serene combi cabin on sale; T8 PHEV does ~50 km real EV.',
+      weaknesses: 'Diesels gone post-2020; Sensus / Android Automotive lag; soft brake pedal.',
     }
   );
 

@@ -116,6 +116,44 @@
   }
   .rec.selected .rec-cta { color: var(--accent-2); }
 
+  .rec.best-pick { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
+  .best-badge {
+    align-self: flex-start;
+    background: var(--accent-2);
+    color: var(--bg);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: -4px;
+  }
+  .rec-verdict { font-size: 14px; color: var(--text); margin: -2px 0 4px; line-height: 1.35; }
+  .rec-score.mid { color: var(--warn); border-color: var(--warn); }
+
+  .best-model {
+    background: var(--bg);
+    border: 1px solid var(--accent-2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 4px;
+  }
+  .best-model-label { font-size: 10px; color: var(--accent-2); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+  .best-model-name { font-size: 14px; color: var(--text); margin-top: 4px; font-weight: 600; }
+  .best-model-variant { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .best-model-why { font-size: 12px; color: var(--accent); margin-top: 6px; font-style: italic; }
+
+  .skip-block {
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+  .skip-list { margin: 8px 0 0; padding-left: 20px; font-size: 13px; color: var(--muted); }
+  .skip-list li { margin: 3px 0; }
+  .skip-list strong { color: var(--bad); }
+
   .empty {
     text-align: center;
     color: var(--muted);
@@ -522,32 +560,40 @@
     'very-slow': [0.92, 0.93, 0.94, 0.94, 0.95, 0.95, 0.96, 0.96, 0.97, 0.97],
   };
 
-  // Insurance Casco rate (% of car value/yr) and RCA flat (€/yr) by tier.
+  // Insurance — Casco (% of current car value, scaled by car age) + RCA flat
+  // (€/yr, rises with archetype power tier). Calibrated against actual 2024-26
+  // Romanian quotes for each tier (Asirom / Allianz Țiriac / Generali).
+  // Casco rates are LOWER than industry-textbook because for newer cars in EU
+  // markets they sit at 1.5-2.5%, dropping further on older cars.
   const INSURANCE_TIERS = {
-    'low':    { casco: 0.030, rca: 110 },
-    'mid':    { casco: 0.038, rca: 160 },
-    'high':   { casco: 0.045, rca: 220 },
-    'premium':{ casco: 0.055, rca: 280 },
+    // tier      casco-new  casco-mid  casco-old  rca-flat
+    'low':     { cascoNew: 0.018, cascoMid: 0.022, cascoOld: 0.028, rca: 130 },
+    'mid':     { cascoNew: 0.020, cascoMid: 0.025, cascoOld: 0.032, rca: 220 },
+    'high':    { cascoNew: 0.022, cascoMid: 0.028, cascoOld: 0.036, rca: 380 },
+    'premium': { cascoNew: 0.025, cascoMid: 0.032, cascoOld: 0.040, rca: 580 },
   };
 
-  // Maintenance: base yearly €, scaled by car age.
+  // Maintenance — yearly € baseline by tier, then scaled by age (curve below).
+  // Calibrated against typical EU service costs for each segment.
   const MAINT_TIERS = {
-    'low':    300,
-    'mid':    500,
-    'high':   900,
-    'premium':1400,
+    'low':     500,
+    'mid':     750,
+    'high':   1200,
+    'premium':1900,
   };
 
-  // RO road tax (impozit auto) by engine cc — yearly €. Rough.
+  // RO road tax (impozit auto) — by engine cc, yearly €. Rates per ANAF schedule
+  // (€/200cc bracketed, simplified). EVs exempt; hybrids get the published 95 %
+  // discount used by most municipalities.
   function roRoadTax(cc, fuel) {
     if (fuel === 'bev') return 0;
     let base;
-    if (cc <= 1600) base = 16;
-    else if (cc <= 2000) base = 36;
-    else if (cc <= 2600) base = 144;
-    else if (cc <= 3000) base = 290;
-    else base = 580;
-    if (fuel === 'hev' || fuel === 'phev' || fuel === 'mhev') base *= 0.05; // ~95% discount for hybrids in many municipalities
+    if (cc <= 1600) base = 32;
+    else if (cc <= 2000) base = 65;
+    else if (cc <= 2600) base = 200;
+    else if (cc <= 3000) base = 400;
+    else base = 800;
+    if (fuel === 'hev' || fuel === 'phev' || fuel === 'mhev') base *= 0.05;
     return Math.round(base);
   }
 
@@ -651,6 +697,68 @@
       '</div>';
     }).join('') + '</div></details>';
   }
+
+  // Render an explicit list of model objects (already chosen by rankModelsForUser),
+  // so the "Best 3 cars for your profile" section bypasses pickModelsForRender's
+  // tier-and-fallback logic and shows exactly what we want.
+  function renderModelsListExplicit(list) {
+    if (!list || !list.length) return '';
+    const openByDefault = (window.innerWidth || 1024) >= 700 ? ' open' : '';
+    return '<details class="models-details"' + openByDefault + '>' +
+      '<summary class="models-summary">' + list.length + ' specific car' + (list.length > 1 ? 's' : '') + ' picked for your profile</summary>' +
+      '<div class="models-list">' + list.map((m) => {
+        const lez = lezBadge(m.lezAccess);
+        const variantStr = m.variants.map((v) => v.name).join(' · ');
+        const lezTitle = {
+          'eu-wide': 'Passes all current EU low-emission zones',
+          'restricted': 'Restricted in some city centres (Paris, Brussels)',
+          'banned-major': 'Banned in major LEZs: Berlin, London ULEZ, Paris central, Madrid central',
+          'ev': 'Electric vehicle — exempt from all LEZs',
+        }[m.lezAccess] || '';
+        return '<div class="model">' +
+          '<div class="model-head">' +
+            '<div class="model-name">' + m.name + ' <span class="model-years">' + m.years + '</span></div>' +
+            '<div class="model-badges">' +
+              '<span class="mb" title="Brand tier">' + m.tier + '</span>' +
+              '<span class="mb" title="Euro emissions class">' + m.euroClass + '</span>' +
+              '<span class="mb ' + lez.cls + '" title="' + lezTitle + '">' + lez.label + '</span>' +
+              (m.ncap == null
+                ? '<span class="mb" title="Not tested under the current Euro NCAP protocol">NCAP —</span>'
+                : '<span class="mb' + (m.ncap === 0 ? ' badge-bad' : '') + '" title="Euro NCAP rating">NCAP ' + m.ncap + '★</span>') +
+              '<span class="mb" title="Reliability rating, 1-5">' + stars(m.reliability) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="model-variants">' + variantStr + '</div>' +
+          '<div class="model-price">€' + m.priceUsedEUR[0].toLocaleString() + '–' + m.priceUsedEUR[1].toLocaleString() + ' used' +
+            (m.priceNewEUR ? '  ·  €' + m.priceNewEUR[0].toLocaleString() + '–' + m.priceNewEUR[1].toLocaleString() + ' new' : '') +
+          '</div>' +
+          '<div class="model-pro">+ ' + m.strengths + '</div>' +
+          '<div class="model-con">− ' + m.weaknesses + '</div>' +
+        '</div>';
+      }).join('') + '</div></details>';
+  }
+
+  // One-line decisive verdict for each archetype card.
+  function verdictFor(arch, ans, fit, isBest) {
+    if (isBest && fit >= 80) return 'This is the right car for you. Stop browsing.';
+    if (isBest) return 'Best fit overall — not perfect, but the closest.';
+    if (fit >= 70) return 'Strong alternative — pick if the best one doesn\'t click.';
+    if (fit >= 55) return 'Plausible second choice. Worth a test drive.';
+    return 'On the fence. Likely better options above.';
+  }
+
+  // Render the "Skip these for your scenario" section using the blocked archetypes.
+  function renderSkipBlock(blocked, ans) {
+    if (!blocked || !blocked.length) return '';
+    return '<div class="skip-block">' +
+      '<div class="rec-section-title">⊘ Skip these for your scenario</div>' +
+      '<ul class="skip-list">' +
+        blocked.slice(0, 5).map((b) =>
+          '<li><strong>' + b.arch.name + '</strong> — ' + b.blocker + '</li>'
+        ).join('') +
+      '</ul></div>';
+  }
+
   function getAnswers() {
     return {
       budget: +document.getElementById('budget').value || 0,
@@ -672,21 +780,75 @@
     };
   }
 
-  // Adjust score based on budget vs archetype price band.
+  // Budget alignment — sharper deltas. "Way under budget" is now -80
+  // (effectively a soft block rather than a soft penalty).
   function budgetAdjustment(arch, ans) {
     const band = arch.priceBand[ans.condition];
     if (!band) return 0;
     const [lo, hi] = band;
-    if (ans.budget >= lo && ans.budget <= hi) return 12;
-    if (ans.budget < lo * 0.6) return -50; // way under budget
-    if (ans.budget < lo) return -20;
-    if (ans.budget > hi * 1.4) return -8;  // overpaying
-    return 4;
+    if (ans.budget >= lo && ans.budget <= hi) return 18;
+    if (ans.budget < lo * 0.5) return -80;
+    if (ans.budget < lo * 0.75) return -40;
+    if (ans.budget < lo) return -15;
+    if (ans.budget > hi * 1.5) return -5;
+    return 8;
   }
+
+  // Hard blockers — situations where an archetype is fundamentally wrong for
+  // the user. Returns a short reason string the UI can show in the "Skip
+  // these for your scenario" section, or null if the archetype is OK.
+  function blockerFor(arch, ans) {
+    const fuels = arch.fuels || [];
+    const isBev = fuels.includes('bev') || (arch.consumption && arch.consumption.type === 'kwh');
+    const isPhev = fuels.includes('phev');
+    const isHybrid = fuels.includes('hev') || fuels.includes('phev') || fuels.includes('mhev');
+
+    if (isBev && ans.charging === 'none') return 'no reliable charging access';
+    if (isPhev && ans.charging === 'none') return 'PHEV without daily plug-in is just a heavy petrol';
+    if (isBev && ans.drivingMix === 'highway' && +ans.annualKm >= 45000) return 'too much DC charging time at 45k+ km/yr';
+    if (isBev && ans.towing === 'heavy') return 'BEV ranges collapse when towing > 1.5 t';
+
+    if (arch.body === 'pickup' && ans.seats === '6-7') return 'pickup is not a 7-seater';
+    if (arch.body === 'cabrio' && (ans.seats === '6-7' || ans.seats === 'cargo')) return 'cabrio fits 2 adults at most';
+    if (arch.body === 'cabrio' && ans.childSeats >= 2) return 'cabrio with 2 child seats is not realistic';
+    if (arch.body === 'coupe' && ans.seats === '6-7') return 'coupe doesn\'t seat 6-7';
+    if (arch.body === 'coupe' && ans.childSeats >= 2) return 'coupe with 2 child seats is impractical';
+
+    if (arch.body === 'van' && ans.seats === '4-5') return 'cargo van for a 4-5 seat family is overkill';
+    if (arch.body === 'van' && ans.seats === '6-7') return 'cargo van isn\'t a 7-seat family car';
+
+    if (arch.id === 'offroad-4x4' && ans.drivingMix === 'city') return 'body-on-frame 4x4 is misery in city traffic';
+    if (arch.id === 'offroad-4x4' && +ans.annualKm <= 10000 && ans.drivingMix !== 'offroad') return 'paying for off-road capability you won\'t use';
+
+    if ((arch.id === 'highway-diesel-sedan' || arch.id === 'family-combi-diesel' || arch.id === 'mid-suv-diesel')
+        && ans.drivingMix === 'city' && +ans.annualKm <= 10000) {
+      return 'diesel + city + low km = DPF clogs and AdBlue trouble';
+    }
+
+    if (arch.id === 'lpg-petrol-runabout' && (ans.fuelPref === 'bev' || ans.fuelPref === 'hev' || ans.fuelPref === 'phev')) {
+      return 'LPG conversion clashes with electrified preference';
+    }
+
+    return null;
+  }
+
+  // Static "max plausible score" we use to convert raw → absolute fit %.
+  // Calibrated empirically: well-aligned archetypes score 70-90 routinely;
+  // perfectly-aligned ones (body + fuel + use case + budget all matching)
+  // can hit 110-130. We map score 100 → fit 100 % so the top match only
+  // shows 100 % when it's actually a stand-out fit.
+  const FIT_REFERENCE = 100;
 
   function rankArchetypes(ans) {
     return ARCHETYPES
-      .map((a) => ({ arch: a, score: a.score(ans) + budgetAdjustment(a, ans) }))
+      .map((arch) => {
+        const blocker = blockerFor(arch, ans);
+        const raw = arch.score(ans) + budgetAdjustment(arch, ans);
+        // Blocked archetypes are kept in the result so the UI can list them in
+        // "Skip these", but their fit % is forced to 0.
+        const fit = blocker ? 0 : Math.max(0, Math.min(100, Math.round(raw / FIT_REFERENCE * 100)));
+        return { arch, score: raw, fit, blocker };
+      })
       .sort((x, y) => y.score - x.score);
   }
 
@@ -728,32 +890,122 @@
     persistState();
   }
 
+  // Per-user model picker: take all models for an archetype, score how well each
+  // suits THIS user's profile, sort, return top N.
+  function rankModelsForUser(archId, ans, n) {
+    const tierPref = ans.tierPref || 'open';
+    const candidates = pickModelsForRender(archId, tierPref).concat(
+      modelsForArchetype(archId).filter((m) => !pickModelsForRender(archId, tierPref).includes(m))
+    );
+    const scored = candidates.map((m) => {
+      let s = 0;
+      // Match user's reliability appetite
+      if (ans.reliability === 'bulletproof' && m.reliability >= 5) s += 25;
+      else if (ans.reliability === 'bulletproof' && m.reliability <= 2) s -= 30;
+      else if (ans.reliability === 'fun') s += 5; // any bias toward driver's-car
+      else s += m.reliability * 3;
+      // Match condition (used cars get a fit penalty if they're discontinued only-as-used)
+      const usedBand = m.priceUsedEUR;
+      if (usedBand && +ans.budget >= usedBand[0] && +ans.budget <= usedBand[1]) s += 10;
+      else if (usedBand && +ans.budget < usedBand[0] * 0.7) s -= 15;
+      // Big SUV needs LEZ-friendly emissions class for city users
+      if (ans.drivingMix === 'city' && m.lezAccess === 'banned-major') s -= 25;
+      if (ans.drivingMix === 'city' && m.lezAccess === 'restricted') s -= 8;
+      // Cold climate likes AWD-capable variants
+      if ((ans.climate === 'cold' || ans.climate === 'mountain')
+          && m.variants.some((v) => /quattro|4MATIC|xDrive|AWD|4Motion|4x4/i.test(v.name))) s += 8;
+      // Long highway km favors diesel / hybrid variants
+      if (ans.drivingMix === 'highway' && +ans.annualKm >= 27500
+          && m.variants.some((v) => v.fuel === 'diesel' || v.fuel === 'hev' || v.fuel === 'mhev')) s += 10;
+      return { m, s };
+    }).sort((a, b) => b.s - a.s);
+    return scored.slice(0, n).map((x) => x.m);
+  }
+
+  // Pick the single best variant from a model for THIS user, with a one-line
+  // reason. If `arch` is given, restrict the choice to variants whose fuel
+  // type matches the archetype (so a BEV archetype only suggests BEV variants
+  // even when the model also offers petrol or hybrid).
+  function bestVariantFor(model, ans, arch) {
+    if (!model || !model.variants || !model.variants.length) return null;
+    const km = +ans.annualKm || 15000;
+    const wantsAWD = ans.climate === 'cold' || ans.climate === 'mountain' || ans.drivingMix === 'offroad';
+    let candidates = model.variants;
+    if (arch && Array.isArray(arch.fuels)) {
+      const filtered = model.variants.filter((v) => arch.fuels.includes(v.fuel));
+      if (filtered.length) candidates = filtered;
+    }
+    const ranked = candidates.map((v) => {
+      let s = 0;
+      // Highway diesel/hybrid bias
+      if (ans.drivingMix === 'highway' && v.fuel === 'diesel') s += 8;
+      if (ans.drivingMix === 'city' && (v.fuel === 'hev' || v.fuel === 'bev')) s += 8;
+      if (km >= 27500 && (v.fuel === 'diesel' || v.fuel === 'hev')) s += 6;
+      if (km <= 12000 && v.fuel === 'petrol') s += 4;
+      // AWD preference
+      if (wantsAWD && /quattro|4MATIC|xDrive|AWD|4Motion|4x4/i.test(v.name)) s += 6;
+      // Towing pulls toward higher-power diesel/PHEV
+      if (ans.towing === 'heavy' && v.hp >= 200 && (v.fuel === 'diesel' || v.fuel === 'phev')) s += 6;
+      // Reliability mode dislikes the highest-power "fun" variants
+      if (ans.reliability === 'bulletproof' && v.hp <= 200) s += 4;
+      if (ans.reliability === 'fun' && v.hp >= 250) s += 4;
+      // PHEV needs charging
+      if (v.fuel === 'phev' && ans.charging === 'home') s += 4;
+      if (v.fuel === 'phev' && ans.charging !== 'home' && ans.charging !== 'work') s -= 8;
+      // Small displacement is awful for high-mileage long-distance
+      if (km >= 27500 && v.fuel === 'petrol' && v.hp <= 110) s -= 6;
+      return { v, s };
+    }).sort((a, b) => b.s - a.s);
+    const winner = ranked[0].v;
+    const reasons = [];
+    if (ans.drivingMix === 'highway' && winner.fuel === 'diesel') reasons.push('cheapest fuel for your highway km');
+    if (ans.drivingMix === 'city' && (winner.fuel === 'hev' || winner.fuel === 'bev')) reasons.push('best in stop-go traffic');
+    if (wantsAWD && /quattro|4MATIC|xDrive|AWD|4Motion|4x4/i.test(winner.name)) reasons.push('AWD for your climate');
+    if (ans.towing === 'heavy' && winner.hp >= 200) reasons.push('enough torque for towing');
+    if (ans.reliability === 'bulletproof' && winner.hp <= 200) reasons.push('lower-stress engine ages better');
+    if (winner.fuel === 'phev' && ans.charging === 'home') reasons.push('home charging makes the PHEV math work');
+    return { variant: winner, reasons };
+  }
+
   function renderRecommendations() {
     const ans = getAnswers();
     const ranked = rankArchetypes(ans);
-    const topN = 5;
-    const top = ranked.slice(0, topN);
     const container = document.getElementById('recommendations');
 
-    if (top.length === 0 || top[0].score <= 0) {
-      container.innerHTML = '<div class="empty">No strong matches with these answers — try widening preferences (e.g. set body or fuel to "Open").</div>';
+    // Strict separation: usable picks (fit >= 40, not blocked) vs hidden / blocked.
+    const usable = ranked.filter((r) => !r.blocker && r.fit >= 40);
+    const blocked = ranked.filter((r) => r.blocker);
+    const top = usable.slice(0, 4); // we're decisive — at most 4 picks, not 5
+
+    if (top.length === 0) {
+      container.innerHTML =
+        '<div class="empty">No archetype clears the confidence threshold for this profile. ' +
+        'Try widening Body / Fuel / Drive (set them to <strong>Open</strong>) ' +
+        'or raising Budget — the algorithm is tuned to not recommend cars that won\'t actually suit you.</div>' +
+        renderSkipBlock(blocked, ans);
       return;
     }
 
-    const maxScore = top[0].score;
-    container.innerHTML = '<div class="rec-list">' + top.map(({ arch, score }) => {
+    container.innerHTML = '<div class="rec-list">' + top.map(({ arch, fit }, idx) => {
       const band = arch.priceBand[ans.condition];
-      const fit = Math.round((score / Math.max(maxScore, 1)) * 100);
       const isSel = selectedArchId === arch.id;
+      const isBest = idx === 0 && fit >= 60;
       const reasons = rationaleFor(arch, ans);
+      const verdict = verdictFor(arch, ans, fit, isBest);
       const consumptionLabel = arch.consumption.type === 'kwh'
         ? arch.consumption.value + ' kWh/100 km'
         : arch.consumption.value + ' L/100 km ' + arch.consumption.type;
-      return '<div class="rec ' + (isSel ? 'selected' : '') + '" data-id="' + arch.id + '" role="button" tabindex="0" aria-pressed="' + isSel + '">' +
+      const bestModels = rankModelsForUser(arch.id, ans, 3);
+      const headlineModel = isBest ? bestModels[0] : null;
+      const headlineVariant = headlineModel ? bestVariantFor(headlineModel, ans, arch) : null;
+      return '<div class="rec ' + (isSel ? 'selected' : '') + (isBest ? ' best-pick' : '') + '"' +
+          ' data-id="' + arch.id + '" role="button" tabindex="0" aria-pressed="' + isSel + '">' +
+        (isBest ? '<div class="best-badge">✦ BEST PICK FOR YOU</div>' : '') +
         '<div class="rec-head">' +
           '<div class="rec-name">' + arch.name + '</div>' +
-          '<div class="rec-score ' + (fit >= 70 ? 'high' : '') + '">fit ' + fit + '%</div>' +
+          '<div class="rec-score ' + (fit >= 70 ? 'high' : fit >= 50 ? 'mid' : '') + '">fit ' + fit + '%</div>' +
         '</div>' +
+        '<p class="rec-verdict"><strong>' + verdict + '</strong></p>' +
         '<p class="rec-desc">' + arch.desc + '</p>' +
         '<div class="rec-tags">' +
           '<span class="tag">' + band[0].toLocaleString() + '–' + band[1].toLocaleString() + ' €</span>' +
@@ -761,11 +1013,21 @@
           '<span class="tag">' + arch.drive.toUpperCase() + '</span>' +
           '<span class="tag">' + arch.seats + ' seats</span>' +
         '</div>' +
+        (headlineModel && headlineVariant
+          ? '<div class="best-model">' +
+              '<div class="best-model-label">★ Buy this exact car</div>' +
+              '<div class="best-model-name">' + headlineModel.name + '</div>' +
+              '<div class="best-model-variant">' + headlineVariant.variant.name + '</div>' +
+              (headlineVariant.reasons.length
+                ? '<div class="best-model-why">' + headlineVariant.reasons.join(' · ') + '</div>'
+                : '') +
+            '</div>'
+          : '') +
         (reasons.length ? '<div class="rec-section-title">Why this fits</div><div class="rec-examples">' + reasons.join(' · ') + '</div>' : '') +
         '<div class="rec-section-title">Pros</div><ul class="pros">' + arch.pros.map((p) => '<li><span>' + p + '</span></li>').join('') + '</ul>' +
         '<div class="rec-section-title">Watch out</div><ul class="cons">' + arch.cons.map((c) => '<li><span>' + c + '</span></li>').join('') + '</ul>' +
-        (modelsForArchetype(arch.id).length
-          ? '<div class="rec-section-title">Real European-market cars</div>' + renderModelsList(arch.id, ans.tierPref)
+        (bestModels.length
+          ? '<div class="rec-section-title">Best 3 cars for your profile</div>' + renderModelsListExplicit(bestModels)
           : '<div class="rec-examples"><strong>Examples:</strong> ' + arch.examples.join(' · ') + '</div>') +
         '<div class="rec-actions">' +
           '<span class="rec-cta">' + (isSel ? 'Selected — TCO below ↓' : 'Click for 5-yr cost breakdown →') + '</span>' +
@@ -775,7 +1037,7 @@
           '</button>' +
         '</div>' +
       '</div>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' + renderSkipBlock(blocked, ans);
 
     container.querySelectorAll('.rec').forEach((el) => {
       const activate = () => {
@@ -829,29 +1091,57 @@
     return before - after;
   }
 
-  // Casco premium scales with current car value.
+  // Casco scales with current car value AND drops as the car ages (older cars
+  // are insured for less because their value is lower). Three Casco rates per
+  // tier handle the new / mid / old age bands.
+  function cascoRateForAge(tier, age) {
+    if (age <= 2) return tier.cascoNew;
+    if (age <= 8) return tier.cascoMid;
+    return tier.cascoOld;
+  }
   function insuranceForYear(arch, purchase, profileKey, startAge, yearIndex) {
     const tier = INSURANCE_TIERS[arch.insurance];
     const valueAtStart = residualAfter(purchase, profileKey, startAge, yearIndex);
-    return Math.max(150, valueAtStart * tier.casco) + tier.rca;
+    const age = startAge + yearIndex;
+    const cascoRate = cascoRateForAge(tier, age);
+    // Below ~€8k value, insurers usually drop Casco entirely; we model this by
+    // capping it at the rate × value but with a €120 floor (RCA-only quotes).
+    const casco = valueAtStart < 8000 ? 0 : Math.max(120, valueAtStart * cascoRate);
+    return casco + tier.rca;
   }
 
-  // Maintenance grows with age. New cars under warranty cheap; older cars need real money.
+  // Maintenance grows with age. New cars under warranty are very cheap; the
+  // expensive years are 8-12 (suspension, water pumps, DSG service, EGR)
+  // and beyond 12 (turbo / injectors / clutch).
   function maintenanceForYear(arch, startAge, yearIndex) {
     const base = MAINT_TIERS[arch.maintenance];
     const age = startAge + yearIndex;
     let mult = 1.0;
-    if (age <= 2) mult = 0.5;
-    else if (age <= 5) mult = 1.0;
-    else if (age <= 10) mult = 1.4;
-    else mult = 1.8;
+    if (age <= 2) mult = 0.4;       // warranty + only consumables
+    else if (age <= 5) mult = 0.9;
+    else if (age <= 8) mult = 1.3;
+    else if (age <= 12) mult = 1.8; // major service items kick in
+    else mult = 2.4;                 // teardown territory
     return base * mult;
   }
 
-  // Tires: amortize one set per ~50k km. Add winter set if cold/mountain climate.
+  // Tires — amortize one summer set per ~40k km (premium SUVs wear faster
+  // because of weight + larger sizes). Cold/mountain climates need a winter
+  // set too (swap labour included).
   function tiresForYear(arch, ans, yearIndex) {
-    const setLifeKm = 50000;
-    const setCost = arch.body === 'suv' || arch.body === 'pickup' ? 700 : 500;
+    let setLifeKm, setCost;
+    // Body + tier together set tire size and price.
+    if (arch.body === 'pickup' || arch.body === 'van') {
+      setLifeKm = 50000; setCost = 800;
+    } else if (arch.body === 'suv') {
+      setLifeKm = 35000; setCost = (arch.insurance === 'premium' ? 1400 : arch.insurance === 'high' ? 1000 : 800);
+    } else if (arch.body === 'cabrio' || arch.body === 'coupe') {
+      setLifeKm = 30000; setCost = 1100; // performance rubber wears fast
+    } else if (arch.insurance === 'premium' || arch.insurance === 'high') {
+      setLifeKm = 35000; setCost = 900;
+    } else {
+      setLifeKm = 45000; setCost = 550;
+    }
     const km = +document.getElementById('tcoKm').value || ans.annualKm;
     let perYear = (km / setLifeKm) * setCost;
     if (ans.climate === 'cold' || ans.climate === 'mountain') {
