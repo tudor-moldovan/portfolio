@@ -389,6 +389,16 @@
           <option value="fun">Don't care, want fun</option>
         </select>
       </div>
+      <div class="field">
+        <label for="tierPref">Brand tier</label>
+        <select id="tierPref">
+          <option value="open" selected>Open — show me everything</option>
+          <option value="mainstream">Mainstream only (VAG / Toyota / Hyundai / Kia / Ford / Renault…)</option>
+          <option value="premium">Premium (BMW / Audi / Mercedes / Volvo / Lexus / Mini)</option>
+          <option value="luxury">Luxury (Porsche / Range Rover / Bentley / Maserati)</option>
+        </select>
+        <div class="hint">Filters the models shown under each archetype</div>
+      </div>
     </div>
     <div class="controls-actions">
       <button type="button" id="resetBtn" class="link-btn" aria-label="Reset all inputs to defaults">Reset to defaults</button>
@@ -562,14 +572,55 @@
     return '★'.repeat(full) + '·'.repeat(5 - full);
   }
 
-  function renderModelsList(archId) {
-    const list = modelsForArchetype(archId).slice(0, 4);
+  // Numeric tier weight; higher = fancier.
+  const TIER_RANK = { mainstream: 0, premium: 1, luxury: 2 };
+
+  // Choose which models to display based on user's tier preference.
+  // - 'open'      → top 4 in insertion order (current behaviour)
+  // - 'mainstream' → mainstream first, fall back to premium if list is thin
+  // - 'premium'   → premium + luxury first; if none, fall back to all
+  // - 'luxury'    → luxury first, then premium, then all
+  function pickModelsForRender(archId, tierPref) {
+    const all = modelsForArchetype(archId);
+    if (!all.length) return [];
+    let primary, fallback;
+    if (tierPref === 'mainstream') {
+      primary = all.filter((m) => m.tier === 'mainstream');
+      fallback = all.filter((m) => m.tier !== 'mainstream');
+    } else if (tierPref === 'premium') {
+      primary = all.filter((m) => m.tier === 'premium' || m.tier === 'luxury')
+                   .sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier]); // premium before luxury
+      fallback = all.filter((m) => m.tier === 'mainstream');
+    } else if (tierPref === 'luxury') {
+      primary = all.filter((m) => m.tier === 'luxury');
+      fallback = all.filter((m) => m.tier !== 'luxury')
+                    .sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier]); // premium before mainstream
+    } else {
+      // 'open' — interleave so the user always sees a mix: e.g. for a 4-slot
+      // panel, prefer mainstream + premium + mainstream + premium when both
+      // tiers exist. Falls back to whatever's available if one tier is empty.
+      const main = all.filter((m) => m.tier === 'mainstream');
+      const fancy = all.filter((m) => m.tier !== 'mainstream')
+                       .sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier]);
+      const out = [];
+      for (let i = 0; out.length < 4 && (i < main.length || i < fancy.length); i++) {
+        if (i < main.length) out.push(main[i]);
+        if (out.length < 4 && i < fancy.length) out.push(fancy[i]);
+      }
+      return out;
+    }
+    return primary.length >= 3 ? primary.slice(0, 4) : [...primary, ...fallback].slice(0, 4);
+  }
+
+  function renderModelsList(archId, tierPref) {
+    const list = pickModelsForRender(archId, tierPref);
     if (!list.length) return '';
     // On phones we ship the model list collapsed by default to keep cards short.
     // On desktops it stays expanded.
     const openByDefault = (window.innerWidth || 1024) >= 700 ? ' open' : '';
+    const tierLabel = tierPref === 'open' ? '' : ' · ' + tierPref + ' tier';
     return '<details class="models-details"' + openByDefault + '>' +
-      '<summary class="models-summary">' + list.length + ' real European-market car' + (list.length > 1 ? 's' : '') + '</summary>' +
+      '<summary class="models-summary">' + list.length + ' real European-market car' + (list.length > 1 ? 's' : '') + tierLabel + '</summary>' +
       '<div class="models-list">' + list.map((m) => {
       const lez = lezBadge(m.lezAccess);
       const variantStr = m.variants.map((v) => v.name).join(' · ');
@@ -617,6 +668,7 @@
       transmission: document.getElementById('transmission').value,
       charging: document.getElementById('charging').value,
       reliability: document.getElementById('reliability').value,
+      tierPref: document.getElementById('tierPref').value,
     };
   }
 
@@ -713,7 +765,7 @@
         '<div class="rec-section-title">Pros</div><ul class="pros">' + arch.pros.map((p) => '<li><span>' + p + '</span></li>').join('') + '</ul>' +
         '<div class="rec-section-title">Watch out</div><ul class="cons">' + arch.cons.map((c) => '<li><span>' + c + '</span></li>').join('') + '</ul>' +
         (modelsForArchetype(arch.id).length
-          ? '<div class="rec-section-title">Real European-market cars</div>' + renderModelsList(arch.id)
+          ? '<div class="rec-section-title">Real European-market cars</div>' + renderModelsList(arch.id, ans.tierPref)
           : '<div class="rec-examples"><strong>Examples:</strong> ' + arch.examples.join(' · ') + '</div>') +
         '<div class="rec-actions">' +
           '<span class="rec-cta">' + (isSel ? 'Selected — TCO below ↓' : 'Click for 5-yr cost breakdown →') + '</span>' +
@@ -1013,7 +1065,7 @@
         '<ul class="cons">' + arch.cons.map((c) => '<li><span>' + c + '</span></li>').join('') + '</ul>' +
         '<div class="rec-section-title">Top cars</div>' +
         '<div class="examples"><strong>' +
-          (modelsForArchetype(arch.id).slice(0, 4).map((m) => m.name).join('</strong> · <strong>') || arch.examples.slice(0, 4).join('</strong> · <strong>')) +
+          (pickModelsForRender(arch.id, ans.tierPref).map((m) => m.name).join('</strong> · <strong>') || arch.examples.slice(0, 4).join('</strong> · <strong>')) +
         '</strong></div>' +
         '<div class="rec-section-title" style="margin-top:10px">' + tco.years + '-yr TCO</div>' +
         '<div style="font-size:18px;font-weight:600;color:' + (colCls === 'col-a' ? 'var(--c1)' : 'var(--c2)') + '">' + fmtEUR(tco.totals.total) + '</div>' +
@@ -1066,7 +1118,7 @@
   const FORM_IDS = [
     'budget', 'condition', 'years', 'annualKm', 'drivingMix', 'seats',
     'climate', 'towing', 'childSeats', 'bodyPref', 'fuelPref', 'drivePref',
-    'transmission', 'charging', 'reliability',
+    'transmission', 'charging', 'reliability', 'tierPref',
   ];
   // Defaults match the values declared in the HTML form. Single source of truth
   // for "what does Reset / no-state-set look like".
@@ -1075,6 +1127,7 @@
     drivingMix: 'mixed', seats: '4-5', climate: 'mild', towing: 'none',
     childSeats: '0', bodyPref: 'open', fuelPref: 'open', drivePref: 'open',
     transmission: 'open', charging: 'home', reliability: 'balanced',
+    tierPref: 'open',
   };
   const STORAGE_KEY = 'auto-advisor-state-v1';
 
