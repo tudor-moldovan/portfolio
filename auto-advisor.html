@@ -123,6 +123,52 @@
   }
   .copy-status.fade { opacity: 0; }
 
+  /* compare panel */
+  .rec-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+  .compare-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .compare-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .compare-btn.in { color: var(--accent-2); border-color: var(--accent-2); }
+  .compare-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .compare-col h3 {
+    font-size: 14px;
+    margin: 0 0 8px;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+  .compare-col p.sub-line { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  .compare-col ul { font-size: 12px; padding-left: 18px; margin: 4px 0 10px; }
+  .compare-col ul.pros li { color: var(--accent-2); }
+  .compare-col ul.cons li { color: var(--warn); }
+  .compare-col .examples { font-size: 12px; color: var(--muted); }
+  .compare-col .examples strong { color: var(--text); }
+  table.compare-tco { margin-top: 16px; }
+  table.compare-tco td.col-a, table.compare-tco th.col-a { color: var(--c1); }
+  table.compare-tco td.col-b, table.compare-tco th.col-b { color: var(--c2); }
+  table.compare-tco td.diff-pos { color: var(--warn); }
+  table.compare-tco td.diff-neg { color: var(--accent-2); }
+  table.compare-tco tr.winner-row td { font-weight: 700; }
+
+  @media (max-width: 720px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+
   .tco-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -334,8 +380,17 @@
 
   <section class="card">
     <h2>Top matches</h2>
-    <p class="sub">Live, sorted by fit score. Click a card for the 5-year cost-of-ownership breakdown.</p>
+    <p class="sub">Live, sorted by fit score. Click a card for the 5-year cost breakdown — or tap <strong>Compare</strong> on two cards to see them side by side.</p>
     <div id="recommendations"></div>
+  </section>
+
+  <section class="card" id="compareSection" style="display:none" aria-live="polite">
+    <h2>Compare archetypes</h2>
+    <p class="sub">
+      <strong id="compareNameA"></strong> &nbsp;vs&nbsp; <strong id="compareNameB"></strong>
+      &nbsp;·&nbsp; <button id="compareCloseBtn" class="link-btn">clear</button>
+    </p>
+    <div id="compareBody"></div>
   </section>
 
   <section class="card" id="tcoSection" style="display:none">
@@ -569,6 +624,27 @@
   }
 
   let selectedArchId = null;
+  let compareIds = []; // up to 2 archetype ids being compared
+
+  function toggleCompare(id) {
+    const idx = compareIds.indexOf(id);
+    if (idx >= 0) {
+      compareIds.splice(idx, 1);
+    } else {
+      compareIds.push(id);
+      if (compareIds.length > 2) compareIds.shift(); // keep only the latest 2
+    }
+    renderRecommendations();
+    renderCompare();
+    persistState();
+  }
+
+  function clearCompare() {
+    compareIds = [];
+    renderRecommendations();
+    renderCompare();
+    persistState();
+  }
 
   function renderRecommendations() {
     const ans = getAnswers();
@@ -609,7 +685,13 @@
         (modelsForArchetype(arch.id).length
           ? '<div class="rec-section-title">Real European-market cars</div>' + renderModelsList(arch.id)
           : '<div class="rec-examples"><strong>Examples:</strong> ' + arch.examples.join(' · ') + '</div>') +
-        '<div class="rec-cta">' + (isSel ? 'Selected — see TCO below ↓' : 'Click for 5-year cost breakdown →') + '</div>' +
+        '<div class="rec-actions">' +
+          '<span class="rec-cta">' + (isSel ? 'Selected — TCO below ↓' : 'Click for 5-yr cost breakdown →') + '</span>' +
+          '<button type="button" class="compare-btn ' + (compareIds.includes(arch.id) ? 'in' : '') + '"' +
+            ' data-compare-id="' + arch.id + '" aria-pressed="' + compareIds.includes(arch.id) + '">' +
+            (compareIds.includes(arch.id) ? '✓ comparing' : '+ compare') +
+          '</button>' +
+        '</div>' +
       '</div>';
     }).join('') + '</div>';
 
@@ -619,9 +701,20 @@
         renderRecommendations();
         openTCO(selectedArchId, getAnswers());
       };
-      el.addEventListener('click', activate);
+      el.addEventListener('click', (e) => {
+        // Compare button clicks should not also open TCO.
+        if (e.target.closest('.compare-btn')) return;
+        activate();
+      });
       el.addEventListener('keydown', (e) => {
+        if (e.target.closest('.compare-btn')) return;
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+      });
+    });
+    container.querySelectorAll('.compare-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleCompare(btn.dataset.compareId);
       });
     });
   }
@@ -859,6 +952,86 @@
     }
   }
 
+  // ---------- compare panel ----------
+  function renderCompare() {
+    const section = document.getElementById('compareSection');
+    if (compareIds.length < 2) {
+      section.style.display = 'none';
+      return;
+    }
+    const archA = ARCHETYPES.find((a) => a.id === compareIds[0]);
+    const archB = ARCHETYPES.find((a) => a.id === compareIds[1]);
+    if (!archA || !archB) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    document.getElementById('compareNameA').textContent = archA.name;
+    document.getElementById('compareNameB').textContent = archB.name;
+
+    const ans = getAnswers();
+    const tcoA = computeTCO(archA, ans);
+    const tcoB = computeTCO(archB, ans);
+
+    const colHTML = (arch, tco, colCls) =>
+      '<div class="compare-col">' +
+        '<h3 class="' + colCls + '" style="color:' + (colCls === 'col-a' ? 'var(--c1)' : 'var(--c2)') + '">' + arch.name + '</h3>' +
+        '<p class="sub-line">' + arch.desc + '</p>' +
+        '<div class="rec-section-title">Pros</div>' +
+        '<ul class="pros">' + arch.pros.map((p) => '<li><span>' + p + '</span></li>').join('') + '</ul>' +
+        '<div class="rec-section-title">Watch out</div>' +
+        '<ul class="cons">' + arch.cons.map((c) => '<li><span>' + c + '</span></li>').join('') + '</ul>' +
+        '<div class="rec-section-title">Top cars</div>' +
+        '<div class="examples"><strong>' +
+          (modelsForArchetype(arch.id).slice(0, 4).map((m) => m.name).join('</strong> · <strong>') || arch.examples.slice(0, 4).join('</strong> · <strong>')) +
+        '</strong></div>' +
+        '<div class="rec-section-title" style="margin-top:10px">' + tco.years + '-yr TCO</div>' +
+        '<div style="font-size:18px;font-weight:600;color:' + (colCls === 'col-a' ? 'var(--c1)' : 'var(--c2)') + '">' + fmtEUR(tco.totals.total) + '</div>' +
+        '<div style="font-size:11px;color:var(--muted)">€ ' + (tco.totals.total / Math.max(tco.totalKm, 1)).toFixed(2) + ' / km · purchase ' + fmtEUR(tco.purchase) + ' · residual ' + fmtEUR(tco.finalResidual) + '</div>' +
+      '</div>';
+
+    const rows = [
+      { key: 'dep', label: 'Depreciation' },
+      { key: 'fuel', label: 'Fuel / energy' },
+      { key: 'ins', label: 'Insurance' },
+      { key: 'tax', label: 'Road tax' },
+      { key: 'maint', label: 'Maintenance' },
+      { key: 'tires', label: 'Tires' },
+      { key: 'itp', label: 'ITP' },
+    ];
+
+    const diffCell = (a, b) => {
+      const d = a - b;
+      if (Math.abs(d) < 1) return '<td>—</td>';
+      const sign = d > 0 ? '+' : '−';
+      return '<td class="' + (d > 0 ? 'diff-pos' : 'diff-neg') + '">' + sign + fmtEUR(Math.abs(d)) + '</td>';
+    };
+
+    const tableHTML =
+      '<table class="compare-tco">' +
+      '<thead><tr><th>Cost line</th><th class="col-a">A</th><th class="col-b">B</th><th>A − B</th></tr></thead>' +
+      '<tbody>' +
+        rows.map((r) =>
+          '<tr><td>' + r.label + '</td>' +
+          '<td class="col-a">' + fmtEUR(tcoA.totals[r.key]) + '</td>' +
+          '<td class="col-b">' + fmtEUR(tcoB.totals[r.key]) + '</td>' +
+          diffCell(tcoA.totals[r.key], tcoB.totals[r.key]) +
+          '</tr>'
+        ).join('') +
+        '<tr class="winner-row"><td>' + tcoA.years + '-yr total</td>' +
+          '<td class="col-a">' + fmtEUR(tcoA.totals.total) + '</td>' +
+          '<td class="col-b">' + fmtEUR(tcoB.totals.total) + '</td>' +
+          diffCell(tcoA.totals.total, tcoB.totals.total) +
+        '</tr>' +
+      '</tbody>' +
+      '</table>';
+
+    document.getElementById('compareBody').innerHTML =
+      '<div class="compare-grid">' + colHTML(archA, tcoA, 'col-a') + colHTML(archB, tcoB, 'col-b') + '</div>' +
+      tableHTML +
+      '<p class="sub" style="margin-top:12px">A − B in last column: <span class="diff-pos">amber</span> = A costs more, <span class="diff-neg">green</span> = A cheaper. TCO uses the same fuel/electricity prices and km/year as the TCO panel above.</p>';
+  }
+
   // ---------- state persistence ----------
   const FORM_IDS = [
     'budget', 'condition', 'years', 'annualKm', 'drivingMix', 'seats',
@@ -878,6 +1051,11 @@
   function loadState() {
     // Priority: URL params > localStorage > defaults.
     const params = new URLSearchParams(location.search);
+    // Compare picks come from the URL too (?cmpA=foo&cmpB=bar).
+    const cmpA = params.get('cmpA');
+    const cmpB = params.get('cmpB');
+    if (cmpA && ARCHETYPES.some((a) => a.id === cmpA)) compareIds.push(cmpA);
+    if (cmpB && ARCHETYPES.some((a) => a.id === cmpB) && cmpB !== cmpA) compareIds.push(cmpB);
     if ([...params.keys()].some((k) => FORM_IDS.includes(k))) {
       const out = { ...DEFAULTS };
       FORM_IDS.forEach((id) => { if (params.has(id)) out[id] = params.get(id); });
@@ -912,6 +1090,8 @@
     FORM_IDS.forEach((id) => {
       if (state[id] !== String(DEFAULTS[id])) params.set(id, state[id]);
     });
+    if (compareIds[0]) params.set('cmpA', compareIds[0]);
+    if (compareIds[1]) params.set('cmpB', compareIds[1]);
     const qs = params.toString();
     history.replaceState(null, '', qs ? '?' + qs : location.pathname);
   }, 400);
@@ -921,15 +1101,18 @@
     try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
     history.replaceState(null, '', location.pathname);
     selectedArchId = null;
+    compareIds = [];
     document.getElementById('tcoSection').style.display = 'none';
+    document.getElementById('compareSection').style.display = 'none';
     renderRecommendations();
   }
 
   // ---------- wiring ----------
   FORM_IDS.forEach((id) => {
     const el = document.getElementById(id);
-    el.addEventListener('input', () => { renderRecommendations(); rerenderTCO(); persistState(); });
-    el.addEventListener('change', () => { renderRecommendations(); rerenderTCO(); persistState(); });
+    const onChange = () => { renderRecommendations(); rerenderTCO(); renderCompare(); persistState(); };
+    el.addEventListener('input', onChange);
+    el.addEventListener('change', onChange);
   });
 
   const TCO_IDS = ['tcoYears', 'tcoKm', 'tcoPurchase', 'tcoPetrol', 'tcoDiesel', 'tcoLpg', 'tcoElec'];
@@ -944,6 +1127,7 @@
   });
 
   document.getElementById('resetBtn').addEventListener('click', resetState);
+  document.getElementById('compareCloseBtn').addEventListener('click', clearCompare);
 
   document.getElementById('copyLinkBtn').addEventListener('click', async () => {
     persistState.flush?.();
@@ -953,6 +1137,8 @@
       const v = String(document.getElementById(id).value);
       if (v !== String(DEFAULTS[id])) params.set(id, v);
     });
+    if (compareIds[0]) params.set('cmpA', compareIds[0]);
+    if (compareIds[1]) params.set('cmpB', compareIds[1]);
     const url = location.origin + location.pathname + (params.toString() ? '?' + params.toString() : '');
     const status = document.getElementById('copyLinkStatus');
     try {
@@ -969,8 +1155,10 @@
   });
 
   // Hydrate from URL / localStorage on first paint, then render.
+  // (loadState() pushes any URL-encoded compare picks into compareIds as a side effect.)
   applyState(loadState());
   renderRecommendations();
+  renderCompare();
 </script>
 
 </body>
