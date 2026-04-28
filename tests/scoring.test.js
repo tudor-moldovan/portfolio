@@ -37,7 +37,7 @@ function loadAdvisor() {
   };
   const wrapped =
     '(function(){' + data + '\n' + truncated +
-    '\n; return { ARCHETYPES, MODELS, modelsForArchetype, rankArchetypes, budgetAdjustment, computeTCO };})()';
+    '\n; return { ARCHETYPES, MODELS, modelsForArchetype, pickModelsForRender, rankArchetypes, budgetAdjustment, computeTCO };})()';
   // eslint-disable-next-line no-eval
   return eval(wrapped);
 }
@@ -193,5 +193,75 @@ test('mid-suv-diesel includes BMW X3, Mercedes GLC, Audi Q5, Volvo XC60 (premium
   for (const id of ['bmw-x3-g01', 'mercedes-glc-x253', 'audi-q5-fy', 'volvo-xc60-ii']) {
     assert.ok(ids.includes(id),
       `${id} expected in mid-suv-diesel, got: ${ids.join(', ')}`);
+  }
+});
+
+// ---------- brand-tier filtering ----------
+
+test('every model declares a tier in {mainstream, premium, luxury}', () => {
+  const valid = new Set(['mainstream', 'premium', 'luxury']);
+  for (const m of advisor.MODELS) {
+    assert.ok(valid.has(m.tier),
+      `model ${m.id} has tier="${m.tier}", not in valid set`);
+  }
+});
+
+test('premium tier filter on family-combi-diesel surfaces the German trio + a Volvo', () => {
+  const picked = advisor.pickModelsForRender('family-combi-diesel', 'premium').map((m) => m.id);
+  for (const id of ['bmw-3t-g21', 'audi-a4-avant-b9', 'mercedes-c-estate-s206']) {
+    assert.ok(picked.includes(id),
+      `${id} expected in premium-tier family-combi-diesel, got: ${picked.join(', ')}`);
+  }
+  assert.ok(picked.some((id) => id.startsWith('volvo-')),
+    `expected at least one Volvo combi, got: ${picked.join(', ')}`);
+});
+
+test('premium tier filter on city-petrol-hatch surfaces Mini / A1 / 1 Series / A-Class', () => {
+  const picked = advisor.pickModelsForRender('city-petrol-hatch', 'premium').map((m) => m.id);
+  for (const id of ['mini-cooper-f66', 'audi-a1-gb', 'bmw-1-f40', 'mercedes-a-w177']) {
+    assert.ok(picked.includes(id),
+      `${id} expected in premium-tier city-petrol-hatch, got: ${picked.join(', ')}`);
+  }
+});
+
+test('luxury tier filter falls back when archetype has no luxury models', () => {
+  // mid-suv-diesel has premium German + Volvo + VAG mainstream — no luxury entries.
+  const picked = advisor.pickModelsForRender('mid-suv-diesel', 'luxury');
+  assert.ok(picked.length >= 3, 'should fall back to premium/mainstream rather than show empty');
+  // It should at minimum include premium picks since they're "next best to luxury".
+  assert.ok(picked.some((m) => m.tier === 'premium'),
+    'fallback should include premium when no luxury exists in this archetype');
+});
+
+test('mainstream tier filter on family-combi-diesel hides premium picks', () => {
+  const picked = advisor.pickModelsForRender('family-combi-diesel', 'mainstream');
+  // First 4 should all be mainstream because there are >= 3 mainstream candidates.
+  for (const m of picked.slice(0, 3)) {
+    assert.equal(m.tier, 'mainstream',
+      `mainstream tier should not surface ${m.name} (${m.tier})`);
+  }
+});
+
+test('open tier interleaves mainstream + premium so user sees a mix by default', () => {
+  // For an archetype with both tiers (family-combi-diesel) the result should contain
+  // at least one mainstream AND at least one premium pick.
+  const picked = advisor.pickModelsForRender('family-combi-diesel', 'open');
+  const tiers = new Set(picked.map((m) => m.tier));
+  assert.ok(tiers.has('mainstream'), 'open mode should include at least one mainstream');
+  assert.ok(tiers.has('premium'), 'open mode should include at least one premium');
+});
+
+test('most archetypes have a premium/luxury model (LPG + pickup are mainstream-only by nature)', () => {
+  // These categories don't have premium/luxury entries on the EU market in 2026:
+  //  - lpg-petrol-runabout: BMW/Audi/etc don't sell LPG bi-fuel cars
+  //  - pickup-workhorse:   Mercedes X-Class is dead, Audi/BMW don't make pickups
+  // Everything else should have at least one premium pick so the brand-tier
+  // filter has options to surface.
+  const inherentlyMainstream = new Set(['lpg-petrol-runabout', 'pickup-workhorse']);
+  for (const arch of advisor.ARCHETYPES) {
+    if (inherentlyMainstream.has(arch.id)) continue;
+    const fancy = advisor.modelsForArchetype(arch.id).filter((m) => m.tier !== 'mainstream');
+    assert.ok(fancy.length >= 1,
+      `archetype ${arch.id} has no premium/luxury options`);
   }
 });
