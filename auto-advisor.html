@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Auto Advisor — Romania edition</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #181b22;
+    --surface-2: #1f2330;
+    --border: #2a2f3d;
+    --text: #e7eaf0;
+    --muted: #9aa3b2;
+    --accent: #4f9dff;
+    --accent-2: #5ee0a4;
+    --warn: #ffb454;
+    --bad: #f06292;
+    --c1: #4f9dff;
+    --c2: #5ee0a4;
+    --c3: #ffb454;
+    --c4: #f06292;
+    --c5: #b388ff;
+    --c6: #4dd0e1;
+    --c7: #ff8a65;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 32px 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 600; }
+  header p { margin: 0 auto; max-width: 700px; color: var(--muted); font-size: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  .controls, .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+  .controls h3 {
+    margin: 0 0 14px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .controls h3:not(:first-child) { margin-top: 22px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .field label, .card .sub-label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .field .hint { margin-top: 4px; font-size: 11px; color: var(--muted); }
+
+  .card h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+  .card .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+
+  .rec-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .rec {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .rec:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .rec.selected { border-color: var(--accent-2); }
+  .rec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .rec-name { font-size: 16px; font-weight: 600; color: var(--text); }
+  .rec-score {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+    white-space: nowrap;
+  }
+  .rec-score.high { color: var(--accent-2); border-color: var(--accent-2); }
+  .rec-desc { font-size: 13px; color: var(--muted); margin: 0; }
+  .rec-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+  }
+  .rec-section-title {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 4px 0 2px;
+  }
+  .rec ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  .rec ul.pros li { color: var(--accent-2); }
+  .rec ul.cons li { color: var(--warn); }
+  .rec ul li span { color: var(--text); }
+  .rec-examples { font-size: 12px; color: var(--muted); }
+  .rec-examples strong { color: var(--text); font-weight: 500; }
+  .rec-cta {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .rec.selected .rec-cta { color: var(--accent-2); }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 32px 16px;
+    font-size: 14px;
+  }
+
+  .chart-wrap { position: relative; height: 380px; margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th, table td {
+    text-align: right;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  table th:first-child, table td:first-child { text-align: left; }
+  table th {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  table tr:last-child td { border-bottom: none; }
+  table tfoot td { font-weight: 600; color: var(--text); border-top: 1px solid var(--border); }
+
+  .tco-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .tco-summary .stat {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .tco-summary .stat .lbl {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .tco-summary .stat .val {
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .tco-summary .stat.accent .val { color: var(--accent-2); }
+
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0;
+    font-family: inherit;
+    text-decoration: underline;
+  }
+  .link-btn:hover { color: var(--accent-2); }
+
+  details {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  details summary { cursor: pointer; color: var(--text); font-weight: 500; }
+  details > *:not(summary) { margin-top: 8px; }
+  details ul { padding-left: 20px; margin: 6px 0; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+  @media (max-width: 600px) {
+    .chart-wrap { height: 320px; }
+    header h1 { font-size: 22px; }
+    .rec-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Auto Advisor</h1>
+  <p>Tell it how you'll use the car · it returns a shortlist of body / fuel / drivetrain combos · then a 5-year TCO for any of them. Romanian-market context.</p>
+</header>
+
+<main>
+
+  <section class="controls">
+    <h3>Budget &amp; condition</h3>
+    <div class="grid">
+      <div class="field">
+        <label for="budget">Total budget (€)</label>
+        <input type="number" id="budget" value="20000" min="2000" max="500000" step="500" />
+        <div class="hint">Out-the-door, including taxes</div>
+      </div>
+      <div class="field">
+        <label for="condition">Condition</label>
+        <select id="condition">
+          <option value="new">New (0 km)</option>
+          <option value="nearlyNew" selected>Nearly-new (1–3 yrs)</option>
+          <option value="used">Used (4–8 yrs)</option>
+          <option value="old">Older (9+ yrs)</option>
+        </select>
+        <div class="hint">Drives price band &amp; depreciation curve</div>
+      </div>
+      <div class="field">
+        <label for="years">Years you'll keep it</label>
+        <input type="number" id="years" value="5" min="1" max="15" step="1" />
+        <div class="hint">Used in TCO horizon</div>
+      </div>
+    </div>
+
+    <h3>Use case</h3>
+    <div class="grid">
+      <div class="field">
+        <label for="annualKm">Annual km</label>
+        <select id="annualKm">
+          <option value="5000">&lt; 10 000 km/yr</option>
+          <option value="15000" selected>10–20 000 km/yr</option>
+          <option value="27500">20–35 000 km/yr</option>
+          <option value="45000">35 000+ km/yr</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="drivingMix">Driving mix</label>
+        <select id="drivingMix">
+          <option value="city">Mostly city</option>
+          <option value="mixed" selected>Mixed</option>
+          <option value="highway">Mostly highway</option>
+          <option value="offroad">Off-road / unpaved</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="seats">Seats / use</label>
+        <select id="seats">
+          <option value="2">2 (just me / partner)</option>
+          <option value="4-5" selected>4–5 (typical family)</option>
+          <option value="6-7">6–7 (big family / carpool)</option>
+          <option value="cargo">Cargo-first (work van / pickup)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="climate">Climate / region</label>
+        <select id="climate">
+          <option value="mild" selected>Mild</option>
+          <option value="cold">Cold winters / snow</option>
+          <option value="hot">Hot</option>
+          <option value="mountain">Mountainous</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="towing">Tow / haul?</label>
+        <select id="towing">
+          <option value="none" selected>No towing</option>
+          <option value="light">Light trailer (≤ 1.5 t)</option>
+          <option value="heavy">Heavy / caravan (≥ 2 t)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="childSeats">Child seats needed</label>
+        <select id="childSeats">
+          <option value="0" selected>0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3+</option>
+        </select>
+      </div>
+    </div>
+
+    <h3>Preferences</h3>
+    <div class="grid">
+      <div class="field">
+        <label for="bodyPref">Body style preference</label>
+        <select id="bodyPref">
+          <option value="open" selected>Open to suggestions</option>
+          <option value="hatch">Hatch</option>
+          <option value="sedan">Sedan</option>
+          <option value="combi">Combi (estate)</option>
+          <option value="suv">SUV</option>
+          <option value="crossover">Crossover</option>
+          <option value="coupe">Coupe</option>
+          <option value="cabrio">Cabrio</option>
+          <option value="mpv">MPV / minivan</option>
+          <option value="pickup">Pickup</option>
+          <option value="van">Cargo van</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fuelPref">Fuel / drivetrain preference</label>
+        <select id="fuelPref">
+          <option value="open" selected>Open to suggestions</option>
+          <option value="petrol">Petrol</option>
+          <option value="diesel">Diesel</option>
+          <option value="mhev">Mild hybrid</option>
+          <option value="hev">Full hybrid (HEV)</option>
+          <option value="phev">Plug-in hybrid (PHEV)</option>
+          <option value="bev">Battery EV</option>
+          <option value="lpg">LPG / bi-fuel</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="drivePref">Drive</label>
+        <select id="drivePref">
+          <option value="open" selected>Open</option>
+          <option value="fwd">FWD</option>
+          <option value="rwd">RWD</option>
+          <option value="awd">AWD</option>
+          <option value="4x4">4x4 low-range</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="transmission">Transmission</label>
+        <select id="transmission">
+          <option value="open" selected>Open</option>
+          <option value="manual">Manual</option>
+          <option value="auto">Automatic (any)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="charging">Home charging access</label>
+        <select id="charging">
+          <option value="home" selected>Yes — home wallbox / outlet</option>
+          <option value="work">Workplace charging</option>
+          <option value="public">Public chargers only</option>
+          <option value="none">No reliable charging</option>
+        </select>
+        <div class="hint">Only matters if hybrid/EV is in play</div>
+      </div>
+      <div class="field">
+        <label for="reliability">Reliability priority</label>
+        <select id="reliability">
+          <option value="bulletproof">Bulletproof</option>
+          <option value="balanced" selected>Balanced</option>
+          <option value="fun">Don't care, want fun</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Top matches</h2>
+    <p class="sub">Live, sorted by fit score. Click a card for the 5-year cost-of-ownership breakdown.</p>
+    <div id="recommendations"></div>
+  </section>
+
+  <section class="card" id="tcoSection" style="display:none">
+    <h2>5-year Total Cost of Ownership</h2>
+    <p class="sub">For: <strong id="tcoArchetypeName"></strong> &nbsp;·&nbsp; <button id="tcoCloseBtn" class="link-btn">close</button></p>
+    <div class="grid">
+      <div class="field">
+        <label for="tcoYears">Years held</label>
+        <input type="number" id="tcoYears" value="5" min="1" max="15" step="1" />
+      </div>
+      <div class="field">
+        <label for="tcoKm">Annual km</label>
+        <input type="number" id="tcoKm" value="15000" min="1000" max="100000" step="500" />
+      </div>
+      <div class="field">
+        <label for="tcoPurchase">Purchase price (€)</label>
+        <input type="number" id="tcoPurchase" value="20000" min="1000" step="500" />
+        <div class="hint">Auto-filled from archetype band</div>
+      </div>
+      <div class="field">
+        <label for="tcoPetrol">Petrol price (€/L)</label>
+        <input type="number" id="tcoPetrol" value="1.50" min="0.5" max="5" step="0.05" />
+      </div>
+      <div class="field">
+        <label for="tcoDiesel">Diesel price (€/L)</label>
+        <input type="number" id="tcoDiesel" value="1.55" min="0.5" max="5" step="0.05" />
+      </div>
+      <div class="field">
+        <label for="tcoLpg">LPG price (€/L)</label>
+        <input type="number" id="tcoLpg" value="0.80" min="0.3" max="3" step="0.05" />
+      </div>
+      <div class="field">
+        <label for="tcoElec">Electricity (€/kWh)</label>
+        <input type="number" id="tcoElec" value="0.20" min="0.05" max="2" step="0.01" />
+        <div class="hint">Blend of home + public</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap"><canvas id="tcoChart"></canvas></div>
+
+    <div class="tco-summary" id="tcoSummary"></div>
+
+    <div style="overflow-x:auto; margin-top: 16px;">
+      <table id="tcoTable">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Depreciation</th>
+            <th>Fuel / energy</th>
+            <th>Insurance</th>
+            <th>Road tax</th>
+            <th>Maintenance</th>
+            <th>Tires</th>
+            <th>ITP</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot></tfoot>
+      </table>
+    </div>
+
+    <details>
+      <summary>Cost model assumptions</summary>
+      <p><strong>Depreciation:</strong> archetype-specific profile. New cars lose ~18–22 % year 1, declining. EVs (non-Tesla) and German luxury cars depreciate fastest. Body-on-frame trucks and Toyota hybrids depreciate slowest.</p>
+      <p><strong>Fuel / energy:</strong> annual km × consumption × current price. EV consumption is in kWh/100 km including ~10 % charging losses.</p>
+      <p><strong>Insurance:</strong> RCA (mandatory liability, RO bands) + Casco (full hull, ~3.5 % of car value/yr, scaled by archetype risk).</p>
+      <p><strong>Road tax (impozit auto):</strong> RO formula by engine displacement bands. EVs: €0 (still exempt). Hybrids: −95 % discount.</p>
+      <p><strong>Maintenance:</strong> archetype-specific yearly estimate, scaled up for older cars and luxury brands.</p>
+      <p><strong>Tires:</strong> one set every ~50 000 km amortized; second set if winter tires required by use case.</p>
+      <p><strong>ITP:</strong> ~€30 every 2 years (newer cars), every year for older.</p>
+      <p><strong>NOT included:</strong> finance interest, RAR registration one-off, parking, fines, accidents, RCA-CASS surcharges, opportunity cost of capital. Verify all RO tax figures with ANAF or your insurer before buying.</p>
+    </details>
+  </section>
+
+</main>
+
+<footer>
+  Educational tool · Not financial or purchase advice · RO market figures are rough estimates, verify locally before buying
+</footer>
+
+<script>
+  // ---------- helpers ----------
+  const fmtEUR = (v) => '€' + Math.round(v).toLocaleString('en-US');
+  const fmtEURshort = (v) => {
+    if (v >= 1_000_000) return '€' + (v / 1_000_000).toFixed(2) + 'M';
+    if (v >= 1_000) return '€' + (v / 1_000).toFixed(0) + 'k';
+    return '€' + Math.round(v).toLocaleString('en-US');
+  };
+  const COLORS = ['#4f9dff', '#5ee0a4', '#ffb454', '#f06292', '#b388ff', '#4dd0e1', '#ff8a65'];
+
+  // Depreciation profiles: array of yearly retention factors (multiply previous balance).
+  // Index 0 = retention after year 1.
+  const DEP_PROFILES = {
+    'very-fast': [0.74, 0.84, 0.87, 0.89, 0.90, 0.91, 0.92, 0.93, 0.94, 0.95],
+    'fast':      [0.80, 0.86, 0.88, 0.90, 0.91, 0.92, 0.93, 0.94, 0.94, 0.95],
+    'normal':    [0.83, 0.88, 0.90, 0.91, 0.92, 0.93, 0.94, 0.94, 0.95, 0.95],
+    'slow':      [0.88, 0.91, 0.92, 0.93, 0.94, 0.94, 0.95, 0.95, 0.96, 0.96],
+    'very-slow': [0.92, 0.93, 0.94, 0.94, 0.95, 0.95, 0.96, 0.96, 0.97, 0.97],
+  };
+
+  // Insurance Casco rate (% of car value/yr) and RCA flat (€/yr) by tier.
+  const INSURANCE_TIERS = {
+    'low':    { casco: 0.030, rca: 110 },
+    'mid':    { casco: 0.038, rca: 160 },
+    'high':   { casco: 0.045, rca: 220 },
+    'premium':{ casco: 0.055, rca: 280 },
+  };
+
+  // Maintenance: base yearly €, scaled by car age.
+  const MAINT_TIERS = {
+    'low':    300,
+    'mid':    500,
+    'high':   900,
+    'premium':1400,
+  };
+
+  // RO road tax (impozit auto) by engine cc — yearly €. Rough.
+  function roRoadTax(cc, fuel) {
+    if (fuel === 'bev') return 0;
+    let base;
+    if (cc <= 1600) base = 16;
+    else if (cc <= 2000) base = 36;
+    else if (cc <= 2600) base = 144;
+    else if (cc <= 3000) base = 290;
+    else base = 580;
+    if (fuel === 'hev' || fuel === 'phev' || fuel === 'mhev') base *= 0.05; // ~95% discount for hybrids in many municipalities
+    return Math.round(base);
+  }
+
+  // Map condition selection → starting age in years (0 = brand new).
+  const CONDITION_AGE = { 'new': 0, 'nearlyNew': 2, 'used': 6, 'old': 11 };
+
+  // ---------- archetypes ----------
+  // priceBand: { new, nearlyNew, used, old } — typical RO market range, EUR.
+  // consumption: { type: 'petrol'|'diesel'|'lpg'|'kwh', value: number per 100 km }.
+  // For PHEV: average effective consumption assuming home-charged daily.
+  const ARCHETYPES = [
+    {
+      id: 'city-petrol-hatch',
+      name: 'City Petrol Hatch',
+      desc: 'Small, light, cheap to insure. Best fit for tight cities and < 15k km/yr.',
+      body: 'hatch', fuels: ['petrol'], drive: 'fwd',
+      seats: 5, engineCC: 1200,
+      examples: ['VW Polo', 'Toyota Yaris', 'Skoda Fabia', 'Renault Clio', 'Hyundai i20'],
+      pros: ['Cheap to buy &amp; insure', 'Low fuel use in stop-go traffic', 'Easy to park'],
+      cons: ['Cramped on long trips', 'Resale flat after 10 yrs'],
+      priceBand: { new: [16000, 24000], nearlyNew: [12000, 18000], used: [6000, 13000], old: [2500, 7000] },
+      consumption: { type: 'petrol', value: 6.0 },
+      insurance: 'low', maintenance: 'low', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'hatch') s += 30; else if (a.bodyPref === 'open') s += 12;
+        if (a.fuelPref === 'petrol' || a.fuelPref === 'open') s += 15;
+        if (a.drivingMix === 'city') s += 20;
+        if (a.drivingMix === 'mixed') s += 8;
+        if (a.drivingMix === 'highway') s -= 12;
+        if (a.drivingMix === 'offroad') s -= 50;
+        if (a.annualKm <= 15000) s += 10; else if (a.annualKm >= 27500) s -= 15;
+        if (a.seats === '4-5' || a.seats === '2') s += 8;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 50;
+        if (a.towing !== 'none') s -= 15;
+        if (a.childSeats >= 2) s -= 8;
+        if (a.reliability === 'bulletproof') s += 6;
+        return s;
+      },
+    },
+    {
+      id: 'compact-petrol-sedan',
+      name: 'Compact Petrol Sedan',
+      desc: 'Roomier than a hatch, slightly cheaper to run than a crossover. Comfortable family runabout.',
+      body: 'sedan', fuels: ['petrol', 'lpg'], drive: 'fwd',
+      seats: 5, engineCC: 1500,
+      examples: ['Skoda Octavia 1.0 TSI', 'Dacia Logan', 'Toyota Corolla Sedan', 'Hyundai Elantra'],
+      pros: ['Big trunk, good rear legroom', 'Cheap parts (esp. Dacia)', 'LPG conversion popular'],
+      cons: ['Not exciting', 'Depreciates if 1.0 TSI engine has known issues'],
+      priceBand: { new: [18000, 28000], nearlyNew: [13000, 21000], used: [6500, 14000], old: [3000, 8000] },
+      consumption: { type: 'petrol', value: 6.2 },
+      insurance: 'low', maintenance: 'low', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'sedan') s += 30; else if (a.bodyPref === 'open') s += 10;
+        if (a.fuelPref === 'petrol' || a.fuelPref === 'open' || a.fuelPref === 'lpg') s += 15;
+        if (a.drivingMix === 'mixed' || a.drivingMix === 'city') s += 12;
+        if (a.drivingMix === 'highway') s += 6;
+        if (a.drivingMix === 'offroad') s -= 50;
+        if (a.seats === '4-5') s += 10;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 50;
+        if (a.annualKm >= 27500) s -= 8;
+        if (a.towing === 'heavy') s -= 25;
+        if (a.childSeats >= 2) s += 4;
+        return s;
+      },
+    },
+    {
+      id: 'highway-diesel-sedan',
+      name: 'Highway Diesel Sedan / Combi',
+      desc: 'High-mileage commuter weapon. Cheap fuel per km, comfy on the autostrada.',
+      body: 'sedan', fuels: ['diesel'], drive: 'fwd',
+      seats: 5, engineCC: 2000,
+      examples: ['VW Passat TDI', 'Skoda Superb TDI', 'Audi A4 TDI', 'BMW 320d', 'Ford Mondeo TDCi'],
+      pros: ['5–6 L/100 km on the highway', 'Big tanks → 1000+ km range', 'Massive used selection'],
+      cons: ['DPF clogs in city use', 'AdBlue + EGR maintenance', 'Older diesels banned in some EU cities'],
+      priceBand: { new: [38000, 60000], nearlyNew: [25000, 45000], used: [9000, 22000], old: [3500, 10000] },
+      consumption: { type: 'diesel', value: 5.8 },
+      insurance: 'mid', maintenance: 'mid', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'sedan' || a.bodyPref === 'combi') s += 25;
+        else if (a.bodyPref === 'open') s += 8;
+        if (a.fuelPref === 'diesel') s += 30; else if (a.fuelPref === 'open') s += 5;
+        if (a.fuelPref === 'bev' || a.fuelPref === 'phev' || a.fuelPref === 'hev') s -= 15;
+        if (a.drivingMix === 'highway') s += 25;
+        if (a.drivingMix === 'mixed') s += 5;
+        if (a.drivingMix === 'city') s -= 18;
+        if (a.drivingMix === 'offroad') s -= 40;
+        if (a.annualKm >= 27500) s += 18;
+        if (a.annualKm <= 10000) s -= 18;
+        if (a.seats === 'cargo' || a.seats === '6-7') s -= 30;
+        if (a.towing === 'light') s += 4; if (a.towing === 'heavy') s += 2;
+        if (a.reliability === 'bulletproof' && a.condition === 'old') s -= 8;
+        return s;
+      },
+    },
+    {
+      id: 'family-combi-diesel',
+      name: 'Family Diesel Combi',
+      desc: 'King of the long-trip family car: enormous boot, low highway fuel, two child seats fit easily.',
+      body: 'combi', fuels: ['diesel'], drive: 'fwd',
+      seats: 5, engineCC: 2000,
+      examples: ['Skoda Octavia Combi TDI', 'VW Passat Variant TDI', 'Ford Focus Combi TDCi', 'Opel Astra Sports Tourer'],
+      pros: ['Boot bigger than most SUVs', 'Lower drag = better fuel than SUV', 'Cheap parts'],
+      cons: ['Less ground clearance', 'DPF risk if mostly city', 'Less "premium" feel than SUV'],
+      priceBand: { new: [28000, 42000], nearlyNew: [20000, 32000], used: [8000, 18000], old: [3000, 9000] },
+      consumption: { type: 'diesel', value: 5.6 },
+      insurance: 'mid', maintenance: 'mid', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'combi') s += 32; else if (a.bodyPref === 'open') s += 14;
+        if (a.fuelPref === 'diesel') s += 25; else if (a.fuelPref === 'open') s += 6;
+        if (a.drivingMix === 'highway' || a.drivingMix === 'mixed') s += 18;
+        if (a.drivingMix === 'city') s -= 12;
+        if (a.drivingMix === 'offroad') s -= 40;
+        if (a.annualKm >= 15000) s += 12;
+        if (a.seats === '4-5') s += 12;
+        if (a.seats === 'cargo') s += 5;
+        if (a.seats === '6-7') s -= 35;
+        if (a.childSeats >= 2) s += 8;
+        if (a.towing === 'light') s += 5; if (a.towing === 'heavy') s -= 5;
+        return s;
+      },
+    },
+    {
+      id: 'family-combi-petrol',
+      name: 'Family Petrol Combi',
+      desc: 'Same big boot as the diesel version, but better suited if you do < 20k km/yr or lots of city.',
+      body: 'combi', fuels: ['petrol', 'mhev'], drive: 'fwd',
+      seats: 5, engineCC: 1500,
+      examples: ['Skoda Octavia Combi 1.5 TSI', 'Opel Astra Sports Tourer 1.2', 'Peugeot 308 SW PureTech'],
+      pros: ['No DPF/AdBlue headaches', 'Cheaper to insure than diesel equivalents', 'Quiet around town'],
+      cons: ['7–8 L/100 km on highway', 'Less torque for towing'],
+      priceBand: { new: [25000, 38000], nearlyNew: [18000, 28000], used: [7000, 15000], old: [3000, 8000] },
+      consumption: { type: 'petrol', value: 7.2 },
+      insurance: 'low', maintenance: 'low', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'combi') s += 30; else if (a.bodyPref === 'open') s += 12;
+        if (a.fuelPref === 'petrol' || a.fuelPref === 'open' || a.fuelPref === 'mhev') s += 18;
+        if (a.drivingMix === 'mixed' || a.drivingMix === 'city') s += 12;
+        if (a.drivingMix === 'highway') s += 4;
+        if (a.drivingMix === 'offroad') s -= 40;
+        if (a.annualKm <= 20000) s += 8; else if (a.annualKm >= 35000) s -= 12;
+        if (a.seats === '4-5') s += 12;
+        if (a.seats === '6-7') s -= 35;
+        if (a.childSeats >= 2) s += 6;
+        if (a.towing === 'heavy') s -= 12;
+        return s;
+      },
+    },
+    {
+      id: 'compact-crossover-petrol',
+      name: 'Compact Crossover Petrol',
+      desc: 'Higher seating, modern tech, family-sized but still fits city parking.',
+      body: 'crossover', fuels: ['petrol', 'mhev'], drive: 'fwd',
+      seats: 5, engineCC: 1500,
+      examples: ['VW T-Roc', 'Skoda Kamiq', 'Renault Captur', 'Hyundai Kona', 'Toyota Yaris Cross'],
+      pros: ['Easier in/out vs hatch', 'Trendy resale stays strong', 'Mild-hybrid options sip in city'],
+      cons: ['Worse fuel than equivalent hatch', 'Smaller boot than combi'],
+      priceBand: { new: [24000, 36000], nearlyNew: [18000, 28000], used: [9000, 17000], old: [4000, 10000] },
+      consumption: { type: 'petrol', value: 7.0 },
+      insurance: 'mid', maintenance: 'low', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'crossover' || a.bodyPref === 'suv') s += 25;
+        else if (a.bodyPref === 'open') s += 14;
+        if (a.fuelPref === 'petrol' || a.fuelPref === 'open' || a.fuelPref === 'mhev') s += 15;
+        if (a.drivingMix === 'mixed' || a.drivingMix === 'city') s += 14;
+        if (a.drivingMix === 'highway') s += 2;
+        if (a.drivingMix === 'offroad') s -= 25;
+        if (a.annualKm <= 20000) s += 6;
+        if (a.seats === '4-5') s += 10;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 30;
+        if (a.climate === 'cold' || a.climate === 'mountain') s += 5;
+        if (a.childSeats >= 1) s += 4;
+        return s;
+      },
+    },
+    {
+      id: 'mid-suv-diesel',
+      name: 'Mid-size Diesel SUV',
+      desc: 'Family workhorse: roomy, decent towing, good for highway + light unpaved roads.',
+      body: 'suv', fuels: ['diesel'], drive: 'awd',
+      seats: 5, engineCC: 2000,
+      examples: ['VW Tiguan TDI', 'Hyundai Tucson 1.6 CRDi', 'Kia Sportage CRDi', 'Mazda CX-5 Skyactiv-D'],
+      pros: ['Tows up to ~2 t', 'Highway 6.5–7.5 L/100', 'Big aftermarket'],
+      cons: ['Heavy = expensive tires', 'AdBlue / DPF maintenance', 'Bulkier in tight cities'],
+      priceBand: { new: [38000, 55000], nearlyNew: [28000, 42000], used: [12000, 25000], old: [5000, 13000] },
+      consumption: { type: 'diesel', value: 7.0 },
+      insurance: 'mid', maintenance: 'mid', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'suv') s += 28; else if (a.bodyPref === 'crossover') s += 16;
+        else if (a.bodyPref === 'open') s += 10;
+        if (a.fuelPref === 'diesel') s += 22; else if (a.fuelPref === 'open') s += 4;
+        if (a.drivingMix === 'highway' || a.drivingMix === 'mixed') s += 15;
+        if (a.drivingMix === 'city') s -= 12;
+        if (a.drivingMix === 'offroad') s -= 5; // soft AWD ok on light unpaved
+        if (a.annualKm >= 15000) s += 10;
+        if (a.seats === '4-5') s += 8;
+        if (a.seats === '6-7') s -= 35;
+        if (a.towing === 'light') s += 12; if (a.towing === 'heavy') s += 8;
+        if (a.climate === 'cold' || a.climate === 'mountain') s += 8;
+        if (a.drivePref === 'awd' || a.drivePref === 'open') s += 6;
+        if (a.childSeats >= 2) s += 6;
+        return s;
+      },
+    },
+    {
+      id: 'mid-suv-hybrid',
+      name: 'Mid-size Hybrid SUV',
+      desc: 'Sweet spot for low-stress family life: full hybrid is bulletproof, sips in city, no plug needed.',
+      body: 'suv', fuels: ['hev'], drive: 'fwd',
+      seats: 5, engineCC: 2500,
+      examples: ['Toyota RAV4 Hybrid', 'Honda CR-V e:HEV', 'Lexus NX 350h', 'Hyundai Tucson HEV', 'Kia Sportage HEV'],
+      pros: ['5–6 L/100 city', 'No charging needed', 'Toyota/Honda hybrids extremely reliable'],
+      cons: ['Cost more new than petrol', 'AWD versions add weight', 'Not as efficient on motorway'],
+      priceBand: { new: [42000, 60000], nearlyNew: [32000, 48000], used: [18000, 32000], old: [8000, 18000] },
+      consumption: { type: 'petrol', value: 5.8 },
+      insurance: 'mid', maintenance: 'low', depreciation: 'slow',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'suv' || a.bodyPref === 'crossover') s += 24;
+        else if (a.bodyPref === 'open') s += 12;
+        if (a.fuelPref === 'hev') s += 30; else if (a.fuelPref === 'open' || a.fuelPref === 'mhev') s += 12;
+        if (a.fuelPref === 'diesel') s -= 6;
+        if (a.drivingMix === 'city' || a.drivingMix === 'mixed') s += 18;
+        if (a.drivingMix === 'highway') s += 4;
+        if (a.drivingMix === 'offroad') s -= 30;
+        if (a.seats === '4-5') s += 10;
+        if (a.seats === '6-7') s -= 35;
+        if (a.reliability === 'bulletproof') s += 12;
+        if (a.childSeats >= 1) s += 5;
+        if (a.towing === 'heavy') s -= 12;
+        return s;
+      },
+    },
+    {
+      id: 'seven-seat-suv',
+      name: '7-seat SUV',
+      desc: 'Big-family hauler with proper third row. Diesel/PHEV both common.',
+      body: 'suv', fuels: ['diesel', 'phev'], drive: 'awd',
+      seats: 7, engineCC: 2000,
+      examples: ['Skoda Kodiaq', 'Hyundai Santa Fe', 'Kia Sorento', 'VW Tiguan Allspace', 'Peugeot 5008'],
+      pros: ['Real third row, not just kids', 'Tows 2 t+', 'Premium feel'],
+      cons: ['Expensive to fuel and insure', 'Hard to park', 'Third row eats boot'],
+      priceBand: { new: [45000, 70000], nearlyNew: [33000, 52000], used: [15000, 30000], old: [7000, 16000] },
+      consumption: { type: 'diesel', value: 7.5 },
+      insurance: 'high', maintenance: 'mid', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'suv' || a.bodyPref === 'mpv') s += 22;
+        else if (a.bodyPref === 'open') s += 10;
+        if (a.seats === '6-7') s += 35;
+        if (a.seats === '4-5') s -= 5;
+        if (a.seats === 'cargo' || a.seats === '2') s -= 50;
+        if (a.fuelPref === 'diesel' || a.fuelPref === 'phev' || a.fuelPref === 'open') s += 12;
+        if (a.drivingMix === 'highway' || a.drivingMix === 'mixed') s += 10;
+        if (a.drivingMix === 'city') s -= 18;
+        if (a.towing === 'light') s += 8; if (a.towing === 'heavy') s += 12;
+        if (a.climate === 'cold' || a.climate === 'mountain') s += 6;
+        if (a.childSeats >= 2) s += 12;
+        return s;
+      },
+    },
+    {
+      id: 'mpv-7seat',
+      name: '7-seat MPV / Minivan',
+      desc: 'Cheaper, more practical and roomier than a 7-seat SUV. Sliding doors are a parent superpower.',
+      body: 'mpv', fuels: ['diesel', 'petrol'], drive: 'fwd',
+      seats: 7, engineCC: 2000,
+      examples: ['VW Touran TDI', 'Ford Galaxy', 'Renault Espace', 'Citroën Grand C4 SpaceTourer', 'Seat Alhambra'],
+      pros: ['Massive interior space', 'Sliding doors easy with kids', 'Cheaper used than SUV equivalent'],
+      cons: ['Uncool resale', 'Limited new-car options left', 'No AWD typically'],
+      priceBand: { new: [32000, 48000], nearlyNew: [22000, 35000], used: [7000, 18000], old: [3500, 9000] },
+      consumption: { type: 'diesel', value: 6.8 },
+      insurance: 'mid', maintenance: 'mid', depreciation: 'fast',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'mpv') s += 35; else if (a.bodyPref === 'open') s += 18;
+        if (a.bodyPref === 'suv' || a.bodyPref === 'crossover') s -= 8;
+        if (a.seats === '6-7') s += 30;
+        if (a.seats === '4-5') s -= 8; if (a.seats === '2') s -= 30;
+        if (a.fuelPref === 'diesel' || a.fuelPref === 'petrol' || a.fuelPref === 'open') s += 14;
+        if (a.drivingMix === 'highway' || a.drivingMix === 'mixed') s += 8;
+        if (a.drivingMix === 'offroad') s -= 35;
+        if (a.childSeats >= 2) s += 14;
+        if (a.towing === 'heavy') s -= 12;
+        return s;
+      },
+    },
+    {
+      id: 'urban-bev',
+      name: 'Urban BEV',
+      desc: 'Tiny EV for short city trips. Cheapest fuel cost on the road.',
+      body: 'hatch', fuels: ['bev'], drive: 'fwd',
+      seats: 4, engineCC: 0,
+      examples: ['Dacia Spring', 'Fiat 500e', 'Renault Zoe', 'VW e-up!', 'Mini Electric'],
+      pros: ['~€2/100 km on home charging', '€0 road tax in RO', 'Silent and torquey in traffic'],
+      cons: ['100–250 km real range', 'Awkward on long trips', 'Battery degradation worry on used'],
+      priceBand: { new: [18000, 32000], nearlyNew: [14000, 24000], used: [7000, 16000], old: [4000, 9000] },
+      consumption: { type: 'kwh', value: 16 },
+      insurance: 'mid', maintenance: 'low', depreciation: 'very-fast',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'hatch' || a.bodyPref === 'open') s += 18;
+        if (a.fuelPref === 'bev') s += 30; else if (a.fuelPref === 'open') s += 6;
+        if (a.fuelPref === 'diesel' || a.fuelPref === 'petrol') s -= 30;
+        if (a.drivingMix === 'city') s += 25;
+        if (a.drivingMix === 'mixed') s += 5;
+        if (a.drivingMix === 'highway') s -= 25;
+        if (a.drivingMix === 'offroad') s -= 50;
+        if (a.annualKm <= 15000) s += 10; else if (a.annualKm >= 27500) s -= 20;
+        if (a.charging === 'home' || a.charging === 'work') s += 12;
+        if (a.charging === 'public') s -= 5;
+        if (a.charging === 'none') s -= 50;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 50;
+        if (a.towing !== 'none') s -= 25;
+        if (a.climate === 'cold') s -= 6;
+        return s;
+      },
+    },
+    {
+      id: 'long-range-bev',
+      name: 'Long-range BEV',
+      desc: 'Practical EV with 400+ km real range. Replaces a daily-driver ICE car if home charging works.',
+      body: 'crossover', fuels: ['bev'], drive: 'rwd',
+      seats: 5, engineCC: 0,
+      examples: ['Tesla Model 3 / Y', 'Hyundai Ioniq 5 / 6', 'Kia EV6', 'VW ID.4', 'Skoda Enyaq', 'BMW i4'],
+      pros: ['Cheap "fuel" if home-charged', '€0 road tax', 'Strong residuals (esp. Tesla)'],
+      cons: ['€35k+ entry', 'Public charging on road trips adds time', 'Heavy tire wear'],
+      priceBand: { new: [40000, 65000], nearlyNew: [30000, 48000], used: [18000, 32000], old: [10000, 20000] },
+      consumption: { type: 'kwh', value: 18 },
+      insurance: 'mid', maintenance: 'low', depreciation: 'fast',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'crossover' || a.bodyPref === 'sedan' || a.bodyPref === 'suv' || a.bodyPref === 'open') s += 20;
+        if (a.fuelPref === 'bev') s += 32; else if (a.fuelPref === 'open') s += 8;
+        if (a.fuelPref === 'diesel') s -= 22;
+        if (a.drivingMix === 'mixed' || a.drivingMix === 'city') s += 15;
+        if (a.drivingMix === 'highway' && a.annualKm <= 35000) s += 4;
+        if (a.drivingMix === 'highway' && a.annualKm >= 45000) s -= 8;
+        if (a.drivingMix === 'offroad') s -= 35;
+        if (a.charging === 'home') s += 18;
+        if (a.charging === 'work') s += 10;
+        if (a.charging === 'public') s -= 8;
+        if (a.charging === 'none') s -= 50;
+        if (a.seats === '4-5' || a.seats === '2') s += 8;
+        if (a.seats === '6-7') s -= 15;
+        if (a.towing === 'heavy') s -= 18;
+        if (a.climate === 'cold') s -= 4;
+        return s;
+      },
+    },
+    {
+      id: 'phev-family',
+      name: 'PHEV Family Car',
+      desc: 'Electric for the daily commute (~50 km), petrol backup for road trips. Only worth it if you charge daily.',
+      body: 'suv', fuels: ['phev'], drive: 'awd',
+      seats: 5, engineCC: 2000,
+      examples: ['Skoda Octavia iV', 'VW Passat GTE', 'Toyota RAV4 PHEV', 'Mitsubishi Outlander PHEV', 'Kia Niro PHEV'],
+      pros: ['1–2 L/100 km if charged daily', 'AWD versions common', 'No range anxiety'],
+      cons: ['Expensive to buy', 'Heavy = thirsty if you DON\'T plug in', 'Battery wears out around 8–10 yrs'],
+      priceBand: { new: [40000, 60000], nearlyNew: [28000, 45000], used: [13000, 25000], old: [6000, 14000] },
+      consumption: { type: 'petrol', value: 3.0 },
+      insurance: 'mid', maintenance: 'mid', depreciation: 'fast',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'suv' || a.bodyPref === 'crossover' || a.bodyPref === 'combi' || a.bodyPref === 'sedan') s += 18;
+        else if (a.bodyPref === 'open') s += 10;
+        if (a.fuelPref === 'phev') s += 32; else if (a.fuelPref === 'open') s += 8;
+        if (a.fuelPref === 'bev') s -= 5;
+        if (a.charging === 'home' || a.charging === 'work') s += 18;
+        if (a.charging === 'public') s -= 12;
+        if (a.charging === 'none') s -= 35;
+        if (a.drivingMix === 'mixed') s += 14;
+        if (a.drivingMix === 'city') s += 8;
+        if (a.drivingMix === 'highway') s -= 6;
+        if (a.drivingMix === 'offroad') s -= 30;
+        if (a.annualKm <= 20000) s += 8;
+        if (a.seats === '4-5') s += 8;
+        if (a.seats === '6-7') s -= 25;
+        if (a.reliability === 'bulletproof' && a.condition === 'old') s -= 8;
+        if (a.childSeats >= 1) s += 4;
+        return s;
+      },
+    },
+    {
+      id: 'mhev-premium',
+      name: 'Mild-Hybrid Premium Sedan',
+      desc: 'Premium-brand cruiser with 48V mild-hybrid. Comfort > efficiency play.',
+      body: 'sedan', fuels: ['mhev'], drive: 'rwd',
+      seats: 5, engineCC: 2000,
+      examples: ['BMW 530i MHEV', 'Audi A6 50 TFSI MHEV', 'Mercedes E300 MHEV'],
+      pros: ['Quiet, comfortable', 'Smoother stop-start', 'Premium image'],
+      cons: ['Pricey new and to maintain', 'Insurance high', 'Premium parts not cheap'],
+      priceBand: { new: [55000, 90000], nearlyNew: [38000, 65000], used: [18000, 35000], old: [9000, 18000] },
+      consumption: { type: 'petrol', value: 7.5 },
+      insurance: 'premium', maintenance: 'premium', depreciation: 'fast',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'sedan' || a.bodyPref === 'combi') s += 22;
+        else if (a.bodyPref === 'open') s += 6;
+        if (a.fuelPref === 'mhev' || a.fuelPref === 'petrol' || a.fuelPref === 'open') s += 14;
+        if (a.fuelPref === 'diesel') s -= 5;
+        if (a.drivingMix === 'highway' || a.drivingMix === 'mixed') s += 12;
+        if (a.drivingMix === 'city') s -= 5;
+        if (a.drivingMix === 'offroad') s -= 40;
+        if (a.reliability === 'fun') s += 10;
+        if (a.reliability === 'bulletproof') s -= 8;
+        if (a.seats === '4-5' || a.seats === '2') s += 6;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 50;
+        if (a.towing === 'heavy') s -= 15;
+        return s;
+      },
+    },
+    {
+      id: 'lpg-petrol-runabout',
+      name: 'LPG Bi-Fuel Runabout',
+      desc: 'Petrol car with factory or aftermarket LPG. Cheapest € per km of any ICE option in RO.',
+      body: 'sedan', fuels: ['lpg'], drive: 'fwd',
+      seats: 5, engineCC: 1600,
+      examples: ['Dacia Logan/Sandero LPG', 'Dacia Duster LPG', 'Renault Clio LPG (factory bi-fuel)'],
+      pros: ['LPG ~50 % cheaper than petrol per km', 'Range from petrol tank when LPG runs out', 'Cheap to buy'],
+      cons: ['Smaller boot (LPG tank in spare-wheel well)', 'Some underground parking lots ban LPG', 'Slightly less power on gas'],
+      priceBand: { new: [14000, 22000], nearlyNew: [10000, 16000], used: [5000, 11000], old: [2500, 6000] },
+      consumption: { type: 'lpg', value: 8.0 },
+      insurance: 'low', maintenance: 'low', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'sedan' || a.bodyPref === 'hatch' || a.bodyPref === 'crossover' || a.bodyPref === 'open') s += 16;
+        if (a.fuelPref === 'lpg') s += 35; else if (a.fuelPref === 'petrol' || a.fuelPref === 'open') s += 12;
+        if (a.fuelPref === 'bev' || a.fuelPref === 'phev') s -= 15;
+        if (a.drivingMix === 'mixed' || a.drivingMix === 'city') s += 10;
+        if (a.drivingMix === 'highway') s += 6;
+        if (a.drivingMix === 'offroad') s -= 35;
+        if (a.annualKm >= 15000) s += 10;
+        if (a.reliability === 'bulletproof') s += 6;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 35;
+        if (a.towing === 'heavy') s -= 12;
+        return s;
+      },
+    },
+    {
+      id: 'offroad-4x4',
+      name: 'Body-on-Frame 4x4',
+      desc: 'Real off-roader: low-range transfer case, locking diffs, ladder frame. Trades comfort for capability.',
+      body: 'suv', fuels: ['diesel'], drive: '4x4',
+      seats: 5, engineCC: 3000,
+      examples: ['Toyota Land Cruiser', 'Jeep Wrangler', 'Land Rover Defender', 'Suzuki Jimny (mini)', 'Mitsubishi Pajero'],
+      pros: ['Goes anywhere', 'Holds value extremely well', 'Tows heavy'],
+      cons: ['10–13 L/100 km', 'Crashy on tarmac', 'Expensive insurance, slow on highway'],
+      priceBand: { new: [55000, 110000], nearlyNew: [42000, 80000], used: [18000, 45000], old: [8000, 22000] },
+      consumption: { type: 'diesel', value: 11 },
+      insurance: 'high', maintenance: 'mid', depreciation: 'very-slow',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'suv' || a.bodyPref === 'open') s += 18;
+        if (a.drivingMix === 'offroad') s += 45;
+        if (a.drivingMix === 'mixed') s += 4;
+        if (a.drivingMix === 'highway') s -= 8;
+        if (a.drivingMix === 'city') s -= 18;
+        if (a.drivePref === '4x4') s += 25; else if (a.drivePref === 'awd') s += 8;
+        if (a.fuelPref === 'diesel' || a.fuelPref === 'open') s += 12;
+        if (a.fuelPref === 'bev' || a.fuelPref === 'hev') s -= 25;
+        if (a.climate === 'mountain') s += 12;
+        if (a.towing === 'heavy') s += 14;
+        if (a.seats === '6-7') s -= 12;
+        if (a.reliability === 'bulletproof') s += 6;
+        return s;
+      },
+    },
+    {
+      id: 'pickup-workhorse',
+      name: 'Pickup Workhorse',
+      desc: 'Double-cab pickup: 5 seats + open cargo bed. Good for trades, towing, rural use.',
+      body: 'pickup', fuels: ['diesel'], drive: '4x4',
+      seats: 5, engineCC: 2500,
+      examples: ['Toyota Hilux', 'Ford Ranger', 'VW Amarok', 'Mitsubishi L200', 'Isuzu D-Max'],
+      pros: ['Open bed for any cargo', 'Tows 3 t', 'Robust frame, lasts forever'],
+      cons: ['9–11 L/100 km', 'Awkward in cities', 'Insurance + road tax steep'],
+      priceBand: { new: [40000, 65000], nearlyNew: [30000, 48000], used: [12000, 28000], old: [6000, 14000] },
+      consumption: { type: 'diesel', value: 9.5 },
+      insurance: 'high', maintenance: 'mid', depreciation: 'slow',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'pickup') s += 38; else if (a.bodyPref === 'open') s += 8;
+        if (a.seats === 'cargo') s += 30;
+        if (a.seats === '6-7') s -= 25;
+        if (a.fuelPref === 'diesel' || a.fuelPref === 'open') s += 12;
+        if (a.fuelPref === 'bev' || a.fuelPref === 'hev') s -= 30;
+        if (a.drivingMix === 'offroad') s += 18;
+        if (a.drivingMix === 'mixed') s += 4;
+        if (a.drivingMix === 'city') s -= 18;
+        if (a.towing === 'light') s += 10; if (a.towing === 'heavy') s += 18;
+        if (a.drivePref === '4x4' || a.drivePref === 'awd') s += 10;
+        if (a.climate === 'mountain') s += 6;
+        return s;
+      },
+    },
+    {
+      id: 'cargo-van',
+      name: 'Cargo Van',
+      desc: 'Panel van for trades and small business. Maximum load, minimum frills.',
+      body: 'van', fuels: ['diesel'], drive: 'fwd',
+      seats: 3, engineCC: 2000,
+      examples: ['VW Transporter', 'Mercedes Vito', 'Ford Transit', 'Renault Trafic', 'Fiat Ducato'],
+      pros: ['Huge cargo volume', 'Tax-deductible if registered as commercial', 'Cheap parts'],
+      cons: ['Drives like a truck', 'No frills', 'Resale soft except VW/Mercedes'],
+      priceBand: { new: [28000, 45000], nearlyNew: [20000, 32000], used: [7000, 16000], old: [3000, 9000] },
+      consumption: { type: 'diesel', value: 8.5 },
+      insurance: 'mid', maintenance: 'mid', depreciation: 'normal',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'van') s += 40; else if (a.bodyPref === 'open' && a.seats === 'cargo') s += 18;
+        if (a.seats === 'cargo') s += 30;
+        if (a.seats === '6-7') s -= 35;
+        if (a.seats === '4-5') s -= 25;
+        if (a.fuelPref === 'diesel' || a.fuelPref === 'open') s += 14;
+        if (a.fuelPref === 'bev') s -= 20;
+        if (a.drivingMix === 'mixed' || a.drivingMix === 'highway') s += 10;
+        if (a.drivingMix === 'offroad') s -= 25;
+        if (a.towing === 'light') s += 5;
+        return s;
+      },
+    },
+    {
+      id: 'sports-coupe',
+      name: 'Sports Coupe',
+      desc: 'Toy-grade weekend car. Two-door, RWD or AWD, focus on driving feel.',
+      body: 'coupe', fuels: ['petrol'], drive: 'rwd',
+      seats: 4, engineCC: 3000,
+      examples: ['BMW M2', 'Porsche Cayman', 'Audi RS3', 'Toyota GR Supra', 'Subaru BRZ'],
+      pros: ['Fun to drive', 'Holds value if iconic', 'Special-occasion factor'],
+      cons: ['Impractical', 'High fuel use, insurance, tires', 'Not a daily for families'],
+      priceBand: { new: [55000, 110000], nearlyNew: [40000, 80000], used: [18000, 45000], old: [10000, 22000] },
+      consumption: { type: 'petrol', value: 9.5 },
+      insurance: 'premium', maintenance: 'premium', depreciation: 'fast',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'coupe') s += 40; else if (a.bodyPref === 'open') s += 6;
+        if (a.fuelPref === 'petrol' || a.fuelPref === 'open') s += 12;
+        if (a.fuelPref === 'bev' || a.fuelPref === 'hev' || a.fuelPref === 'phev') s -= 25;
+        if (a.reliability === 'fun') s += 22;
+        if (a.reliability === 'bulletproof') s -= 18;
+        if (a.seats === '2' || a.seats === '4-5') s += 4;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 50;
+        if (a.childSeats >= 2) s -= 25;
+        if (a.drivingMix === 'highway' || a.drivingMix === 'mixed') s += 4;
+        if (a.drivingMix === 'offroad') s -= 50;
+        if (a.drivePref === 'rwd' || a.drivePref === 'awd' || a.drivePref === 'open') s += 8;
+        return s;
+      },
+    },
+    {
+      id: 'cabrio',
+      name: 'Cabrio / Roadster',
+      desc: 'Drop-top weekend car. Light, slow-ish, addictive on a sunny mountain road.',
+      body: 'cabrio', fuels: ['petrol'], drive: 'rwd',
+      seats: 2, engineCC: 2000,
+      examples: ['Mazda MX-5', 'BMW Z4', 'Audi A5 Cabriolet', 'Mini Convertible', 'Porsche Boxster'],
+      pros: ['Sun + open air = soul', 'MX-5 is one of the best chassis under €30k', 'Light = cheap to fuel'],
+      cons: ['Useless in winter', 'Tiny boot, small cabin', 'Soft top wears + leaks with age'],
+      priceBand: { new: [35000, 75000], nearlyNew: [25000, 55000], used: [9000, 25000], old: [4000, 12000] },
+      consumption: { type: 'petrol', value: 7.5 },
+      insurance: 'high', maintenance: 'mid', depreciation: 'slow',
+      score: (a) => {
+        let s = 0;
+        if (a.bodyPref === 'cabrio') s += 45;
+        else if (a.bodyPref === 'open') s += 4;
+        if (a.fuelPref === 'petrol' || a.fuelPref === 'open') s += 12;
+        if (a.reliability === 'fun') s += 18;
+        if (a.reliability === 'bulletproof') s -= 12;
+        if (a.seats === '2') s += 12;
+        if (a.seats === '4-5') s -= 15;
+        if (a.seats === '6-7' || a.seats === 'cargo') s -= 60;
+        if (a.childSeats >= 1) s -= 15;
+        if (a.climate === 'cold') s -= 10; if (a.climate === 'mild' || a.climate === 'hot') s += 6;
+        if (a.drivingMix === 'offroad') s -= 60;
+        if (a.towing !== 'none') s -= 30;
+        return s;
+      },
+    },
+  ];
+
+  // ---------- read form ----------
+  function getAnswers() {
+    return {
+      budget: +document.getElementById('budget').value || 0,
+      condition: document.getElementById('condition').value,
+      years: +document.getElementById('years').value || 5,
+      annualKm: +document.getElementById('annualKm').value || 15000,
+      drivingMix: document.getElementById('drivingMix').value,
+      seats: document.getElementById('seats').value,
+      climate: document.getElementById('climate').value,
+      towing: document.getElementById('towing').value,
+      childSeats: +document.getElementById('childSeats').value || 0,
+      bodyPref: document.getElementById('bodyPref').value,
+      fuelPref: document.getElementById('fuelPref').value,
+      drivePref: document.getElementById('drivePref').value,
+      transmission: document.getElementById('transmission').value,
+      charging: document.getElementById('charging').value,
+      reliability: document.getElementById('reliability').value,
+    };
+  }
+
+  // Adjust score based on budget vs archetype price band.
+  function budgetAdjustment(arch, ans) {
+    const band = arch.priceBand[ans.condition];
+    if (!band) return 0;
+    const [lo, hi] = band;
+    if (ans.budget >= lo && ans.budget <= hi) return 12;
+    if (ans.budget < lo * 0.6) return -50; // way under budget
+    if (ans.budget < lo) return -20;
+    if (ans.budget > hi * 1.4) return -8;  // overpaying
+    return 4;
+  }
+
+  function rankArchetypes(ans) {
+    return ARCHETYPES
+      .map((a) => ({ arch: a, score: a.score(ans) + budgetAdjustment(a, ans) }))
+      .sort((x, y) => y.score - x.score);
+  }
+
+  // Build the "why this fits" rationale from the answers.
+  function rationaleFor(arch, ans) {
+    const r = [];
+    if (arch.body === ans.bodyPref) r.push('matches body style');
+    if (arch.fuels.includes(ans.fuelPref)) r.push('matches fuel preference');
+    if (ans.drivingMix === 'offroad' && (arch.drive === '4x4' || arch.drive === 'awd')) r.push('handles unpaved roads');
+    if (ans.drivingMix === 'highway' && arch.consumption.type === 'diesel') r.push('cheap on the highway');
+    if (ans.drivingMix === 'city' && (arch.fuels.includes('hev') || arch.fuels.includes('bev'))) r.push('great in city traffic');
+    if (ans.seats === '6-7' && arch.seats >= 7) r.push('seats 6–7');
+    if (ans.towing !== 'none' && (arch.drive === 'awd' || arch.drive === '4x4')) r.push('can tow');
+    if (ans.charging === 'home' && arch.fuels.some((f) => f === 'bev' || f === 'phev')) r.push('home charging makes this efficient');
+    if (ans.reliability === 'bulletproof' && (arch.id.includes('hybrid') || arch.id.includes('petrol') || arch.id.includes('lpg') || arch.id === 'offroad-4x4')) r.push('proven reliability');
+    return r;
+  }
+
+  let selectedArchId = null;
+
+  function renderRecommendations() {
+    const ans = getAnswers();
+    const ranked = rankArchetypes(ans);
+    const topN = 5;
+    const top = ranked.slice(0, topN);
+    const container = document.getElementById('recommendations');
+
+    if (top.length === 0 || top[0].score <= 0) {
+      container.innerHTML = '<div class="empty">No strong matches with these answers — try widening preferences (e.g. set body or fuel to "Open").</div>';
+      return;
+    }
+
+    const maxScore = top[0].score;
+    container.innerHTML = '<div class="rec-list">' + top.map(({ arch, score }) => {
+      const band = arch.priceBand[ans.condition];
+      const fit = Math.round((score / Math.max(maxScore, 1)) * 100);
+      const isSel = selectedArchId === arch.id;
+      const reasons = rationaleFor(arch, ans);
+      const consumptionLabel = arch.consumption.type === 'kwh'
+        ? arch.consumption.value + ' kWh/100 km'
+        : arch.consumption.value + ' L/100 km ' + arch.consumption.type;
+      return '<div class="rec ' + (isSel ? 'selected' : '') + '" data-id="' + arch.id + '">' +
+        '<div class="rec-head">' +
+          '<div class="rec-name">' + arch.name + '</div>' +
+          '<div class="rec-score ' + (fit >= 70 ? 'high' : '') + '">fit ' + fit + '%</div>' +
+        '</div>' +
+        '<p class="rec-desc">' + arch.desc + '</p>' +
+        '<div class="rec-tags">' +
+          '<span class="tag">' + band[0].toLocaleString() + '–' + band[1].toLocaleString() + ' €</span>' +
+          '<span class="tag">' + consumptionLabel + '</span>' +
+          '<span class="tag">' + arch.drive.toUpperCase() + '</span>' +
+          '<span class="tag">' + arch.seats + ' seats</span>' +
+        '</div>' +
+        (reasons.length ? '<div class="rec-section-title">Why this fits</div><div class="rec-examples">' + reasons.join(' · ') + '</div>' : '') +
+        '<div class="rec-section-title">Pros</div><ul class="pros">' + arch.pros.map((p) => '<li><span>' + p + '</span></li>').join('') + '</ul>' +
+        '<div class="rec-section-title">Watch out</div><ul class="cons">' + arch.cons.map((c) => '<li><span>' + c + '</span></li>').join('') + '</ul>' +
+        '<div class="rec-examples"><strong>Examples:</strong> ' + arch.examples.join(' · ') + '</div>' +
+        '<div class="rec-cta">' + (isSel ? 'Selected — see TCO below ↓' : 'Click for 5-year cost breakdown →') + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+
+    container.querySelectorAll('.rec').forEach((el) => {
+      el.addEventListener('click', () => {
+        selectedArchId = el.dataset.id;
+        renderRecommendations();
+        openTCO(selectedArchId, ans);
+      });
+    });
+  }
+
+  // ---------- TCO ----------
+  function fuelPrice(type) {
+    if (type === 'petrol') return +document.getElementById('tcoPetrol').value || 1.5;
+    if (type === 'diesel') return +document.getElementById('tcoDiesel').value || 1.55;
+    if (type === 'lpg')    return +document.getElementById('tcoLpg').value || 0.8;
+    if (type === 'kwh')    return +document.getElementById('tcoElec').value || 0.2;
+    return 1.5;
+  }
+
+  // Compute residual value after `years`, starting from a `purchase` price
+  // for a car already `startAge` years old at purchase. Profile front-loaded.
+  function residualAfter(purchase, profileKey, startAge, years) {
+    const profile = DEP_PROFILES[profileKey] || DEP_PROFILES.normal;
+    let v = purchase;
+    for (let i = 0; i < years; i++) {
+      const age = startAge + i;
+      const idx = Math.min(profile.length - 1, age);
+      v *= profile[idx];
+    }
+    return v;
+  }
+
+  function depreciationForYear(purchase, profileKey, startAge, yearIndex) {
+    const before = residualAfter(purchase, profileKey, startAge, yearIndex);
+    const after  = residualAfter(purchase, profileKey, startAge, yearIndex + 1);
+    return before - after;
+  }
+
+  // Casco premium scales with current car value.
+  function insuranceForYear(arch, purchase, profileKey, startAge, yearIndex) {
+    const tier = INSURANCE_TIERS[arch.insurance];
+    const valueAtStart = residualAfter(purchase, profileKey, startAge, yearIndex);
+    return Math.max(150, valueAtStart * tier.casco) + tier.rca;
+  }
+
+  // Maintenance grows with age. New cars under warranty cheap; older cars need real money.
+  function maintenanceForYear(arch, startAge, yearIndex) {
+    const base = MAINT_TIERS[arch.maintenance];
+    const age = startAge + yearIndex;
+    let mult = 1.0;
+    if (age <= 2) mult = 0.5;
+    else if (age <= 5) mult = 1.0;
+    else if (age <= 10) mult = 1.4;
+    else mult = 1.8;
+    return base * mult;
+  }
+
+  // Tires: amortize one set per ~50k km. Add winter set if cold/mountain climate.
+  function tiresForYear(arch, ans, yearIndex) {
+    const setLifeKm = 50000;
+    const setCost = arch.body === 'suv' || arch.body === 'pickup' ? 700 : 500;
+    const km = +document.getElementById('tcoKm').value || ans.annualKm;
+    let perYear = (km / setLifeKm) * setCost;
+    if (ans.climate === 'cold' || ans.climate === 'mountain') {
+      // second (winter) set, swapped twice/yr; amortize over 6 yrs
+      perYear += setCost / 6 + 80; // 80 = swap labour
+    }
+    return perYear;
+  }
+
+  function fuelForYear(arch, ans) {
+    const km = +document.getElementById('tcoKm').value || ans.annualKm;
+    const cons = arch.consumption.value;
+    const price = fuelPrice(arch.consumption.type);
+    return (km / 100) * cons * price;
+  }
+
+  function itpForYear(startAge, yearIndex) {
+    const age = startAge + yearIndex;
+    if (age < 4) return yearIndex % 2 === 1 ? 30 : 0; // every 2 yrs while new-ish
+    return 30; // yearly once older
+  }
+
+  function purchaseForArchetype(arch, ans) {
+    const band = arch.priceBand[ans.condition] || arch.priceBand.used;
+    return Math.round((band[0] + band[1]) / 2);
+  }
+
+  function computeTCO(arch, ans) {
+    const startAge = CONDITION_AGE[ans.condition];
+    const years = +document.getElementById('tcoYears').value || ans.years || 5;
+    const purchase = +document.getElementById('tcoPurchase').value || purchaseForArchetype(arch, ans);
+    const rows = [];
+    for (let y = 0; y < years; y++) {
+      const dep = depreciationForYear(purchase, arch.depreciation, startAge, y);
+      const fuel = fuelForYear(arch, ans);
+      const ins = insuranceForYear(arch, purchase, arch.depreciation, startAge, y);
+      const tax = roRoadTax(arch.engineCC, arch.consumption.type === 'kwh' ? 'bev' : (arch.fuels[0]));
+      const maint = maintenanceForYear(arch, startAge, y);
+      const tires = tiresForYear(arch, ans, y);
+      const itp = itpForYear(startAge, y);
+      rows.push({ year: y + 1, dep, fuel, ins, tax, maint, tires, itp,
+        total: dep + fuel + ins + tax + maint + tires + itp });
+    }
+    const totals = rows.reduce((acc, r) => {
+      acc.dep += r.dep; acc.fuel += r.fuel; acc.ins += r.ins; acc.tax += r.tax;
+      acc.maint += r.maint; acc.tires += r.tires; acc.itp += r.itp; acc.total += r.total;
+      return acc;
+    }, { dep: 0, fuel: 0, ins: 0, tax: 0, maint: 0, tires: 0, itp: 0, total: 0 });
+    const finalResidual = residualAfter(purchase, arch.depreciation, startAge, years);
+    const totalKm = (+document.getElementById('tcoKm').value || ans.annualKm) * years;
+    return { rows, totals, purchase, finalResidual, years, totalKm };
+  }
+
+  let tcoChart;
+
+  function renderTCO(arch, ans) {
+    const tco = computeTCO(arch, ans);
+    const labels = tco.rows.map((r) => 'Year ' + r.year);
+
+    const datasets = [
+      { key: 'dep',   label: 'Depreciation', color: COLORS[0] },
+      { key: 'fuel',  label: 'Fuel / energy', color: COLORS[1] },
+      { key: 'ins',   label: 'Insurance', color: COLORS[2] },
+      { key: 'tax',   label: 'Road tax', color: COLORS[3] },
+      { key: 'maint', label: 'Maintenance', color: COLORS[4] },
+      { key: 'tires', label: 'Tires', color: COLORS[5] },
+      { key: 'itp',   label: 'ITP', color: COLORS[6] },
+    ];
+
+    if (tcoChart) tcoChart.destroy();
+    tcoChart = new Chart(document.getElementById('tcoChart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: datasets.map((d) => ({
+          label: d.label,
+          data: tco.rows.map((r) => Math.round(r[d.key])),
+          backgroundColor: d.color,
+        })),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true, ticks: { color: '#9aa3b2' }, grid: { color: '#2a2f3d' } },
+          y: { stacked: true, ticks: { color: '#9aa3b2', callback: fmtEURshort }, grid: { color: '#2a2f3d' } },
+        },
+        plugins: {
+          legend: { labels: { color: '#e7eaf0' } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ctx.dataset.label + ': ' + fmtEUR(ctx.parsed.y),
+              footer: (items) => 'Year total: ' + fmtEUR(items.reduce((s, i) => s + i.parsed.y, 0)),
+            },
+          },
+        },
+      },
+    });
+
+    // ---- table
+    const tbody = document.querySelector('#tcoTable tbody');
+    tbody.innerHTML = tco.rows.map((r) =>
+      '<tr>' +
+        '<td>Year ' + r.year + '</td>' +
+        '<td>' + fmtEUR(r.dep) + '</td>' +
+        '<td>' + fmtEUR(r.fuel) + '</td>' +
+        '<td>' + fmtEUR(r.ins) + '</td>' +
+        '<td>' + fmtEUR(r.tax) + '</td>' +
+        '<td>' + fmtEUR(r.maint) + '</td>' +
+        '<td>' + fmtEUR(r.tires) + '</td>' +
+        '<td>' + fmtEUR(r.itp) + '</td>' +
+        '<td><strong>' + fmtEUR(r.total) + '</strong></td>' +
+      '</tr>'
+    ).join('');
+
+    const tfoot = document.querySelector('#tcoTable tfoot');
+    tfoot.innerHTML = '<tr>' +
+      '<td>Total</td>' +
+      '<td>' + fmtEUR(tco.totals.dep) + '</td>' +
+      '<td>' + fmtEUR(tco.totals.fuel) + '</td>' +
+      '<td>' + fmtEUR(tco.totals.ins) + '</td>' +
+      '<td>' + fmtEUR(tco.totals.tax) + '</td>' +
+      '<td>' + fmtEUR(tco.totals.maint) + '</td>' +
+      '<td>' + fmtEUR(tco.totals.tires) + '</td>' +
+      '<td>' + fmtEUR(tco.totals.itp) + '</td>' +
+      '<td>' + fmtEUR(tco.totals.total) + '</td>' +
+    '</tr>';
+
+    // ---- summary cards
+    const costPerKm = tco.totals.total / Math.max(tco.totalKm, 1);
+    const costPerMonth = tco.totals.total / (tco.years * 12);
+    document.getElementById('tcoSummary').innerHTML =
+      '<div class="stat"><div class="lbl">Purchase</div><div class="val">' + fmtEUR(tco.purchase) + '</div></div>' +
+      '<div class="stat"><div class="lbl">Residual after ' + tco.years + ' yrs</div><div class="val">' + fmtEUR(tco.finalResidual) + '</div></div>' +
+      '<div class="stat accent"><div class="lbl">Total ' + tco.years + '-yr cost</div><div class="val">' + fmtEUR(tco.totals.total) + '</div></div>' +
+      '<div class="stat"><div class="lbl">Per month</div><div class="val">' + fmtEUR(costPerMonth) + '</div></div>' +
+      '<div class="stat"><div class="lbl">Per km</div><div class="val">' + (costPerKm).toFixed(2) + ' €</div></div>';
+  }
+
+  function openTCO(archId, ans) {
+    const arch = ARCHETYPES.find((a) => a.id === archId);
+    if (!arch) return;
+    document.getElementById('tcoSection').style.display = '';
+    document.getElementById('tcoArchetypeName').textContent = arch.name;
+    // Auto-fill purchase price from archetype band midpoint, and km from answers.
+    document.getElementById('tcoPurchase').value = purchaseForArchetype(arch, ans);
+    document.getElementById('tcoKm').value = ans.annualKm;
+    document.getElementById('tcoYears').value = ans.years;
+    renderTCO(arch, ans);
+    document.getElementById('tcoSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function rerenderTCO() {
+    if (!selectedArchId) return;
+    const arch = ARCHETYPES.find((a) => a.id === selectedArchId);
+    if (!arch) return;
+    renderTCO(arch, getAnswers());
+  }
+
+  // ---------- wiring ----------
+  const FORM_IDS = [
+    'budget', 'condition', 'years', 'annualKm', 'drivingMix', 'seats',
+    'climate', 'towing', 'childSeats', 'bodyPref', 'fuelPref', 'drivePref',
+    'transmission', 'charging', 'reliability',
+  ];
+  FORM_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => { renderRecommendations(); rerenderTCO(); });
+    el.addEventListener('change', () => { renderRecommendations(); rerenderTCO(); });
+  });
+
+  const TCO_IDS = ['tcoYears', 'tcoKm', 'tcoPurchase', 'tcoPetrol', 'tcoDiesel', 'tcoLpg', 'tcoElec'];
+  TCO_IDS.forEach((id) => {
+    document.getElementById(id).addEventListener('input', rerenderTCO);
+  });
+
+  document.getElementById('tcoCloseBtn').addEventListener('click', () => {
+    selectedArchId = null;
+    document.getElementById('tcoSection').style.display = 'none';
+    renderRecommendations();
+  });
+
+  renderRecommendations();
+</script>
+
+</body>
+</html>
