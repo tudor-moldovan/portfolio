@@ -100,6 +100,7 @@
     transition: border-color 0.15s, transform 0.15s;
   }
   .rec:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .rec:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-color: var(--accent); }
   .rec.selected { border-color: var(--accent-2); }
   .rec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .rec-name { font-size: 16px; font-weight: 600; color: var(--text); }
@@ -2011,7 +2012,7 @@
         { name: '2.0 TDI 110 / 150 / 199hp', fuel: 'diesel', cons: 7.4, co2: 195, hp: 150, gearbox: 'manual/dsg' },
       ],
       priceUsedEUR: [12000, 32000], priceNewEUR: [38000, 55000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 4,
       strengths: 'Best-built panel van in EU; campervan conversion potential keeps residuals strong.',
       weaknesses: 'Pricey vs Ford Transit; 2.0 TDI EGR cooler issues 2016–18.',
     },
@@ -2023,7 +2024,7 @@
         { name: 'eVito 90 kWh', fuel: 'bev', cons: 22, co2: 0, hp: 116, gearbox: 'single' },
       ],
       priceUsedEUR: [11000, 30000], priceNewEUR: [35000, 55000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 4,
       strengths: 'Mercedes star sells well to taxi/airport-shuttle fleets; RWD tows well.',
       weaknesses: 'AdBlue maintenance pricier than competition; 7G-Tronic auto can lurch.',
     },
@@ -2035,7 +2036,7 @@
         { name: 'E-Transit Custom 64 kWh', fuel: 'bev', cons: 22, co2: 0, hp: 218, gearbox: 'single' },
       ],
       priceUsedEUR: [9000, 28000], priceNewEUR: [32000, 52000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 3,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 3,
       strengths: 'Best-selling van in UK and EU; cheap to buy and maintain; huge spares network.',
       weaknesses: '2.0 EcoBlue wet timing belt service; some DCT auto reliability issues.',
     },
@@ -2047,7 +2048,7 @@
         { name: 'E-Ducato 110 kWh', fuel: 'bev', cons: 26, co2: 0, hp: 122, gearbox: 'single' },
       ],
       priceUsedEUR: [10000, 28000], priceNewEUR: [32000, 50000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 3,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 3,
       strengths: 'Largest interior in segment; ~70 % of motorhome conversions in EU use this base.',
       weaknesses: 'Drives like a truck (it is one); 2.2 MultiJet AdBlue/EGR issues.',
     }
@@ -2063,7 +2064,7 @@
         { name: 'GT4 4.0 NA 420hp', fuel: 'petrol', cons: 10.9, co2: 249, hp: 420, gearbox: 'manual/pdk' },
       ],
       priceUsedEUR: [40000, 80000], priceNewEUR: [70000, 120000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 5,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 5,
       strengths: 'Best-handling chassis under €100k; mid-engine balance; PDK is sublime.',
       weaknesses: '4-cyl turbo sound divisive (vs old NA flat-6); EV replacement coming, ICE values may rise.',
     },
@@ -2074,7 +2075,7 @@
         { name: '3.0 S58 460hp RWD', fuel: 'petrol', cons: 9.7, co2: 220, hp: 460, gearbox: 'manual/auto' },
       ],
       priceUsedEUR: [60000, 80000], priceNewEUR: [75000, 95000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 4,
       strengths: 'Last manual M-car; pure RWD coupe in an EV world; 460hp from a small footprint.',
       weaknesses: 'Polarising styling; firm ride on broken roads; not exactly economical.',
     },
@@ -2085,7 +2086,7 @@
         { name: '2.5 TFSI quattro 400hp', fuel: 'petrol', cons: 8.9, co2: 203, hp: 400, gearbox: 'auto' },
       ],
       priceUsedEUR: [50000, 75000], priceNewEUR: [70000, 90000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 4,
       strengths: 'Glorious 5-cyl noise; AWD makes it usable year-round; 0–100 in 3.8 s.',
       weaknesses: '1500+ kg = thirstier than RWD rivals; expensive maintenance on quattro hardware.',
     },
@@ -2097,7 +2098,7 @@
         { name: '3.0 B58 340 / 387hp', fuel: 'petrol', cons: 8.8, co2: 200, hp: 387, gearbox: 'manual/auto' },
       ],
       priceUsedEUR: [35000, 58000], priceNewEUR: [55000, 75000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 5,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 5,
       strengths: 'BMW B58 inline-6 in a Toyota body — best of both reliability cultures.',
       weaknesses: 'Tight cabin; visibility limited; 6-speed manual only added 2022.',
     }
@@ -2126,7 +2127,7 @@
         { name: 'M40i 340hp', fuel: 'petrol', cons: 8.5, co2: 193, hp: 340, gearbox: 'manual/auto' },
       ],
       priceUsedEUR: [30000, 55000], priceNewEUR: [55000, 80000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: null, reliability: 4,
       strengths: 'Same engine/chassis as Toyota Supra; soft-top operates at speeds up to 50 km/h.',
       weaknesses: 'Heavier and pricier than MX-5; rear visibility poor with top up.',
     },
@@ -2185,7 +2186,9 @@
           '<div class="model-badges">' +
             '<span class="mb">' + m.euroClass + '</span>' +
             '<span class="mb ' + lez.cls + '">' + lez.label + '</span>' +
-            (m.ncap ? '<span class="mb">NCAP ' + m.ncap + '★</span>' : '') +
+            (m.ncap == null
+              ? '<span class="mb" title="Not tested under current EU NCAP protocol">NCAP —</span>'
+              : '<span class="mb' + (m.ncap === 0 ? ' badge-bad' : '') + '" title="Euro NCAP rating">NCAP ' + m.ncap + '★</span>') +
             '<span class="mb" title="Reliability">' + stars(m.reliability) + '</span>' +
           '</div>' +
         '</div>' +
@@ -2274,7 +2277,7 @@
       const consumptionLabel = arch.consumption.type === 'kwh'
         ? arch.consumption.value + ' kWh/100 km'
         : arch.consumption.value + ' L/100 km ' + arch.consumption.type;
-      return '<div class="rec ' + (isSel ? 'selected' : '') + '" data-id="' + arch.id + '">' +
+      return '<div class="rec ' + (isSel ? 'selected' : '') + '" data-id="' + arch.id + '" role="button" tabindex="0" aria-pressed="' + isSel + '">' +
         '<div class="rec-head">' +
           '<div class="rec-name">' + arch.name + '</div>' +
           '<div class="rec-score ' + (fit >= 70 ? 'high' : '') + '">fit ' + fit + '%</div>' +
@@ -2297,10 +2300,14 @@
     }).join('') + '</div>';
 
     container.querySelectorAll('.rec').forEach((el) => {
-      el.addEventListener('click', () => {
+      const activate = () => {
         selectedArchId = el.dataset.id;
         renderRecommendations();
-        openTCO(selectedArchId, ans);
+        openTCO(selectedArchId, getAnswers());
+      };
+      el.addEventListener('click', activate);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
       });
     });
   }
@@ -2499,10 +2506,14 @@
     if (!arch) return;
     document.getElementById('tcoSection').style.display = '';
     document.getElementById('tcoArchetypeName').textContent = arch.name;
-    // Auto-fill purchase price from archetype band midpoint, and km from answers.
+    // Auto-fill purchase price from archetype band midpoint, and km/years from answers.
     document.getElementById('tcoPurchase').value = purchaseForArchetype(arch, ans);
-    document.getElementById('tcoKm').value = ans.annualKm;
-    document.getElementById('tcoYears').value = ans.years;
+    const tcoKmEl = document.getElementById('tcoKm');
+    const tcoYearsEl = document.getElementById('tcoYears');
+    tcoKmEl.value = ans.annualKm;
+    tcoKmEl.dataset.lastSyncedKm = ans.annualKm;
+    tcoYearsEl.value = ans.years;
+    tcoYearsEl.dataset.lastSyncedYears = ans.years;
     renderTCO(arch, ans);
     document.getElementById('tcoSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -2511,7 +2522,27 @@
     if (!selectedArchId) return;
     const arch = ARCHETYPES.find((a) => a.id === selectedArchId);
     if (!arch) return;
+    // Form is the source of truth: when user changes "Years you'll keep it" or
+    // annual km in the form, push those into the TCO panel inputs so the chart
+    // reflects them. User can still override directly in the TCO panel after.
+    syncFormToTCOInputs();
     renderTCO(arch, getAnswers());
+  }
+
+  function syncFormToTCOInputs() {
+    const ans = getAnswers();
+    const tcoYearsEl = document.getElementById('tcoYears');
+    const tcoKmEl = document.getElementById('tcoKm');
+    // Only update when the form value differs from the panel value (avoids
+    // stomping a user-entered TCO override unless the form really changed).
+    if (+tcoYearsEl.dataset.lastSyncedYears !== ans.years) {
+      tcoYearsEl.value = ans.years;
+      tcoYearsEl.dataset.lastSyncedYears = ans.years;
+    }
+    if (+tcoKmEl.dataset.lastSyncedKm !== ans.annualKm) {
+      tcoKmEl.value = ans.annualKm;
+      tcoKmEl.dataset.lastSyncedKm = ans.annualKm;
+    }
   }
 
   // ---------- wiring ----------
