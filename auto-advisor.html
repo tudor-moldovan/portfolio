@@ -136,6 +136,34 @@
   .rec ul li span { color: var(--text); }
   .rec-examples { font-size: 12px; color: var(--muted); }
   .rec-examples strong { color: var(--text); font-weight: 500; }
+  .models-list { display: flex; flex-direction: column; gap: 10px; }
+  .model {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .model-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+  .model-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .model-years { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+  .model-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+  .mb {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .mb.badge-good { color: var(--accent-2); border-color: var(--accent-2); }
+  .mb.badge-warn { color: var(--warn); border-color: var(--warn); }
+  .mb.badge-bad  { color: var(--bad); border-color: var(--bad); }
+  .model-variants { color: var(--muted); margin-top: 4px; font-size: 11px; }
+  .model-price { color: var(--text); margin-top: 2px; font-size: 11px; }
+  .model-pro { color: var(--accent-2); margin-top: 6px; font-size: 11px; }
+  .model-con { color: var(--warn); margin-top: 2px; font-size: 11px; }
   .rec-cta {
     margin-top: 4px;
     font-size: 12px;
@@ -1114,7 +1142,1025 @@
     },
   ];
 
-  // ---------- read form ----------
+  // ---------- real European-market cars ----------
+  // Each entry maps to one or more archetype IDs. variants list the most
+  // common European trims (engine, fuel, hp, WLTP cons L/100km or kWh/100km, CO2 g/km).
+  // euroClass: 'Euro 5' | 'Euro 6b' | 'Euro 6d-temp' | 'Euro 6d' | 'Euro 7' | 'EV'
+  // lezAccess: 'eu-wide' (Euro 6d/EV — passes all current LEZs)
+  //          | 'restricted' (Euro 6b — fine in most, restricted in Paris central/Brussels strict)
+  //          | 'banned-major' (Euro 5 diesel — banned in Berlin/London ULEZ/Paris central/Madrid)
+  //          | 'ev' (EV, exempt everywhere)
+  // reliability: 1–5; ncap: 0 if not tested under current protocols.
+  const MODELS = [];
+
+  // ---- City hatches ----
+  MODELS.push(
+    {
+      id: 'vw-polo-mk6', archetypes: ['city-petrol-hatch'],
+      name: 'Volkswagen Polo Mk6', years: '2017–present', body: 'hatch',
+      variants: [
+        { name: '1.0 MPI 80hp', fuel: 'petrol', cons: 5.6, co2: 128, hp: 80, gearbox: 'manual' },
+        { name: '1.0 TSI 95hp', fuel: 'petrol', cons: 5.4, co2: 124, hp: 95, gearbox: 'manual' },
+        { name: '1.0 TSI 115hp DSG', fuel: 'petrol', cons: 5.5, co2: 126, hp: 115, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [9000, 18000], priceNewEUR: [19000, 27000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Refined, solid build, strong resale across the EU.',
+      weaknesses: 'DSG hesitation in stop-go; 1.0 TSI timing chain on early 2017–18 builds.',
+    },
+    {
+      id: 'toyota-yaris-mk4', archetypes: ['city-petrol-hatch'],
+      name: 'Toyota Yaris Mk4 (Hybrid)', years: '2020–present', body: 'hatch',
+      variants: [
+        { name: '1.5 Hybrid 116hp', fuel: 'hev', cons: 4.0, co2: 92, hp: 116, gearbox: 'cvt' },
+        { name: '1.5 VVT-i 125hp', fuel: 'petrol', cons: 5.7, co2: 130, hp: 125, gearbox: 'manual' },
+      ],
+      priceUsedEUR: [13000, 22000], priceNewEUR: [22000, 30000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
+      strengths: 'Hybrid is bulletproof and sips ~4 L/100 km in city; cheapest TCO in segment.',
+      weaknesses: 'Tight rear seat; petrol resale weaker than hybrid.',
+    },
+    {
+      id: 'skoda-fabia-mk4', archetypes: ['city-petrol-hatch'],
+      name: 'Skoda Fabia Mk4', years: '2021–present', body: 'hatch',
+      variants: [
+        { name: '1.0 MPI 80hp', fuel: 'petrol', cons: 5.6, co2: 127, hp: 80, gearbox: 'manual' },
+        { name: '1.0 TSI 95hp', fuel: 'petrol', cons: 5.3, co2: 121, hp: 95, gearbox: 'manual' },
+        { name: '1.5 TSI 150hp DSG', fuel: 'petrol', cons: 5.6, co2: 128, hp: 150, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [12000, 20000], priceNewEUR: [18000, 26000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Largest boot in class (380 L), Polo platform without Polo price.',
+      weaknesses: 'Cabin plastics feel cheaper than Polo; DSG service every 60k km.',
+    },
+    {
+      id: 'renault-clio-v', archetypes: ['city-petrol-hatch', 'lpg-petrol-runabout'],
+      name: 'Renault Clio V', years: '2019–present', body: 'hatch',
+      variants: [
+        { name: 'TCe 90 / 100', fuel: 'petrol', cons: 5.5, co2: 125, hp: 90, gearbox: 'manual' },
+        { name: 'E-Tech Hybrid 145', fuel: 'hev', cons: 4.3, co2: 96, hp: 145, gearbox: 'auto' },
+        { name: 'TCe 100 LPG', fuel: 'lpg', cons: 7.0, co2: 110, hp: 100, gearbox: 'manual' },
+      ],
+      priceUsedEUR: [9000, 17000], priceNewEUR: [17000, 26000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Bi-fuel LPG version cuts running costs ~50%; classy interior.',
+      weaknesses: 'E-Tech gearbox quirky; some 1.0 TCe oil consumption complaints.',
+    },
+    {
+      id: 'dacia-sandero-mk3', archetypes: ['city-petrol-hatch', 'lpg-petrol-runabout'],
+      name: 'Dacia Sandero Mk3', years: '2020–present', body: 'hatch',
+      variants: [
+        { name: 'SCe 65 / 75', fuel: 'petrol', cons: 5.7, co2: 130, hp: 65, gearbox: 'manual' },
+        { name: 'TCe 90', fuel: 'petrol', cons: 5.5, co2: 125, hp: 90, gearbox: 'manual' },
+        { name: 'TCe 100 ECO-G LPG', fuel: 'lpg', cons: 7.0, co2: 113, hp: 100, gearbox: 'manual' },
+      ],
+      priceUsedEUR: [7000, 13000], priceNewEUR: [12000, 18000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 2, reliability: 4,
+      strengths: 'Cheapest new car in EU; LPG version has the lowest € / km of any ICE.',
+      weaknesses: 'Euro NCAP only 2 stars (no AEB on base trims); base interior is basic.',
+    },
+    {
+      id: 'peugeot-208-ii', archetypes: ['city-petrol-hatch', 'urban-bev'],
+      name: 'Peugeot 208 II / e-208', years: '2019–present', body: 'hatch',
+      variants: [
+        { name: 'PureTech 100', fuel: 'petrol', cons: 5.4, co2: 122, hp: 100, gearbox: 'manual' },
+        { name: 'PureTech 130 EAT8', fuel: 'petrol', cons: 5.6, co2: 127, hp: 130, gearbox: 'auto' },
+        { name: 'e-208 50 kWh', fuel: 'bev', cons: 16.0, co2: 0, hp: 136, gearbox: 'single' },
+      ],
+      priceUsedEUR: [11000, 22000], priceNewEUR: [21000, 35000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 4, reliability: 3,
+      strengths: 'Striking design, e-208 has decent ~340 km real range.',
+      weaknesses: 'PureTech 1.2 wet timing belt — replace at 100k km, expensive if neglected.',
+    }
+  );
+
+  // ---- Highway / family diesel sedans + combis ----
+  MODELS.push(
+    {
+      id: 'vw-passat-b8', archetypes: ['highway-diesel-sedan', 'family-combi-diesel', 'family-combi-petrol', 'phev-family'],
+      name: 'VW Passat B8 (Variant)', years: '2014–2023', body: 'combi',
+      variants: [
+        { name: '2.0 TDI 150hp', fuel: 'diesel', cons: 5.4, co2: 142, hp: 150, gearbox: 'manual/dsg' },
+        { name: '2.0 TDI 190hp DSG', fuel: 'diesel', cons: 5.6, co2: 147, hp: 190, gearbox: 'dsg' },
+        { name: '1.5 TSI 150hp', fuel: 'petrol', cons: 6.5, co2: 148, hp: 150, gearbox: 'manual' },
+        { name: 'GTE PHEV', fuel: 'phev', cons: 1.6, co2: 36, hp: 218, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [9000, 22000], priceNewEUR: null,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Highway weapon, 1000+ km tank range on TDI; massive boot.',
+      weaknesses: 'AdBlue/EGR maintenance; DSG mechatronic faults pre-2018 (DQ381 update).',
+    },
+    {
+      id: 'skoda-superb-iii', archetypes: ['highway-diesel-sedan', 'family-combi-diesel', 'family-combi-petrol', 'phev-family'],
+      name: 'Skoda Superb III', years: '2015–present', body: 'combi',
+      variants: [
+        { name: '2.0 TDI 150hp', fuel: 'diesel', cons: 5.2, co2: 137, hp: 150, gearbox: 'manual/dsg' },
+        { name: '2.0 TDI 200hp DSG 4x4', fuel: 'diesel', cons: 6.4, co2: 167, hp: 200, gearbox: 'dsg' },
+        { name: '1.5 TSI 150hp', fuel: 'petrol', cons: 6.4, co2: 145, hp: 150, gearbox: 'manual' },
+        { name: 'iV PHEV 218hp', fuel: 'phev', cons: 1.5, co2: 35, hp: 218, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [11000, 28000], priceNewEUR: [38000, 55000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Limo-grade rear room (the EU executive sleeper); 660 L combi boot.',
+      weaknesses: 'Same DSG/TDI maintenance as Passat; 2.0 TDI EA288 EGR cooler on early units.',
+    },
+    {
+      id: 'audi-a4-b9', archetypes: ['highway-diesel-sedan', 'mhev-premium'],
+      name: 'Audi A4 B9 / B9 PA', years: '2015–present', body: 'sedan',
+      variants: [
+        { name: '35 TDI 163hp', fuel: 'diesel', cons: 4.9, co2: 128, hp: 163, gearbox: 'auto' },
+        { name: '40 TDI 204hp quattro', fuel: 'diesel', cons: 5.4, co2: 142, hp: 204, gearbox: 'auto' },
+        { name: '40 TFSI 204hp MHEV', fuel: 'mhev', cons: 6.5, co2: 148, hp: 204, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [13000, 32000], priceNewEUR: [48000, 65000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Premium feel, quattro AWD on diesel, holds value better than 3-Series.',
+      weaknesses: 'S tronic gearbox pricey to repair; expensive parts (€600+ brake jobs).',
+    },
+    {
+      id: 'bmw-3-g20', archetypes: ['highway-diesel-sedan', 'mhev-premium'],
+      name: 'BMW 3 Series G20', years: '2019–present', body: 'sedan',
+      variants: [
+        { name: '320d 190hp MHEV', fuel: 'diesel', cons: 4.6, co2: 121, hp: 190, gearbox: 'auto' },
+        { name: '330e PHEV 292hp', fuel: 'phev', cons: 1.7, co2: 39, hp: 292, gearbox: 'auto' },
+        { name: '330i 245hp', fuel: 'petrol', cons: 6.5, co2: 148, hp: 245, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 42000], priceNewEUR: [50000, 68000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Best-driving sedan in segment; 320d is one of the most efficient diesels in EU.',
+      weaknesses: 'Run-flat tires harsh on broken roads; expensive ZF8 service if you skip it.',
+    },
+    {
+      id: 'mercedes-c-w205', archetypes: ['highway-diesel-sedan', 'mhev-premium'],
+      name: 'Mercedes C-Class W205 / W206', years: '2014–present', body: 'sedan',
+      variants: [
+        { name: 'C 220d 200hp', fuel: 'diesel', cons: 4.7, co2: 124, hp: 200, gearbox: 'auto' },
+        { name: 'C 300de PHEV 306hp', fuel: 'phev', cons: 1.6, co2: 37, hp: 306, gearbox: 'auto' },
+        { name: 'C 200 MHEV 204hp', fuel: 'mhev', cons: 6.5, co2: 148, hp: 204, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [14000, 38000], priceNewEUR: [55000, 75000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Comfortable highway cruiser; OM654 diesel meets Euro 6d cleanly.',
+      weaknesses: 'W205 air suspension expensive to repair; some W206 software gremlins.',
+    },
+    {
+      id: 'volvo-s60-v60', archetypes: ['highway-diesel-sedan', 'family-combi-diesel', 'mhev-premium'],
+      name: 'Volvo S60 / V60 III', years: '2018–present', body: 'combi',
+      variants: [
+        { name: 'B4 MHEV 197hp', fuel: 'mhev', cons: 6.7, co2: 152, hp: 197, gearbox: 'auto' },
+        { name: 'B5 MHEV 250hp AWD', fuel: 'mhev', cons: 7.5, co2: 170, hp: 250, gearbox: 'auto' },
+        { name: 'T6 Recharge PHEV 350hp', fuel: 'phev', cons: 1.7, co2: 38, hp: 350, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [18000, 38000], priceNewEUR: [50000, 68000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Class-leading safety; comfortable seats; PHEV gets >50 km real EV range.',
+      weaknesses: 'Diesel option dropped after 2020; Sensus infotainment can lag.',
+    }
+  );
+
+  // ---- Compact petrol sedan / Dacia ----
+  MODELS.push(
+    {
+      id: 'skoda-octavia-mk4-sedan', archetypes: ['compact-petrol-sedan', 'family-combi-diesel', 'family-combi-petrol', 'phev-family'],
+      name: 'Skoda Octavia Mk4 (Sedan + Combi)', years: '2020–present', body: 'sedan',
+      variants: [
+        { name: '1.0 TSI 110hp', fuel: 'petrol', cons: 5.4, co2: 122, hp: 110, gearbox: 'manual' },
+        { name: '1.5 TSI 150hp', fuel: 'petrol', cons: 5.7, co2: 130, hp: 150, gearbox: 'manual/dsg' },
+        { name: '2.0 TDI 150hp', fuel: 'diesel', cons: 4.6, co2: 121, hp: 150, gearbox: 'manual/dsg' },
+        { name: 'iV PHEV 204hp', fuel: 'phev', cons: 1.4, co2: 32, hp: 204, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [16000, 28000], priceNewEUR: [26000, 42000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'The default sensible EU family car: huge boot, refined, every drivetrain available.',
+      weaknesses: '1.5 TSI ACT cylinder-deactivation can clatter; touch-only climate controls.',
+    },
+    {
+      id: 'dacia-logan-mk3', archetypes: ['compact-petrol-sedan', 'lpg-petrol-runabout'],
+      name: 'Dacia Logan III', years: '2020–present', body: 'sedan',
+      variants: [
+        { name: 'SCe 65', fuel: 'petrol', cons: 5.7, co2: 130, hp: 65, gearbox: 'manual' },
+        { name: 'TCe 90', fuel: 'petrol', cons: 5.5, co2: 125, hp: 90, gearbox: 'manual' },
+        { name: 'TCe 100 ECO-G LPG', fuel: 'lpg', cons: 7.0, co2: 113, hp: 100, gearbox: 'manual' },
+      ],
+      priceUsedEUR: [7000, 13000], priceNewEUR: [13000, 19000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 2, reliability: 4,
+      strengths: 'Cheap to buy and run; 510 L boot; LPG version 30–50 % cheaper per km.',
+      weaknesses: 'Euro NCAP 2★ (no AEB on base); base trim feels exactly like its price.',
+    },
+    {
+      id: 'toyota-corolla-sedan', archetypes: ['compact-petrol-sedan', 'family-combi-petrol'],
+      name: 'Toyota Corolla E210 (Sedan + TS Combi)', years: '2018–present', body: 'sedan',
+      variants: [
+        { name: '1.8 Hybrid 140hp', fuel: 'hev', cons: 4.3, co2: 99, hp: 140, gearbox: 'cvt' },
+        { name: '2.0 Hybrid 196hp', fuel: 'hev', cons: 4.5, co2: 104, hp: 196, gearbox: 'cvt' },
+      ],
+      priceUsedEUR: [15000, 26000], priceNewEUR: [27000, 36000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
+      strengths: 'Two-decade Toyota hybrid reliability; cheapest TCO over 5 years in segment.',
+      weaknesses: 'CVT droning under load; no real diesel or petrol-only option in EU.',
+    },
+    {
+      id: 'dacia-duster-mk2-mk3', archetypes: ['lpg-petrol-runabout', 'compact-crossover-petrol', 'mid-suv-diesel'],
+      name: 'Dacia Duster II / III', years: '2018–present', body: 'crossover',
+      variants: [
+        { name: 'TCe 100 ECO-G LPG', fuel: 'lpg', cons: 8.0, co2: 130, hp: 100, gearbox: 'manual' },
+        { name: 'TCe 130 / 150', fuel: 'petrol', cons: 6.4, co2: 145, hp: 130, gearbox: 'manual' },
+        { name: 'Blue dCi 115 4x4', fuel: 'diesel', cons: 5.3, co2: 140, hp: 115, gearbox: 'manual' },
+      ],
+      priceUsedEUR: [9000, 17000], priceNewEUR: [16000, 24000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 3, reliability: 4,
+      strengths: 'Cheapest real 4x4 in EU; LPG bi-fuel keeps running costs comically low.',
+      weaknesses: 'Long stopping distances vs European average; basic interior.',
+    }
+  );
+
+  // ---- Family combi petrol + compact crossover ----
+  MODELS.push(
+    {
+      id: 'opel-astra-k-st', archetypes: ['family-combi-petrol', 'family-combi-diesel'],
+      name: 'Opel Astra K Sports Tourer', years: '2015–2021', body: 'combi',
+      variants: [
+        { name: '1.2 Turbo 130hp', fuel: 'petrol', cons: 5.6, co2: 128, hp: 130, gearbox: 'manual' },
+        { name: '1.5 CDTI 122hp', fuel: 'diesel', cons: 4.4, co2: 116, hp: 122, gearbox: 'manual' },
+      ],
+      priceUsedEUR: [7000, 16000], priceNewEUR: null,
+      euroClass: 'Euro 6d-temp', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Light (1300 kg), efficient, big 1630 L boot; cheap on the used market.',
+      weaknesses: 'Some 1.4T timing chain stretching; PSA-era 1.5 CDTI on late builds is the keeper.',
+    },
+    {
+      id: 'peugeot-308-sw', archetypes: ['family-combi-petrol', 'family-combi-diesel', 'phev-family'],
+      name: 'Peugeot 308 SW (II / III)', years: '2014–present', body: 'combi',
+      variants: [
+        { name: 'PureTech 130 / 1.2 EAT8', fuel: 'petrol', cons: 5.7, co2: 130, hp: 130, gearbox: 'auto' },
+        { name: 'BlueHDi 130', fuel: 'diesel', cons: 4.5, co2: 118, hp: 130, gearbox: 'manual' },
+        { name: 'Hybrid 180 PHEV', fuel: 'phev', cons: 1.3, co2: 30, hp: 180, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [10000, 24000], priceNewEUR: [33000, 45000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Cabin feels premium; BlueHDi diesel cleanest in class for Crit\'Air access.',
+      weaknesses: 'PureTech wet timing belt — replace at 100k km; tiny i-Cockpit wheel divides opinion.',
+    },
+    {
+      id: 'vw-golf-mk8-variant', archetypes: ['family-combi-petrol', 'family-combi-diesel', 'phev-family'],
+      name: 'VW Golf Mk8 / Variant', years: '2020–present', body: 'combi',
+      variants: [
+        { name: '1.5 TSI 130 / 150hp', fuel: 'petrol', cons: 5.7, co2: 130, hp: 150, gearbox: 'manual/dsg' },
+        { name: '2.0 TDI 115 / 150hp', fuel: 'diesel', cons: 4.5, co2: 118, hp: 150, gearbox: 'manual/dsg' },
+        { name: 'eHybrid 204hp PHEV', fuel: 'phev', cons: 1.3, co2: 31, hp: 204, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [16000, 30000], priceNewEUR: [29000, 45000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Refined, plenty of drivetrains; Variant has 611 L boot.',
+      weaknesses: 'Mk8 infotainment buggy at launch (improved 2023+); same DSG/TDI maintenance.',
+    },
+    {
+      id: 'vw-t-roc', archetypes: ['compact-crossover-petrol'],
+      name: 'VW T-Roc', years: '2017–present', body: 'crossover',
+      variants: [
+        { name: '1.0 TSI 110hp', fuel: 'petrol', cons: 5.7, co2: 130, hp: 110, gearbox: 'manual' },
+        { name: '1.5 TSI 150hp', fuel: 'petrol', cons: 6.0, co2: 137, hp: 150, gearbox: 'manual/dsg' },
+        { name: '2.0 TDI 150hp 4Motion', fuel: 'diesel', cons: 5.6, co2: 147, hp: 150, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [16000, 28000], priceNewEUR: [28000, 40000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Strong residuals; refined, mature platform; 4Motion is a real-world AWD.',
+      weaknesses: 'Smaller boot than Kamiq; DSG service every 60k km mandatory.',
+    },
+    {
+      id: 'skoda-kamiq', archetypes: ['compact-crossover-petrol'],
+      name: 'Skoda Kamiq', years: '2019–present', body: 'crossover',
+      variants: [
+        { name: '1.0 TSI 95 / 110hp', fuel: 'petrol', cons: 5.5, co2: 125, hp: 110, gearbox: 'manual' },
+        { name: '1.5 TSI 150hp DSG', fuel: 'petrol', cons: 5.6, co2: 128, hp: 150, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [15000, 24000], priceNewEUR: [24000, 33000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'More boot than T-Roc, less money; same VAG mechanicals.',
+      weaknesses: 'No AWD or diesel option in EU; high-speed road noise.',
+    },
+    {
+      id: 'hyundai-kona', archetypes: ['compact-crossover-petrol', 'urban-bev', 'long-range-bev'],
+      name: 'Hyundai Kona (II)', years: '2017–present', body: 'crossover',
+      variants: [
+        { name: '1.0 T-GDi 120hp', fuel: 'petrol', cons: 5.9, co2: 134, hp: 120, gearbox: 'manual' },
+        { name: '1.6 T-GDi Hybrid 141hp', fuel: 'hev', cons: 4.7, co2: 107, hp: 141, gearbox: 'auto' },
+        { name: 'Electric 64 kWh', fuel: 'bev', cons: 14.7, co2: 0, hp: 204, gearbox: 'single' },
+      ],
+      priceUsedEUR: [13000, 28000], priceNewEUR: [25000, 45000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'BEV does ~400 km real range — sweet spot for an urban-leaning EV.',
+      weaknesses: 'Some 64 kWh battery recall (LG cells, 2017–20); rear visibility tight.',
+    },
+    {
+      id: 'toyota-yaris-cross', archetypes: ['compact-crossover-petrol'],
+      name: 'Toyota Yaris Cross', years: '2020–present', body: 'crossover',
+      variants: [
+        { name: '1.5 Hybrid 116hp', fuel: 'hev', cons: 4.4, co2: 100, hp: 116, gearbox: 'cvt' },
+        { name: '1.5 Hybrid AWD-i 116hp', fuel: 'hev', cons: 4.7, co2: 106, hp: 116, gearbox: 'cvt' },
+      ],
+      priceUsedEUR: [17000, 26000], priceNewEUR: [26000, 35000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 4, reliability: 5,
+      strengths: 'Toyota hybrid frugality + light AWD option for snow; 4.5 L/100 real-world.',
+      weaknesses: 'Engine noisy under load (CVT); rear seat tight for adults.',
+    },
+    {
+      id: 'ford-puma', archetypes: ['compact-crossover-petrol'],
+      name: 'Ford Puma', years: '2019–present', body: 'crossover',
+      variants: [
+        { name: '1.0 EcoBoost mHEV 125 / 155hp', fuel: 'mhev', cons: 5.5, co2: 125, hp: 155, gearbox: 'manual' },
+        { name: 'Puma Electric 200hp', fuel: 'bev', cons: 14.5, co2: 0, hp: 168, gearbox: 'single' },
+      ],
+      priceUsedEUR: [14000, 24000], priceNewEUR: [27000, 38000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Best-driving small crossover; clever 80 L "Megabox" under the boot floor.',
+      weaknesses: '1.0 EcoBoost wet belt issues on early units (pre-2018 fix; less in Puma).',
+    }
+  );
+
+  // ---- Mid-size diesel SUV ----
+  MODELS.push(
+    {
+      id: 'vw-tiguan-mk2', archetypes: ['mid-suv-diesel', 'phev-family'],
+      name: 'VW Tiguan Mk2 / Mk3', years: '2016–present', body: 'suv',
+      variants: [
+        { name: '2.0 TDI 150hp 4Motion', fuel: 'diesel', cons: 5.5, co2: 145, hp: 150, gearbox: 'dsg' },
+        { name: '2.0 TDI 200hp DSG 4Motion', fuel: 'diesel', cons: 5.9, co2: 154, hp: 200, gearbox: 'dsg' },
+        { name: 'eHybrid PHEV 245hp', fuel: 'phev', cons: 1.5, co2: 35, hp: 245, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [15000, 35000], priceNewEUR: [40000, 60000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Real 4Motion AWD with Haldex; tows 2200 kg; refined long-distance car.',
+      weaknesses: 'EA288 EGR cooler issues 2016–18; DSG service mandatory.',
+    },
+    {
+      id: 'hyundai-tucson-nx4', archetypes: ['mid-suv-diesel', 'mid-suv-hybrid', 'phev-family'],
+      name: 'Hyundai Tucson NX4', years: '2020–present', body: 'suv',
+      variants: [
+        { name: '1.6 CRDi 136hp 48V MHEV', fuel: 'diesel', cons: 5.6, co2: 147, hp: 136, gearbox: 'manual/dct' },
+        { name: '1.6 T-GDi HEV 230hp', fuel: 'hev', cons: 5.7, co2: 130, hp: 230, gearbox: 'auto' },
+        { name: '1.6 T-GDi PHEV 265hp', fuel: 'phev', cons: 1.4, co2: 31, hp: 265, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 38000], priceNewEUR: [35000, 50000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: '7-year warranty, modern interior, every drivetrain available.',
+      weaknesses: 'PHEV battery cooling issues recall 2022; styling is divisive.',
+    },
+    {
+      id: 'kia-sportage-nq5', archetypes: ['mid-suv-diesel', 'mid-suv-hybrid', 'phev-family'],
+      name: 'Kia Sportage NQ5', years: '2021–present', body: 'suv',
+      variants: [
+        { name: '1.6 CRDi 136hp MHEV', fuel: 'diesel', cons: 5.7, co2: 149, hp: 136, gearbox: 'manual/dct' },
+        { name: '1.6 T-GDi HEV 230hp', fuel: 'hev', cons: 5.6, co2: 127, hp: 230, gearbox: 'auto' },
+        { name: '1.6 T-GDi PHEV 265hp', fuel: 'phev', cons: 1.4, co2: 32, hp: 265, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 38000], priceNewEUR: [35000, 50000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: '7-year warranty (EU); identical mechanics to Tucson but slightly cheaper.',
+      weaknesses: 'Same PHEV recall as Tucson; back seats slightly less comfortable.',
+    },
+    {
+      id: 'mazda-cx5', archetypes: ['mid-suv-diesel', 'mid-suv-hybrid'],
+      name: 'Mazda CX-5 II', years: '2017–present', body: 'suv',
+      variants: [
+        { name: '2.2 Skyactiv-D 150 / 184hp', fuel: 'diesel', cons: 5.7, co2: 149, hp: 184, gearbox: 'manual/auto' },
+        { name: '2.0 / 2.5 Skyactiv-G MHEV', fuel: 'mhev', cons: 7.1, co2: 162, hp: 194, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [16000, 32000], priceNewEUR: [33000, 48000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Drives like a sedan; Skyactiv-D is one of the cleanest, smoothest diesels in EU.',
+      weaknesses: 'No PHEV option; G-Vectoring sounds gimmicky but is genuinely useful.',
+    },
+    {
+      id: 'nissan-x-trail-t33', archetypes: ['mid-suv-diesel', 'seven-seat-suv'],
+      name: 'Nissan X-Trail T33', years: '2022–present', body: 'suv',
+      variants: [
+        { name: 'e-POWER 204hp', fuel: 'hev', cons: 5.8, co2: 132, hp: 204, gearbox: 'cvt-like' },
+        { name: 'e-POWER e-4ORCE 213hp AWD', fuel: 'hev', cons: 6.2, co2: 142, hp: 213, gearbox: 'cvt-like' },
+        { name: '1.5 VC-Turbo 163hp MHEV', fuel: 'mhev', cons: 6.7, co2: 152, hp: 163, gearbox: 'cvt' },
+      ],
+      priceUsedEUR: [25000, 42000], priceNewEUR: [38000, 55000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Optional 7 seats; e-POWER drives like an EV with no plug needed.',
+      weaknesses: 'Expensive vs Hyundai/Kia; e-POWER thirsty on motorway.',
+    }
+  );
+
+  // ---- Hybrid SUV (the Toyota / Honda zone) ----
+  MODELS.push(
+    {
+      id: 'toyota-rav4-v', archetypes: ['mid-suv-hybrid', 'phev-family'],
+      name: 'Toyota RAV4 V (Hybrid + PHEV)', years: '2018–present', body: 'suv',
+      variants: [
+        { name: '2.5 Hybrid 218hp FWD', fuel: 'hev', cons: 5.6, co2: 127, hp: 218, gearbox: 'cvt' },
+        { name: '2.5 Hybrid 222hp AWD-i', fuel: 'hev', cons: 6.0, co2: 136, hp: 222, gearbox: 'cvt' },
+        { name: '2.5 Plug-in 306hp AWD', fuel: 'phev', cons: 1.0, co2: 22, hp: 306, gearbox: 'cvt' },
+      ],
+      priceUsedEUR: [25000, 42000], priceNewEUR: [42000, 60000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
+      strengths: 'Toyota hybrid bulletproofness scaled to a family SUV; PHEV does ~75 km real EV range.',
+      weaknesses: 'CVT droning under acceleration; PHEV depreciation steeper than HEV.',
+    },
+    {
+      id: 'honda-cr-v-vi', archetypes: ['mid-suv-hybrid', 'phev-family'],
+      name: 'Honda CR-V VI e:HEV / e:PHEV', years: '2023–present', body: 'suv',
+      variants: [
+        { name: '2.0 e:HEV 184hp', fuel: 'hev', cons: 6.4, co2: 145, hp: 184, gearbox: 'eCVT' },
+        { name: '2.0 e:PHEV 184hp', fuel: 'phev', cons: 0.8, co2: 18, hp: 184, gearbox: 'eCVT' },
+      ],
+      priceUsedEUR: [32000, 45000], priceNewEUR: [45000, 60000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
+      strengths: 'Honda hybrid drivetrain feels closer to an EV than RAV4; refined; spacious.',
+      weaknesses: 'No 7-seat option in EU (gone in this gen); pricey for the badge.',
+    },
+    {
+      id: 'lexus-nx-ii', archetypes: ['mid-suv-hybrid', 'phev-family'],
+      name: 'Lexus NX II (350h / 450h+)', years: '2021–present', body: 'suv',
+      variants: [
+        { name: '350h 244hp AWD', fuel: 'hev', cons: 6.0, co2: 138, hp: 244, gearbox: 'cvt' },
+        { name: '450h+ PHEV 309hp AWD', fuel: 'phev', cons: 1.2, co2: 26, hp: 309, gearbox: 'cvt' },
+      ],
+      priceUsedEUR: [38000, 55000], priceNewEUR: [55000, 75000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
+      strengths: 'Premium-brand cabin with Toyota hybrid reliability; quiet on the autostrada.',
+      weaknesses: 'Expensive new; infotainment finally OK after years of touchpad torture.',
+    }
+  );
+
+  // ---- 7-seat SUV ----
+  MODELS.push(
+    {
+      id: 'skoda-kodiaq', archetypes: ['seven-seat-suv', 'mid-suv-diesel', 'phev-family'],
+      name: 'Skoda Kodiaq I / II', years: '2016–present', body: 'suv',
+      variants: [
+        { name: '2.0 TDI 150hp 7-seat', fuel: 'diesel', cons: 5.6, co2: 147, hp: 150, gearbox: 'dsg' },
+        { name: '2.0 TDI 200hp 4x4 DSG', fuel: 'diesel', cons: 6.5, co2: 170, hp: 200, gearbox: 'dsg' },
+        { name: 'iV PHEV 204hp (gen 2)', fuel: 'phev', cons: 1.5, co2: 35, hp: 204, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [18000, 38000], priceNewEUR: [42000, 60000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Genuine 7-seater (3rd row fits adults short-haul); Skoda value-for-money.',
+      weaknesses: 'Boot tiny with all 7 up (270 L); same EA288/DSG concerns as VAG family.',
+    },
+    {
+      id: 'hyundai-santa-fe', archetypes: ['seven-seat-suv', 'phev-family'],
+      name: 'Hyundai Santa Fe IV / V', years: '2018–present', body: 'suv',
+      variants: [
+        { name: '2.2 CRDi 200hp 8AT', fuel: 'diesel', cons: 6.1, co2: 159, hp: 200, gearbox: 'auto' },
+        { name: '1.6 T-GDi HEV 230hp', fuel: 'hev', cons: 6.3, co2: 144, hp: 230, gearbox: 'auto' },
+        { name: '1.6 T-GDi PHEV 265hp', fuel: 'phev', cons: 1.7, co2: 39, hp: 265, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 42000], priceNewEUR: [45000, 65000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Roomy 3rd row, 7-yr warranty, well-equipped at every trim level.',
+      weaknesses: 'Bold styling on V (post-2024) divides; HEV only marginally efficient on motorway.',
+    },
+    {
+      id: 'kia-sorento', archetypes: ['seven-seat-suv', 'phev-family'],
+      name: 'Kia Sorento IV', years: '2020–present', body: 'suv',
+      variants: [
+        { name: '2.2 CRDi 202hp 8DCT', fuel: 'diesel', cons: 6.0, co2: 158, hp: 202, gearbox: 'dct' },
+        { name: '1.6 T-GDi HEV 230hp', fuel: 'hev', cons: 6.4, co2: 145, hp: 230, gearbox: 'auto' },
+        { name: '1.6 T-GDi PHEV 265hp', fuel: 'phev', cons: 1.6, co2: 38, hp: 265, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [25000, 45000], priceNewEUR: [48000, 68000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Most upmarket-feeling Korean 7-seater; DCT on diesel is sharp.',
+      weaknesses: 'DCT can stutter at low speeds when cold; PHEV battery same recall as Tucson.',
+    },
+    {
+      id: 'peugeot-5008', archetypes: ['seven-seat-suv', 'mpv-7seat'],
+      name: 'Peugeot 5008 II', years: '2017–2024', body: 'suv',
+      variants: [
+        { name: '1.2 PureTech 130hp 8AT', fuel: 'petrol', cons: 6.5, co2: 148, hp: 130, gearbox: 'auto' },
+        { name: '1.5 BlueHDi 130hp 8AT', fuel: 'diesel', cons: 4.7, co2: 124, hp: 130, gearbox: 'auto' },
+        { name: '1.6 PureTech Hybrid PHEV', fuel: 'phev', cons: 1.4, co2: 32, hp: 225, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [16000, 32000], priceNewEUR: null,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 4, reliability: 3,
+      strengths: 'Stylish; 7 seats from a compact footprint; massive boot if you fold rear two.',
+      weaknesses: 'PureTech wet belt rule applies; rearmost row strictly child-sized.',
+    },
+    {
+      id: 'vw-tiguan-allspace', archetypes: ['seven-seat-suv'],
+      name: 'VW Tiguan Allspace', years: '2017–2024', body: 'suv',
+      variants: [
+        { name: '2.0 TDI 150hp 4Motion', fuel: 'diesel', cons: 5.7, co2: 150, hp: 150, gearbox: 'dsg' },
+        { name: '2.0 TDI 200hp DSG 4Motion', fuel: 'diesel', cons: 6.0, co2: 158, hp: 200, gearbox: 'dsg' },
+      ],
+      priceUsedEUR: [20000, 38000], priceNewEUR: null,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'VW build with the longer wheelbase; tows 2500 kg.',
+      weaknesses: 'Discontinued 2024 — no new units; same TDI/DSG service notes.',
+    }
+  );
+
+  // ---- 7-seat MPV ----
+  MODELS.push(
+    {
+      id: 'vw-touran-iii', archetypes: ['mpv-7seat'],
+      name: 'VW Touran III', years: '2015–present', body: 'mpv',
+      variants: [
+        { name: '2.0 TDI 122 / 150hp', fuel: 'diesel', cons: 5.0, co2: 131, hp: 150, gearbox: 'manual/dsg' },
+        { name: '1.5 TSI 150hp', fuel: 'petrol', cons: 6.5, co2: 148, hp: 150, gearbox: 'manual/dsg' },
+      ],
+      priceUsedEUR: [12000, 25000], priceNewEUR: [37000, 48000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Properly modular 7 seats — all 5 rear seats fold flat individually.',
+      weaknesses: 'Dated cabin; same TDI/DSG service profile as Passat.',
+    },
+    {
+      id: 'ford-galaxy-iv', archetypes: ['mpv-7seat'],
+      name: 'Ford Galaxy IV / S-Max', years: '2015–2023', body: 'mpv',
+      variants: [
+        { name: '2.0 EcoBlue 150 / 190hp', fuel: 'diesel', cons: 5.7, co2: 149, hp: 190, gearbox: 'manual/auto' },
+        { name: '2.5 Duratec Hybrid 190hp', fuel: 'hev', cons: 5.9, co2: 134, hp: 190, gearbox: 'cvt' },
+      ],
+      priceUsedEUR: [10000, 22000], priceNewEUR: null,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Limo-grade rear room; Hybrid version is cheap to run for a 1.8 t car.',
+      weaknesses: 'Discontinued in EU 2023; AdBlue tank consumption higher than VAG.',
+    },
+    {
+      id: 'renault-espace-vi', archetypes: ['mpv-7seat', 'seven-seat-suv'],
+      name: 'Renault Espace VI', years: '2023–present', body: 'mpv',
+      variants: [
+        { name: 'E-Tech Full Hybrid 200hp', fuel: 'hev', cons: 4.8, co2: 109, hp: 200, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [32000, 48000], priceNewEUR: [42000, 55000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 4, reliability: 3,
+      strengths: '4.8 L/100 from a 7-seater is exceptional; sliding 2nd row.',
+      weaknesses: 'Expensive new; 3rd row strictly child-sized; gen-1 E-Tech multi-mode quirky.',
+    },
+    {
+      id: 'citroen-grand-c4', archetypes: ['mpv-7seat'],
+      name: 'Citroën Grand C4 SpaceTourer', years: '2013–2022', body: 'mpv',
+      variants: [
+        { name: '1.5 BlueHDi 130hp', fuel: 'diesel', cons: 4.5, co2: 119, hp: 130, gearbox: 'manual/auto' },
+        { name: '1.2 PureTech 130hp EAT8', fuel: 'petrol', cons: 6.0, co2: 137, hp: 130, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [8000, 17000], priceNewEUR: null,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 3,
+      strengths: 'Best value used 7-seater (huge inside, cheap to buy); BlueHDi is frugal.',
+      weaknesses: 'Discontinued; PureTech wet-belt rule; soft suspension wallows on B-roads.',
+    },
+    {
+      id: 'seat-alhambra-ii', archetypes: ['mpv-7seat'],
+      name: 'Seat Alhambra II', years: '2010–2020', body: 'mpv',
+      variants: [
+        { name: '2.0 TDI 150 / 184hp', fuel: 'diesel', cons: 5.8, co2: 152, hp: 184, gearbox: 'manual/dsg' },
+        { name: '1.4 TSI 150hp', fuel: 'petrol', cons: 6.9, co2: 159, hp: 150, gearbox: 'manual/dsg' },
+      ],
+      priceUsedEUR: [7000, 18000], priceNewEUR: null,
+      euroClass: 'Euro 6b', lezAccess: 'restricted', ncap: 5, reliability: 4,
+      strengths: 'Sliding rear doors are a parent superpower; Sharan/Alhambra reliability is solid.',
+      weaknesses: 'Older Euro 6b — restricted in some Paris/Brussels central zones; dated tech.',
+    }
+  );
+
+  // ---- Urban BEVs ----
+  MODELS.push(
+    {
+      id: 'dacia-spring', archetypes: ['urban-bev'],
+      name: 'Dacia Spring', years: '2021–present', body: 'hatch',
+      variants: [
+        { name: '26.8 kWh 45 / 65hp', fuel: 'bev', cons: 14.6, co2: 0, hp: 65, gearbox: 'single' },
+      ],
+      priceUsedEUR: [9000, 16000], priceNewEUR: [16000, 22000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 1, reliability: 3,
+      strengths: 'Cheapest EV in EU; ~200 km city range; perfect 2nd-car commuter.',
+      weaknesses: 'NCAP 1★ (no AEB on base, weak crash structure); slow DC charge (30 kW).',
+    },
+    {
+      id: 'fiat-500e', archetypes: ['urban-bev'],
+      name: 'Fiat 500e (la Prima)', years: '2020–present', body: 'hatch',
+      variants: [
+        { name: '24 kWh 95hp', fuel: 'bev', cons: 13.5, co2: 0, hp: 95, gearbox: 'single' },
+        { name: '42 kWh 118hp', fuel: 'bev', cons: 14.3, co2: 0, hp: 118, gearbox: 'single' },
+      ],
+      priceUsedEUR: [13000, 22000], priceNewEUR: [25000, 35000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 4, reliability: 3,
+      strengths: '~250 km real range on 42 kWh; design icon; quick DC (~85 kW).',
+      weaknesses: 'Tight rear seat; some software glitches; Stellantis service network varies.',
+    },
+    {
+      id: 'renault-zoe-ze50', archetypes: ['urban-bev'],
+      name: 'Renault Zoe ZE50', years: '2019–2024', body: 'hatch',
+      variants: [
+        { name: '52 kWh R110 / R135', fuel: 'bev', cons: 17.2, co2: 0, hp: 135, gearbox: 'single' },
+      ],
+      priceUsedEUR: [10000, 18000], priceNewEUR: null,
+      euroClass: 'EV', lezAccess: 'ev', ncap: 0, reliability: 3,
+      strengths: '~300 km real range from a city car; cheap on the used market.',
+      weaknesses: '0★ NCAP 2021 (no airbag side curtain — discontinued); some battery rental contracts.',
+    },
+    {
+      id: 'mg4-ev', archetypes: ['urban-bev', 'long-range-bev'],
+      name: 'MG4 EV', years: '2022–present', body: 'hatch',
+      variants: [
+        { name: '51 kWh 170hp', fuel: 'bev', cons: 16.5, co2: 0, hp: 170, gearbox: 'single' },
+        { name: '64 kWh 204hp', fuel: 'bev', cons: 16.0, co2: 0, hp: 204, gearbox: 'single' },
+        { name: '77 kWh XPower 435hp AWD', fuel: 'bev', cons: 18.8, co2: 0, hp: 435, gearbox: 'single' },
+      ],
+      priceUsedEUR: [18000, 28000], priceNewEUR: [29000, 42000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 3,
+      strengths: '~400 km real range on 64 kWh for under €35k new — disrupts the segment.',
+      weaknesses: 'Software UX clunky; Chinese brand long-term resale unproven in EU.',
+    }
+  );
+
+  // ---- Long-range BEVs ----
+  MODELS.push(
+    {
+      id: 'tesla-model-3', archetypes: ['long-range-bev'],
+      name: 'Tesla Model 3 (Highland)', years: '2017–present', body: 'sedan',
+      variants: [
+        { name: 'RWD 60 kWh', fuel: 'bev', cons: 14.0, co2: 0, hp: 283, gearbox: 'single' },
+        { name: 'Long Range AWD 79 kWh', fuel: 'bev', cons: 14.5, co2: 0, hp: 366, gearbox: 'single' },
+        { name: 'Performance AWD', fuel: 'bev', cons: 16.0, co2: 0, hp: 510, gearbox: 'single' },
+      ],
+      priceUsedEUR: [22000, 38000], priceNewEUR: [42000, 60000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 4,
+      strengths: 'Supercharger network is unmatched in EU; best residuals of any BEV.',
+      weaknesses: 'Suspension firm on broken roads; Highland minimalist controls divide opinion.',
+    },
+    {
+      id: 'tesla-model-y', archetypes: ['long-range-bev'],
+      name: 'Tesla Model Y', years: '2020–present', body: 'crossover',
+      variants: [
+        { name: 'RWD 60 kWh', fuel: 'bev', cons: 14.5, co2: 0, hp: 295, gearbox: 'single' },
+        { name: 'Long Range AWD 79 kWh', fuel: 'bev', cons: 15.5, co2: 0, hp: 384, gearbox: 'single' },
+      ],
+      priceUsedEUR: [28000, 45000], priceNewEUR: [45000, 60000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 4,
+      strengths: 'Best-selling car (any fuel) in EU 2023; huge boot; supercharger network.',
+      weaknesses: 'Same suspension/UI critiques as 3; high beltline limits visibility for kids.',
+    },
+    {
+      id: 'hyundai-ioniq5', archetypes: ['long-range-bev'],
+      name: 'Hyundai Ioniq 5', years: '2021–present', body: 'crossover',
+      variants: [
+        { name: '58 kWh RWD 170hp', fuel: 'bev', cons: 16.7, co2: 0, hp: 170, gearbox: 'single' },
+        { name: '77.4 kWh RWD 228hp', fuel: 'bev', cons: 16.8, co2: 0, hp: 228, gearbox: 'single' },
+        { name: '77.4 kWh AWD 325hp', fuel: 'bev', cons: 17.7, co2: 0, hp: 325, gearbox: 'single' },
+      ],
+      priceUsedEUR: [28000, 45000], priceNewEUR: [44000, 65000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 4,
+      strengths: '800 V architecture: 10–80 % in 18 minutes on a 350 kW charger; design icon.',
+      weaknesses: 'Heat pump optional (cold weather range hit without it); ICCU recall 2022–24.',
+    },
+    {
+      id: 'kia-ev6', archetypes: ['long-range-bev'],
+      name: 'Kia EV6', years: '2021–present', body: 'crossover',
+      variants: [
+        { name: '58 kWh RWD 170hp', fuel: 'bev', cons: 16.5, co2: 0, hp: 170, gearbox: 'single' },
+        { name: '77.4 kWh RWD 229hp', fuel: 'bev', cons: 16.5, co2: 0, hp: 229, gearbox: 'single' },
+        { name: 'GT 77.4 kWh 585hp AWD', fuel: 'bev', cons: 20.0, co2: 0, hp: 585, gearbox: 'single' },
+      ],
+      priceUsedEUR: [30000, 48000], priceNewEUR: [48000, 75000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 4,
+      strengths: 'Same 800 V platform as Ioniq 5; sportier ride; 7-yr Kia warranty.',
+      weaknesses: 'Smaller boot than Ioniq 5; same ICCU recall; firm low-speed ride.',
+    },
+    {
+      id: 'vw-id4', archetypes: ['long-range-bev'],
+      name: 'VW ID.4', years: '2020–present', body: 'crossover',
+      variants: [
+        { name: 'Pure 52 kWh 170hp', fuel: 'bev', cons: 16.5, co2: 0, hp: 170, gearbox: 'single' },
+        { name: 'Pro 77 kWh 204hp RWD', fuel: 'bev', cons: 17.5, co2: 0, hp: 204, gearbox: 'single' },
+        { name: 'GTX 77 kWh AWD 295hp', fuel: 'bev', cons: 19.0, co2: 0, hp: 295, gearbox: 'single' },
+      ],
+      priceUsedEUR: [22000, 40000], priceNewEUR: [42000, 58000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 3,
+      strengths: 'Comfortable cruiser; Pro version does 350+ km real on motorway.',
+      weaknesses: 'Software pre-2023 was buggy (now improved); slower DC charge than Korean rivals.',
+    },
+    {
+      id: 'skoda-enyaq', archetypes: ['long-range-bev'],
+      name: 'Skoda Enyaq iV', years: '2020–present', body: 'crossover',
+      variants: [
+        { name: '60 (58 kWh) 180hp', fuel: 'bev', cons: 16.5, co2: 0, hp: 180, gearbox: 'single' },
+        { name: '85 (77 kWh) 286hp', fuel: 'bev', cons: 17.0, co2: 0, hp: 286, gearbox: 'single' },
+      ],
+      priceUsedEUR: [25000, 40000], priceNewEUR: [42000, 58000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 4,
+      strengths: 'Same MEB platform as ID.4 but cheaper to buy and noticeably more practical.',
+      weaknesses: 'Same MEB software niggles pre-2023; rear visibility limited.',
+    },
+    {
+      id: 'bmw-i4', archetypes: ['long-range-bev'],
+      name: 'BMW i4', years: '2021–present', body: 'sedan',
+      variants: [
+        { name: 'eDrive35 67 kWh 286hp', fuel: 'bev', cons: 16.5, co2: 0, hp: 286, gearbox: 'single' },
+        { name: 'eDrive40 81 kWh 340hp', fuel: 'bev', cons: 17.0, co2: 0, hp: 340, gearbox: 'single' },
+        { name: 'M50 81 kWh AWD 544hp', fuel: 'bev', cons: 22.0, co2: 0, hp: 544, gearbox: 'single' },
+      ],
+      priceUsedEUR: [38000, 60000], priceNewEUR: [62000, 90000],
+      euroClass: 'EV', lezAccess: 'ev', ncap: 5, reliability: 4,
+      strengths: 'Drives like a 4-Series; eDrive40 nails ~480 km real range; premium cabin.',
+      weaknesses: 'Hatchback boot less practical than i5; M50 inefficient on motorway.',
+    }
+  );
+
+  // ---- Body-on-frame 4x4 ----
+  MODELS.push(
+    {
+      id: 'toyota-land-cruiser-j300', archetypes: ['offroad-4x4'],
+      name: 'Toyota Land Cruiser 250 / J300', years: '2021–present', body: 'suv',
+      variants: [
+        { name: '2.8 D-4D 204hp 6AT', fuel: 'diesel', cons: 9.5, co2: 250, hp: 204, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [35000, 80000], priceNewEUR: [78000, 120000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
+      strengths: 'Hand of god reliability — Sahara/Atacama tested; holds value better than any other SUV.',
+      weaknesses: '~10 L/100 km on highway; expensive new; bulky in cities.',
+    },
+    {
+      id: 'jeep-wrangler-jl', archetypes: ['offroad-4x4'],
+      name: 'Jeep Wrangler JL / 4xe', years: '2018–present', body: 'suv',
+      variants: [
+        { name: '2.0 GME T 272hp', fuel: 'petrol', cons: 9.6, co2: 219, hp: 272, gearbox: 'auto' },
+        { name: '2.0 GME 4xe PHEV 380hp', fuel: 'phev', cons: 3.5, co2: 80, hp: 380, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [28000, 55000], priceNewEUR: [60000, 85000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 1, reliability: 3,
+      strengths: 'Removable doors and roof; trail rated, no compromise off-road.',
+      weaknesses: 'NCAP 1★ (poor crash structure); dreadful drag coefficient (motorway thirst).',
+    },
+    {
+      id: 'land-rover-defender-l663', archetypes: ['offroad-4x4', 'seven-seat-suv'],
+      name: 'Land Rover Defender L663', years: '2020–present', body: 'suv',
+      variants: [
+        { name: 'D250 MHEV 249hp', fuel: 'diesel', cons: 8.6, co2: 226, hp: 249, gearbox: 'auto' },
+        { name: 'P400 MHEV 400hp', fuel: 'mhev', cons: 10.7, co2: 244, hp: 400, gearbox: 'auto' },
+        { name: 'P400e PHEV 404hp', fuel: 'phev', cons: 3.6, co2: 81, hp: 404, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [50000, 85000], priceNewEUR: [80000, 130000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 2,
+      strengths: 'Unmatched off-road combined with luxury cabin; 110 has 7 seats.',
+      weaknesses: 'JLR reliability is the worst in this segment; air suspension expensive.',
+    },
+    {
+      id: 'suzuki-jimny-jb74', archetypes: ['offroad-4x4'],
+      name: 'Suzuki Jimny JB74', years: '2018–present (commercial in EU)', body: 'suv',
+      variants: [
+        { name: '1.5 K15B 102hp 4x4', fuel: 'petrol', cons: 6.4, co2: 154, hp: 102, gearbox: 'manual/auto' },
+      ],
+      priceUsedEUR: [16000, 26000], priceNewEUR: [24000, 32000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 3, reliability: 5,
+      strengths: 'Tiny, light, properly capable off-road; cult-status resale.',
+      weaknesses: 'Sold only as N1 commercial in EU since 2021 (CO2 reasons); 4 seats only on N1.',
+    }
+  );
+
+  // ---- Pickup ----
+  MODELS.push(
+    {
+      id: 'toyota-hilux-an130', archetypes: ['pickup-workhorse'],
+      name: 'Toyota Hilux AN130 (8th gen)', years: '2015–present', body: 'pickup',
+      variants: [
+        { name: '2.4 D-4D 150hp 4x4', fuel: 'diesel', cons: 8.0, co2: 210, hp: 150, gearbox: 'manual/auto' },
+        { name: '2.8 D-4D 204hp 4x4', fuel: 'diesel', cons: 8.5, co2: 222, hp: 204, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [18000, 38000], priceNewEUR: [42000, 60000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
+      strengths: 'Indestructible reputation (UN, oil-field standard); 1 t payload, 3.5 t tow.',
+      weaknesses: 'Crashy unladen ride; dated cabin tech vs Ford Ranger.',
+    },
+    {
+      id: 'ford-ranger-p703', archetypes: ['pickup-workhorse'],
+      name: 'Ford Ranger P703 (next-gen)', years: '2022–present', body: 'pickup',
+      variants: [
+        { name: '2.0 EcoBlue 170 / 205hp', fuel: 'diesel', cons: 7.5, co2: 196, hp: 205, gearbox: 'manual/auto' },
+        { name: '3.0 V6 EcoBlue 240hp', fuel: 'diesel', cons: 8.7, co2: 230, hp: 240, gearbox: 'auto' },
+        { name: '2.3 EcoBoost PHEV (Raptor PHEV)', fuel: 'phev', cons: 3.0, co2: 70, hp: 281, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [25000, 50000], priceNewEUR: [45000, 75000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Most car-like cabin and best on-road manners of any pickup in EU.',
+      weaknesses: 'V6 thirsty; Raptor wide for narrow EU roads; PHEV sold late 2024.',
+    },
+    {
+      id: 'vw-amarok-mk2', archetypes: ['pickup-workhorse'],
+      name: 'VW Amarok II', years: '2022–present', body: 'pickup',
+      variants: [
+        { name: '2.0 TDI 170 / 205hp', fuel: 'diesel', cons: 8.0, co2: 209, hp: 205, gearbox: 'auto' },
+        { name: '3.0 V6 TDI 240hp', fuel: 'diesel', cons: 9.0, co2: 235, hp: 240, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [28000, 50000], priceNewEUR: [50000, 75000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Joint-developed with Ford Ranger; VW interior trim level on a workhorse.',
+      weaknesses: 'Same ladder frame as Ranger but ~€3–5k more expensive; service network smaller.',
+    },
+    {
+      id: 'mitsubishi-l200-vi', archetypes: ['pickup-workhorse'],
+      name: 'Mitsubishi L200 VI', years: '2015–2024', body: 'pickup',
+      variants: [
+        { name: '2.2 / 2.4 DI-D 150 / 181hp', fuel: 'diesel', cons: 8.5, co2: 220, hp: 181, gearbox: 'manual/auto' },
+      ],
+      priceUsedEUR: [12000, 30000], priceNewEUR: null,
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 4, reliability: 4,
+      strengths: 'Cheapest used full-size pickup; Super-Select 4WD locks like a real off-roader.',
+      weaknesses: 'Discontinued in EU 2024; 5-cyl 2.4 DI-D needs frequent oil changes.',
+    }
+  );
+
+  // ---- Cargo van ----
+  MODELS.push(
+    {
+      id: 'vw-transporter-t6', archetypes: ['cargo-van'],
+      name: 'VW Transporter T6 / T6.1', years: '2015–2023', body: 'van',
+      variants: [
+        { name: '2.0 TDI 110 / 150 / 199hp', fuel: 'diesel', cons: 7.4, co2: 195, hp: 150, gearbox: 'manual/dsg' },
+      ],
+      priceUsedEUR: [12000, 32000], priceNewEUR: [38000, 55000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      strengths: 'Best-built panel van in EU; campervan conversion potential keeps residuals strong.',
+      weaknesses: 'Pricey vs Ford Transit; 2.0 TDI EGR cooler issues 2016–18.',
+    },
+    {
+      id: 'mercedes-vito-w447', archetypes: ['cargo-van'],
+      name: 'Mercedes Vito W447 / eVito', years: '2014–present', body: 'van',
+      variants: [
+        { name: '110 / 116 / 119 CDI', fuel: 'diesel', cons: 7.6, co2: 200, hp: 190, gearbox: 'manual/auto' },
+        { name: 'eVito 90 kWh', fuel: 'bev', cons: 22, co2: 0, hp: 116, gearbox: 'single' },
+      ],
+      priceUsedEUR: [11000, 30000], priceNewEUR: [35000, 55000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      strengths: 'Mercedes star sells well to taxi/airport-shuttle fleets; RWD tows well.',
+      weaknesses: 'AdBlue maintenance pricier than competition; 7G-Tronic auto can lurch.',
+    },
+    {
+      id: 'ford-transit-custom', archetypes: ['cargo-van'],
+      name: 'Ford Transit Custom', years: '2012–present', body: 'van',
+      variants: [
+        { name: '2.0 EcoBlue 110 / 130 / 170hp', fuel: 'diesel', cons: 7.0, co2: 184, hp: 170, gearbox: 'manual/auto' },
+        { name: 'E-Transit Custom 64 kWh', fuel: 'bev', cons: 22, co2: 0, hp: 218, gearbox: 'single' },
+      ],
+      priceUsedEUR: [9000, 28000], priceNewEUR: [32000, 52000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 3,
+      strengths: 'Best-selling van in UK and EU; cheap to buy and maintain; huge spares network.',
+      weaknesses: '2.0 EcoBlue wet timing belt service; some DCT auto reliability issues.',
+    },
+    {
+      id: 'fiat-ducato', archetypes: ['cargo-van'],
+      name: 'Fiat Ducato (Citroën Jumper / Peugeot Boxer)', years: '2014–present', body: 'van',
+      variants: [
+        { name: '2.2 MultiJet 140 / 180hp', fuel: 'diesel', cons: 8.2, co2: 210, hp: 180, gearbox: 'manual/auto' },
+        { name: 'E-Ducato 110 kWh', fuel: 'bev', cons: 26, co2: 0, hp: 122, gearbox: 'single' },
+      ],
+      priceUsedEUR: [10000, 28000], priceNewEUR: [32000, 50000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 3,
+      strengths: 'Largest interior in segment; ~70 % of motorhome conversions in EU use this base.',
+      weaknesses: 'Drives like a truck (it is one); 2.2 MultiJet AdBlue/EGR issues.',
+    }
+  );
+
+  // ---- Sports coupe ----
+  MODELS.push(
+    {
+      id: 'porsche-cayman-718', archetypes: ['sports-coupe'],
+      name: 'Porsche 718 Cayman', years: '2016–2025 (ICE)', body: 'coupe',
+      variants: [
+        { name: '2.0 / 2.5 turbo 300 / 365hp', fuel: 'petrol', cons: 8.7, co2: 199, hp: 365, gearbox: 'manual/pdk' },
+        { name: 'GT4 4.0 NA 420hp', fuel: 'petrol', cons: 10.9, co2: 249, hp: 420, gearbox: 'manual/pdk' },
+      ],
+      priceUsedEUR: [40000, 80000], priceNewEUR: [70000, 120000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 5,
+      strengths: 'Best-handling chassis under €100k; mid-engine balance; PDK is sublime.',
+      weaknesses: '4-cyl turbo sound divisive (vs old NA flat-6); EV replacement coming, ICE values may rise.',
+    },
+    {
+      id: 'bmw-m2-g87', archetypes: ['sports-coupe'],
+      name: 'BMW M2 G87', years: '2023–present', body: 'coupe',
+      variants: [
+        { name: '3.0 S58 460hp RWD', fuel: 'petrol', cons: 9.7, co2: 220, hp: 460, gearbox: 'manual/auto' },
+      ],
+      priceUsedEUR: [60000, 80000], priceNewEUR: [75000, 95000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      strengths: 'Last manual M-car; pure RWD coupe in an EV world; 460hp from a small footprint.',
+      weaknesses: 'Polarising styling; firm ride on broken roads; not exactly economical.',
+    },
+    {
+      id: 'audi-rs3-8y', archetypes: ['sports-coupe'],
+      name: 'Audi RS3 8Y', years: '2021–present', body: 'sedan',
+      variants: [
+        { name: '2.5 TFSI quattro 400hp', fuel: 'petrol', cons: 8.9, co2: 203, hp: 400, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [50000, 75000], priceNewEUR: [70000, 90000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      strengths: 'Glorious 5-cyl noise; AWD makes it usable year-round; 0–100 in 3.8 s.',
+      weaknesses: '1500+ kg = thirstier than RWD rivals; expensive maintenance on quattro hardware.',
+    },
+    {
+      id: 'toyota-gr-supra', archetypes: ['sports-coupe'],
+      name: 'Toyota GR Supra (J29)', years: '2019–present', body: 'coupe',
+      variants: [
+        { name: '2.0 B48 258hp', fuel: 'petrol', cons: 7.3, co2: 167, hp: 258, gearbox: 'auto' },
+        { name: '3.0 B58 340 / 387hp', fuel: 'petrol', cons: 8.8, co2: 200, hp: 387, gearbox: 'manual/auto' },
+      ],
+      priceUsedEUR: [35000, 58000], priceNewEUR: [55000, 75000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 5,
+      strengths: 'BMW B58 inline-6 in a Toyota body — best of both reliability cultures.',
+      weaknesses: 'Tight cabin; visibility limited; 6-speed manual only added 2022.',
+    }
+  );
+
+  // ---- Cabrio ----
+  MODELS.push(
+    {
+      id: 'mazda-mx5-nd', archetypes: ['cabrio'],
+      name: 'Mazda MX-5 ND', years: '2015–present', body: 'cabrio',
+      variants: [
+        { name: '1.5 Skyactiv-G 132hp', fuel: 'petrol', cons: 6.6, co2: 150, hp: 132, gearbox: 'manual' },
+        { name: '2.0 Skyactiv-G 184hp', fuel: 'petrol', cons: 7.0, co2: 159, hp: 184, gearbox: 'manual' },
+      ],
+      priceUsedEUR: [16000, 30000], priceNewEUR: [32000, 42000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 4, reliability: 5,
+      strengths: 'The default driver\'s car under €40k; light (1050 kg), pure, RWD, manual.',
+      weaknesses: 'Tiny boot (130 L); soft top wears around 8–10 years; not a daily driver.',
+    },
+    {
+      id: 'bmw-z4-g29', archetypes: ['cabrio'],
+      name: 'BMW Z4 G29', years: '2018–present', body: 'cabrio',
+      variants: [
+        { name: 'sDrive20i 197hp', fuel: 'petrol', cons: 6.7, co2: 152, hp: 197, gearbox: 'auto' },
+        { name: 'sDrive30i 258hp', fuel: 'petrol', cons: 7.1, co2: 161, hp: 258, gearbox: 'auto' },
+        { name: 'M40i 340hp', fuel: 'petrol', cons: 8.5, co2: 193, hp: 340, gearbox: 'manual/auto' },
+      ],
+      priceUsedEUR: [30000, 55000], priceNewEUR: [55000, 80000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 0, reliability: 4,
+      strengths: 'Same engine/chassis as Toyota Supra; soft-top operates at speeds up to 50 km/h.',
+      weaknesses: 'Heavier and pricier than MX-5; rear visibility poor with top up.',
+    },
+    {
+      id: 'audi-a5-cabrio', archetypes: ['cabrio'],
+      name: 'Audi A5 Cabriolet F5', years: '2017–present', body: 'cabrio',
+      variants: [
+        { name: '40 TFSI 204hp MHEV', fuel: 'mhev', cons: 7.0, co2: 158, hp: 204, gearbox: 'auto' },
+        { name: '45 TFSI quattro 265hp', fuel: 'mhev', cons: 7.6, co2: 173, hp: 265, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 45000], priceNewEUR: [55000, 75000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Comfortable 4-seater drop-top; quattro AWD makes it usable in winter.',
+      weaknesses: 'Soft-top mechanism complex (€2k+ if it fails); 7-speed S tronic clunky cold.',
+    },
+    {
+      id: 'mini-convertible', archetypes: ['cabrio'],
+      name: 'Mini Convertible (F57 / J05)', years: '2016–present', body: 'cabrio',
+      variants: [
+        { name: 'Cooper 1.5 136hp', fuel: 'petrol', cons: 5.9, co2: 134, hp: 136, gearbox: 'manual/auto' },
+        { name: 'Cooper S 2.0 178 / 192hp', fuel: 'petrol', cons: 6.3, co2: 144, hp: 192, gearbox: 'manual/auto' },
+        { name: 'Cooper SE Electric 184hp', fuel: 'bev', cons: 16.8, co2: 0, hp: 184, gearbox: 'single' },
+      ],
+      priceUsedEUR: [14000, 32000], priceNewEUR: [32000, 45000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 4, reliability: 3,
+      strengths: 'Folding fabric roof in 18 seconds; rare go-kart feel in a cabrio.',
+      weaknesses: 'Rear seats and boot are token gestures; runflat tires firm; some N20 timing chain on early.',
+    }
+  );
+
+  function modelsForArchetype(archId) {
+    return MODELS.filter((m) => m.archetypes.includes(archId));
+  }
+
+  function lezBadge(access) {
+    if (access === 'ev' || access === 'eu-wide') return { label: 'LEZ ✓', cls: 'badge-good' };
+    if (access === 'restricted') return { label: 'LEZ ⚠', cls: 'badge-warn' };
+    if (access === 'banned-major') return { label: 'LEZ ✗', cls: 'badge-bad' };
+    return { label: '?', cls: 'badge-mute' };
+  }
+
+  function stars(n) {
+    const full = Math.max(0, Math.min(5, Math.round(n)));
+    return '★'.repeat(full) + '·'.repeat(5 - full);
+  }
+
+  function renderModelsList(archId) {
+    const list = modelsForArchetype(archId).slice(0, 4);
+    if (!list.length) return '';
+    return '<div class="models-list">' + list.map((m) => {
+      const lez = lezBadge(m.lezAccess);
+      const variantStr = m.variants.map((v) => v.name).join(' · ');
+      return '<div class="model">' +
+        '<div class="model-head">' +
+          '<div class="model-name">' + m.name + ' <span class="model-years">' + m.years + '</span></div>' +
+          '<div class="model-badges">' +
+            '<span class="mb">' + m.euroClass + '</span>' +
+            '<span class="mb ' + lez.cls + '">' + lez.label + '</span>' +
+            (m.ncap ? '<span class="mb">NCAP ' + m.ncap + '★</span>' : '') +
+            '<span class="mb" title="Reliability">' + stars(m.reliability) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="model-variants">' + variantStr + '</div>' +
+        '<div class="model-price">€' + m.priceUsedEUR[0].toLocaleString() + '–' + m.priceUsedEUR[1].toLocaleString() + ' used' +
+          (m.priceNewEUR ? '  ·  €' + m.priceNewEUR[0].toLocaleString() + '–' + m.priceNewEUR[1].toLocaleString() + ' new' : '') +
+        '</div>' +
+        '<div class="model-pro">+ ' + m.strengths + '</div>' +
+        '<div class="model-con">− ' + m.weaknesses + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
   function getAnswers() {
     return {
       budget: +document.getElementById('budget').value || 0,
@@ -1206,7 +2252,9 @@
         (reasons.length ? '<div class="rec-section-title">Why this fits</div><div class="rec-examples">' + reasons.join(' · ') + '</div>' : '') +
         '<div class="rec-section-title">Pros</div><ul class="pros">' + arch.pros.map((p) => '<li><span>' + p + '</span></li>').join('') + '</ul>' +
         '<div class="rec-section-title">Watch out</div><ul class="cons">' + arch.cons.map((c) => '<li><span>' + c + '</span></li>').join('') + '</ul>' +
-        '<div class="rec-examples"><strong>Examples:</strong> ' + arch.examples.join(' · ') + '</div>' +
+        (modelsForArchetype(arch.id).length
+          ? '<div class="rec-section-title">Real European-market cars</div>' + renderModelsList(arch.id)
+          : '<div class="rec-examples"><strong>Examples:</strong> ' + arch.examples.join(' · ') + '</div>') +
         '<div class="rec-cta">' + (isSel ? 'Selected — see TCO below ↓' : 'Click for 5-year cost breakdown →') + '</div>' +
       '</div>';
     }).join('') + '</div>';
