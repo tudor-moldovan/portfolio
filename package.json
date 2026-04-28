@@ -1,0 +1,11 @@
+{
+  "name": "portfolio-tools",
+  "private": true,
+  "description": "Static client-side tools — DCA calculator and Auto Advisor.",
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
