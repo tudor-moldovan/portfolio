@@ -1358,19 +1358,6 @@
       euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 5,
       strengths: 'Two-decade Toyota hybrid reliability; cheapest TCO over 5 years in segment.',
       weaknesses: 'CVT droning under load; no real diesel or petrol-only option in EU.',
-    },
-    {
-      id: 'dacia-duster-mk2-mk3', archetypes: ['lpg-petrol-runabout', 'compact-crossover-petrol', 'mid-suv-diesel'],
-      name: 'Dacia Duster II / III', years: '2018–present', body: 'crossover',
-      variants: [
-        { name: 'TCe 100 ECO-G LPG', fuel: 'lpg', cons: 8.0, co2: 130, hp: 100, gearbox: 'manual' },
-        { name: 'TCe 130 / 150', fuel: 'petrol', cons: 6.4, co2: 145, hp: 130, gearbox: 'manual' },
-        { name: 'Blue dCi 115 4x4', fuel: 'diesel', cons: 5.3, co2: 140, hp: 115, gearbox: 'manual' },
-      ],
-      priceUsedEUR: [9000, 17000], priceNewEUR: [16000, 24000],
-      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 3, reliability: 4,
-      strengths: 'Cheapest real 4x4 in EU; LPG bi-fuel keeps running costs comically low.',
-      weaknesses: 'Long stopping distances vs European average; basic interior.',
     }
   );
 
@@ -1494,45 +1481,43 @@
       weaknesses: 'EA288 EGR cooler issues 2016–18; DSG service mandatory.',
     },
     {
-      id: 'hyundai-tucson-nx4', archetypes: ['mid-suv-diesel', 'mid-suv-hybrid', 'phev-family'],
+      id: 'hyundai-tucson-nx4', archetypes: ['mid-suv-hybrid', 'phev-family'],
       name: 'Hyundai Tucson NX4', years: '2020–present', body: 'suv',
       variants: [
-        { name: '1.6 CRDi 136hp 48V MHEV', fuel: 'diesel', cons: 5.6, co2: 147, hp: 136, gearbox: 'manual/dct' },
         { name: '1.6 T-GDi HEV 230hp', fuel: 'hev', cons: 5.7, co2: 130, hp: 230, gearbox: 'auto' },
         { name: '1.6 T-GDi PHEV 265hp', fuel: 'phev', cons: 1.4, co2: 31, hp: 265, gearbox: 'auto' },
       ],
       priceUsedEUR: [22000, 38000], priceNewEUR: [35000, 50000],
       euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
-      strengths: '7-year warranty, modern interior, every drivetrain available.',
-      weaknesses: 'PHEV battery cooling issues recall 2022; styling is divisive.',
+      strengths: '7-year warranty, modern interior, hybrid drivetrains are the keepers.',
+      weaknesses: 'Skip the 1.6 CRDi diesel — lethargic and Smartstream complications; PHEV battery recall 2022.',
     },
     {
-      id: 'kia-sportage-nq5', archetypes: ['mid-suv-diesel', 'mid-suv-hybrid', 'phev-family'],
+      id: 'kia-sportage-nq5', archetypes: ['mid-suv-hybrid', 'phev-family'],
       name: 'Kia Sportage NQ5', years: '2021–present', body: 'suv',
       variants: [
-        { name: '1.6 CRDi 136hp MHEV', fuel: 'diesel', cons: 5.7, co2: 149, hp: 136, gearbox: 'manual/dct' },
         { name: '1.6 T-GDi HEV 230hp', fuel: 'hev', cons: 5.6, co2: 127, hp: 230, gearbox: 'auto' },
         { name: '1.6 T-GDi PHEV 265hp', fuel: 'phev', cons: 1.4, co2: 32, hp: 265, gearbox: 'auto' },
       ],
       priceUsedEUR: [22000, 38000], priceNewEUR: [35000, 50000],
       euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
       strengths: '7-year warranty (EU); identical mechanics to Tucson but slightly cheaper.',
-      weaknesses: 'Same PHEV recall as Tucson; back seats slightly less comfortable.',
+      weaknesses: 'Skip the 1.6 CRDi diesel; same PHEV recall as Tucson.',
     },
     {
-      id: 'mazda-cx5', archetypes: ['mid-suv-diesel', 'mid-suv-hybrid'],
+      id: 'mazda-cx5', archetypes: ['mid-suv-hybrid'],
       name: 'Mazda CX-5 II', years: '2017–present', body: 'suv',
       variants: [
-        { name: '2.2 Skyactiv-D 150 / 184hp', fuel: 'diesel', cons: 5.7, co2: 149, hp: 184, gearbox: 'manual/auto' },
-        { name: '2.0 / 2.5 Skyactiv-G MHEV', fuel: 'mhev', cons: 7.1, co2: 162, hp: 194, gearbox: 'auto' },
+        { name: '2.0 Skyactiv-G MHEV 165hp', fuel: 'mhev', cons: 6.9, co2: 158, hp: 165, gearbox: 'manual/auto' },
+        { name: '2.5 Skyactiv-G MHEV 194hp AWD', fuel: 'mhev', cons: 7.4, co2: 168, hp: 194, gearbox: 'auto' },
       ],
-      priceUsedEUR: [16000, 32000], priceNewEUR: [33000, 48000],
+      priceUsedEUR: [16000, 30000], priceNewEUR: [33000, 48000],
       euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
-      strengths: 'Drives like a sedan; Skyactiv-D is one of the cleanest, smoothest diesels in EU.',
-      weaknesses: 'No PHEV option; G-Vectoring sounds gimmicky but is genuinely useful.',
+      strengths: 'Drives like a sedan; the petrol Skyactiv-G is naturally aspirated and bulletproof.',
+      weaknesses: 'Avoid the 2.2 Skyactiv-D diesel (turbo + DPF issues); no PHEV option.',
     },
     {
-      id: 'nissan-x-trail-t33', archetypes: ['mid-suv-diesel', 'seven-seat-suv'],
+      id: 'nissan-x-trail-t33', archetypes: ['mid-suv-hybrid', 'seven-seat-suv'],
       name: 'Nissan X-Trail T33', years: '2022–present', body: 'suv',
       variants: [
         { name: 'e-POWER 204hp', fuel: 'hev', cons: 5.8, co2: 132, hp: 204, gearbox: 'cvt-like' },
@@ -1543,6 +1528,58 @@
       euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
       strengths: 'Optional 7 seats; e-POWER drives like an EV with no plug needed.',
       weaknesses: 'Expensive vs Hyundai/Kia; e-POWER thirsty on motorway.',
+    },
+    {
+      id: 'bmw-x3-g01', archetypes: ['mid-suv-diesel', 'mhev-premium', 'phev-family'],
+      name: 'BMW X3 G01 / G45', years: '2017–present', body: 'suv',
+      variants: [
+        { name: 'xDrive20d 190hp B47 MHEV', fuel: 'diesel', cons: 5.5, co2: 144, hp: 190, gearbox: 'auto' },
+        { name: 'xDrive30d 286hp B57 MHEV', fuel: 'diesel', cons: 6.4, co2: 168, hp: 286, gearbox: 'auto' },
+        { name: 'xDrive30e PHEV 292hp', fuel: 'phev', cons: 1.9, co2: 43, hp: 292, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 50000], priceNewEUR: [60000, 85000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'B47 / B57 are among the most refined diesels ever made; xDrive is a real AWD.',
+      weaknesses: 'EGR cooler recall on early B47 (2015–17); ZF8 service every 80k km not optional.',
+    },
+    {
+      id: 'mercedes-glc-x253', archetypes: ['mid-suv-diesel', 'mhev-premium', 'phev-family'],
+      name: 'Mercedes GLC X253 / X254', years: '2015–present', body: 'suv',
+      variants: [
+        { name: 'GLC 220d 4MATIC 197hp OM654', fuel: 'diesel', cons: 5.4, co2: 142, hp: 197, gearbox: 'auto' },
+        { name: 'GLC 300d 4MATIC 269hp', fuel: 'diesel', cons: 5.7, co2: 150, hp: 269, gearbox: 'auto' },
+        { name: 'GLC 300de PHEV 333hp', fuel: 'phev', cons: 1.4, co2: 32, hp: 333, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 55000], priceNewEUR: [62000, 90000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'OM654 is one of the cleanest, smoothest 2.0 diesels in the EU; quiet, comfortable cruiser.',
+      weaknesses: 'AdBlue maintenance pricier than VAG; W253 air suspension expensive long-term.',
+    },
+    {
+      id: 'audi-q5-fy', archetypes: ['mid-suv-diesel', 'mhev-premium', 'phev-family'],
+      name: 'Audi Q5 FY', years: '2017–present', body: 'suv',
+      variants: [
+        { name: '40 TDI quattro 204hp MHEV', fuel: 'diesel', cons: 5.6, co2: 147, hp: 204, gearbox: 'auto' },
+        { name: '50 TDI quattro 286hp MHEV', fuel: 'diesel', cons: 6.7, co2: 175, hp: 286, gearbox: 'auto' },
+        { name: '55 TFSI e quattro PHEV 367hp', fuel: 'phev', cons: 1.9, co2: 44, hp: 367, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 50000], priceNewEUR: [60000, 85000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'EA288 evo 2.0 TDI matures well; quattro is genuine AWD; 50 TDI 3.0 V6 is a torquey cruiser.',
+      weaknesses: '7-speed S tronic clunky cold; service costs at the dealer get expensive.',
+    },
+    {
+      id: 'volvo-xc60-ii', archetypes: ['mid-suv-diesel', 'mhev-premium', 'phev-family'],
+      name: 'Volvo XC60 II', years: '2017–present', body: 'suv',
+      variants: [
+        { name: 'B4 / B5 MHEV diesel 197 / 235hp', fuel: 'diesel', cons: 5.9, co2: 154, hp: 235, gearbox: 'auto' },
+        { name: 'B5 / B6 MHEV petrol 250 / 300hp', fuel: 'mhev', cons: 7.6, co2: 172, hp: 300, gearbox: 'auto' },
+        { name: 'T8 Recharge PHEV 455hp', fuel: 'phev', cons: 1.6, co2: 36, hp: 455, gearbox: 'auto' },
+      ],
+      priceUsedEUR: [22000, 48000], priceNewEUR: [55000, 82000],
+      euroClass: 'Euro 6d', lezAccess: 'eu-wide', ncap: 5, reliability: 4,
+      strengths: 'Class-leading safety; comfortable seats; D5204 diesel matched with 48V is smooth and frugal.',
+      weaknesses: 'Diesel dropped from XC60 in 2024; Sensus infotainment is slow.',
     }
   );
 
