@@ -108,6 +108,21 @@
   .chart-wrap { position: relative; height: 380px; margin-top: 16px; }
   /* tables, details: shared.css */
 
+  .controls-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .copy-status {
+    font-size: 12px;
+    color: var(--accent-2);
+    transition: opacity 0.2s;
+  }
+  .copy-status.fade { opacity: 0; }
+
   .tco-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -309,6 +324,11 @@
           <option value="fun">Don't care, want fun</option>
         </select>
       </div>
+    </div>
+    <div class="controls-actions">
+      <button type="button" id="resetBtn" class="link-btn" aria-label="Reset all inputs to defaults">Reset to defaults</button>
+      <button type="button" id="copyLinkBtn" class="link-btn" aria-label="Copy a shareable link with these inputs">Copy share link</button>
+      <span id="copyLinkStatus" class="copy-status" aria-live="polite"></span>
     </div>
   </section>
 
@@ -839,16 +859,77 @@
     }
   }
 
-  // ---------- wiring ----------
+  // ---------- state persistence ----------
   const FORM_IDS = [
     'budget', 'condition', 'years', 'annualKm', 'drivingMix', 'seats',
     'climate', 'towing', 'childSeats', 'bodyPref', 'fuelPref', 'drivePref',
     'transmission', 'charging', 'reliability',
   ];
+  // Defaults match the values declared in the HTML form. Single source of truth
+  // for "what does Reset / no-state-set look like".
+  const DEFAULTS = {
+    budget: '20000', condition: 'nearlyNew', years: '5', annualKm: '15000',
+    drivingMix: 'mixed', seats: '4-5', climate: 'mild', towing: 'none',
+    childSeats: '0', bodyPref: 'open', fuelPref: 'open', drivePref: 'open',
+    transmission: 'open', charging: 'home', reliability: 'balanced',
+  };
+  const STORAGE_KEY = 'auto-advisor-state-v1';
+
+  function loadState() {
+    // Priority: URL params > localStorage > defaults.
+    const params = new URLSearchParams(location.search);
+    if ([...params.keys()].some((k) => FORM_IDS.includes(k))) {
+      const out = { ...DEFAULTS };
+      FORM_IDS.forEach((id) => { if (params.has(id)) out[id] = params.get(id); });
+      return out;
+    }
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    } catch (_) { /* private mode / disabled storage */ }
+    return DEFAULTS;
+  }
+
+  function applyState(state) {
+    FORM_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el && state[id] !== undefined) el.value = state[id];
+    });
+  }
+
+  function debounce(fn, ms) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  // Persist non-default field values to URL + localStorage. Debounced so typing
+  // a 5-digit budget only fires once at the end.
+  const persistState = debounce(() => {
+    const state = {};
+    FORM_IDS.forEach((id) => { state[id] = String(document.getElementById(id).value); });
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+    const params = new URLSearchParams();
+    FORM_IDS.forEach((id) => {
+      if (state[id] !== String(DEFAULTS[id])) params.set(id, state[id]);
+    });
+    const qs = params.toString();
+    history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+  }, 400);
+
+  function resetState() {
+    applyState(DEFAULTS);
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    history.replaceState(null, '', location.pathname);
+    selectedArchId = null;
+    document.getElementById('tcoSection').style.display = 'none';
+    renderRecommendations();
+  }
+
+  // ---------- wiring ----------
   FORM_IDS.forEach((id) => {
     const el = document.getElementById(id);
-    el.addEventListener('input', () => { renderRecommendations(); rerenderTCO(); });
-    el.addEventListener('change', () => { renderRecommendations(); rerenderTCO(); });
+    el.addEventListener('input', () => { renderRecommendations(); rerenderTCO(); persistState(); });
+    el.addEventListener('change', () => { renderRecommendations(); rerenderTCO(); persistState(); });
   });
 
   const TCO_IDS = ['tcoYears', 'tcoKm', 'tcoPurchase', 'tcoPetrol', 'tcoDiesel', 'tcoLpg', 'tcoElec'];
@@ -862,6 +943,33 @@
     renderRecommendations();
   });
 
+  document.getElementById('resetBtn').addEventListener('click', resetState);
+
+  document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+    persistState.flush?.();
+    // Force-write current state synchronously, then copy.
+    const params = new URLSearchParams();
+    FORM_IDS.forEach((id) => {
+      const v = String(document.getElementById(id).value);
+      if (v !== String(DEFAULTS[id])) params.set(id, v);
+    });
+    const url = location.origin + location.pathname + (params.toString() ? '?' + params.toString() : '');
+    const status = document.getElementById('copyLinkStatus');
+    try {
+      await navigator.clipboard.writeText(url);
+      status.textContent = 'Copied!';
+    } catch (_) {
+      // Fallback: just put it in the URL bar so user can copy manually.
+      history.replaceState(null, '', url.replace(location.origin, ''));
+      status.textContent = 'Copied to address bar';
+    }
+    status.classList.remove('fade');
+    setTimeout(() => status.classList.add('fade'), 1500);
+    setTimeout(() => { status.textContent = ''; status.classList.remove('fade'); }, 2200);
+  });
+
+  // Hydrate from URL / localStorage on first paint, then render.
+  applyState(loadState());
   renderRecommendations();
 </script>
 
