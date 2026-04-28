@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
         integrity="sha384-rRoXxn2yHlrZYB587Ki9RO1tONhLdM6XfORg7Rw4uwH4/Fh/5nP7IUX91bkaKUgs"
         crossorigin="anonymous"></script>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/shared.css" />
 <style>
   /* Auto Advisor — per-tool overrides + components */
@@ -62,6 +63,23 @@
   .rec ul li span { color: var(--text); }
   .rec-examples { font-size: 12px; color: var(--muted); }
   .rec-examples strong { color: var(--text); font-weight: 500; }
+  .models-details {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-top: 4px;
+    color: inherit;
+    font-size: inherit;
+  }
+  .models-details > .models-summary {
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .models-details > .models-summary:hover { color: var(--accent); }
   .models-list { display: flex; flex-direction: column; gap: 10px; }
   .model {
     background: var(--bg);
@@ -216,7 +234,8 @@
 
 <header>
   <h1>Auto Advisor</h1>
-  <p>Tell it how you'll use the car · it returns a shortlist of body / fuel / drivetrain combos · then a 5-year TCO for any of them. Romanian-market context.</p>
+  <p>Tell it how you'll use the car · it returns a shortlist of body / fuel / drivetrain combos · then a 5-year TCO for any of them. Romanian / EU market context.</p>
+  <p class="disclaimer">Educational tool · not purchase advice · prices and data are estimates, verify locally before buying.</p>
 </header>
 
 <main>
@@ -546,19 +565,30 @@
   function renderModelsList(archId) {
     const list = modelsForArchetype(archId).slice(0, 4);
     if (!list.length) return '';
-    return '<div class="models-list">' + list.map((m) => {
+    // On phones we ship the model list collapsed by default to keep cards short.
+    // On desktops it stays expanded.
+    const openByDefault = (window.innerWidth || 1024) >= 700 ? ' open' : '';
+    return '<details class="models-details"' + openByDefault + '>' +
+      '<summary class="models-summary">' + list.length + ' real European-market car' + (list.length > 1 ? 's' : '') + '</summary>' +
+      '<div class="models-list">' + list.map((m) => {
       const lez = lezBadge(m.lezAccess);
       const variantStr = m.variants.map((v) => v.name).join(' · ');
+      const lezTitle = {
+        'eu-wide': 'Passes all current EU low-emission zones',
+        'restricted': 'Restricted in some city centres (Paris, Brussels) — check the Crit\'Air sticker',
+        'banned-major': 'Banned in major LEZs: Berlin, London ULEZ, Paris central, Madrid central',
+        'ev': 'Electric vehicle — exempt from all LEZs',
+      }[m.lezAccess] || '';
       return '<div class="model">' +
         '<div class="model-head">' +
           '<div class="model-name">' + m.name + ' <span class="model-years">' + m.years + '</span></div>' +
           '<div class="model-badges">' +
-            '<span class="mb">' + m.euroClass + '</span>' +
-            '<span class="mb ' + lez.cls + '">' + lez.label + '</span>' +
+            '<span class="mb" title="Euro emissions class">' + m.euroClass + '</span>' +
+            '<span class="mb ' + lez.cls + '" title="' + lezTitle + '">' + lez.label + '</span>' +
             (m.ncap == null
-              ? '<span class="mb" title="Not tested under current EU NCAP protocol">NCAP —</span>'
-              : '<span class="mb' + (m.ncap === 0 ? ' badge-bad' : '') + '" title="Euro NCAP rating">NCAP ' + m.ncap + '★</span>') +
-            '<span class="mb" title="Reliability">' + stars(m.reliability) + '</span>' +
+              ? '<span class="mb" title="Not tested under the current Euro NCAP protocol" aria-label="NCAP not tested">NCAP —</span>'
+              : '<span class="mb' + (m.ncap === 0 ? ' badge-bad' : '') + '" title="Euro NCAP rating" aria-label="Euro NCAP ' + m.ncap + ' stars">NCAP ' + m.ncap + '★</span>') +
+            '<span class="mb" title="Reliability rating, 1-5" aria-label="Reliability ' + m.reliability + ' of 5">' + stars(m.reliability) + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="model-variants">' + variantStr + '</div>' +
@@ -568,7 +598,7 @@
         '<div class="model-pro">+ ' + m.strengths + '</div>' +
         '<div class="model-con">− ' + m.weaknesses + '</div>' +
       '</div>';
-    }).join('') + '</div>';
+    }).join('') + '</div></details>';
   }
   function getAnswers() {
     return {
@@ -1128,6 +1158,20 @@
 
   document.getElementById('resetBtn').addEventListener('click', resetState);
   document.getElementById('compareCloseBtn').addEventListener('click', clearCompare);
+
+  // Esc collapses whichever panel is open. TCO first (it's the typical interaction).
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const tco = document.getElementById('tcoSection');
+    const cmp = document.getElementById('compareSection');
+    if (tco.style.display !== 'none') {
+      selectedArchId = null;
+      tco.style.display = 'none';
+      renderRecommendations();
+    } else if (cmp.style.display !== 'none') {
+      clearCompare();
+    }
+  });
 
   document.getElementById('copyLinkBtn').addEventListener('click', async () => {
     persistState.flush?.();
