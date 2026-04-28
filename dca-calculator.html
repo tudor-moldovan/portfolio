@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VUSA DCA Calculator — Romania edition</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #181b22;
+    --surface-2: #1f2330;
+    --border: #2a2f3d;
+    --text: #e7eaf0;
+    --muted: #9aa3b2;
+    --accent: #4f9dff;
+    --accent-2: #5ee0a4;
+    --warn: #ffb454;
+    --c1: #4f9dff;
+    --c2: #5ee0a4;
+    --c3: #ffb454;
+    --c4: #f06292;
+    --c5: #b388ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 32px 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 600; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .holding {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+  }
+  .holding .label, .field label, .card .sub-label {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .holding .value { font-size: 20px; font-weight: 600; }
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+  .controls h3 {
+    margin: 0 0 14px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .controls h3:not(:first-child) { margin-top: 22px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .field label { display: block; margin-bottom: 6px; }
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 16px;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .field .hint { margin-top: 4px; font-size: 11px; color: var(--muted); }
+  .checkbox-row { display: flex; align-items: center; gap: 10px; padding-top: 22px; }
+  .checkbox-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+  .checkbox-row label { font-size: 14px; color: var(--text); }
+  .charts { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+  .card h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+  .card .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .chart-wrap { position: relative; height: 380px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table th, table td {
+    text-align: right;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table th:first-child, table td:first-child { text-align: left; }
+  table th {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  table tr:last-child td { border-bottom: none; }
+  .goal-result {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 12px;
+    font-size: 15px;
+  }
+  .goal-result .big { font-size: 28px; font-weight: 600; color: var(--accent-2); display: block; margin-top: 4px; }
+  .goal-result .warn { color: var(--warn); }
+  details {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  details summary { cursor: pointer; color: var(--text); font-weight: 500; }
+  details > *:not(summary) { margin-top: 8px; }
+  details ul { padding-left: 20px; margin: 6px 0; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+  .back-link {
+    display: inline-block;
+    margin: 16px 0 0 24px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .back-link:hover { color: var(--accent); }
+  @media (max-width: 600px) {
+    .chart-wrap { height: 320px; }
+    header h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="/">← Tools</a>
+
+<header>
+  <h1>VUSA DCA Calculator</h1>
+  <p>Vanguard S&amp;P 500 UCITS ETF (AEB) · IBKR · Romania tax model</p>
+</header>
+
+<main>
+
+  <section class="holding">
+    <div><div class="label">Ticker</div><div class="value">VUSA.AS</div></div>
+    <div><div class="label">Shares</div><div class="value">120.7599</div></div>
+    <div><div class="label">Current value</div><div class="value">€13,983</div></div>
+    <div><div class="label">Price / share</div><div class="value">€115.79</div></div>
+  </section>
+
+  <section class="controls">
+    <h3>Projection inputs</h3>
+    <div class="grid">
+      <div class="field">
+        <label for="initial">Starting amount (€)</label>
+        <input type="number" id="initial" value="13983" min="0" step="100" />
+        <div class="hint">Default: current VUSA value</div>
+      </div>
+      <div class="field">
+        <label for="rate">Expected return (% / yr)</label>
+        <input type="number" id="rate" value="8" min="0" max="30" step="0.1" />
+        <div class="hint">S&amp;P 500 nominal long-term ≈ 10%; conservative ≈ 7%</div>
+      </div>
+      <div class="field">
+        <label for="vol">Volatility (% / yr)</label>
+        <input type="number" id="vol" value="16" min="0" max="50" step="0.5" />
+        <div class="hint">S&amp;P 500 historical σ ≈ 15–18%</div>
+      </div>
+      <div class="field">
+        <label for="years">Years</label>
+        <input type="number" id="years" value="20" min="1" max="50" step="1" />
+      </div>
+      <div class="field">
+        <label for="inflation">Inflation (% / yr)</label>
+        <input type="number" id="inflation" value="3" min="0" max="15" step="0.1" />
+        <div class="hint">RO long-term ≈ 3–5%</div>
+      </div>
+    </div>
+
+    <h3>Costs &amp; Romanian tax</h3>
+    <div class="grid">
+      <div class="field">
+        <label for="ter">Fund TER (% / yr)</label>
+        <input type="number" id="ter" value="0.07" min="0" max="3" step="0.01" />
+        <div class="hint">VUSA = 0.07%</div>
+      </div>
+      <div class="field">
+        <label for="divYield">Dividend yield (% / yr)</label>
+        <input type="number" id="divYield" value="1.3" min="0" max="10" step="0.1" />
+        <div class="hint">VUSA distributes ~1.2–1.4%</div>
+      </div>
+      <div class="field">
+        <label for="divTax">RO dividend tax (%)</label>
+        <input type="number" id="divTax" value="8" min="0" max="40" step="0.5" />
+        <div class="hint">RO foreign-dividend rate (post-2023)</div>
+      </div>
+      <div class="field">
+        <label for="cgtTax">Capital gains tax at exit (%)</label>
+        <input type="number" id="cgtTax" value="10" min="0" max="40" step="0.5" />
+        <div class="hint">RO standard rate via foreign broker</div>
+      </div>
+      <div class="field checkbox-row">
+        <input type="checkbox" id="cassToggle" checked />
+        <label for="cassToggle">Apply CASS (capped flat fee)</label>
+      </div>
+    </div>
+  </section>
+
+  <div class="charts">
+
+    <div class="card">
+      <h2>Final portfolio value by monthly contribution</h2>
+      <p class="sub">After <span id="finalYears">20</span> years — stacked: starting amount + total contributions + net gains (after RO tax &amp; fees).</p>
+      <div class="chart-wrap"><canvas id="finalChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Growth over time — with uncertainty</h2>
+      <p class="sub">Solid line = expected (deterministic). Shaded band = 10th–90th percentile from <span id="simCount">1000</span> Monte Carlo simulations of yearly returns drawn N(μ, σ).</p>
+      <div class="chart-wrap"><canvas id="growthChart"></canvas></div>
+      <div class="field" style="max-width: 280px; margin-top: 12px;">
+        <label for="scenario">Scenario shown in fan chart</label>
+        <select id="scenario">
+          <option value="200">€200 / month</option>
+          <option value="500">€500 / month</option>
+          <option value="1000" selected>€1,000 / month</option>
+          <option value="1500">€1,500 / month</option>
+          <option value="2000">€2,000 / month</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Value at key milestones</h2>
+      <p class="sub">Net portfolio value (after exit tax) at each milestone, per monthly contribution.</p>
+      <div class="chart-wrap"><canvas id="milestonesChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Goal-seek: what monthly contribution do I need?</h2>
+      <p class="sub">Solves for the monthly contribution required to hit your target — pre-tax, then applies exit CGT to estimate net.</p>
+      <div class="grid">
+        <div class="field">
+          <label for="goalAmount">Target (€, net)</label>
+          <input type="number" id="goalAmount" value="1000000" min="0" step="10000" />
+        </div>
+        <div class="field">
+          <label for="goalYears">By year</label>
+          <input type="number" id="goalYears" value="20" min="1" max="50" step="1" />
+        </div>
+      </div>
+      <div class="goal-result" id="goalResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>Summary table</h2>
+      <p class="sub">Net values after all RO taxes, CASS, fees. Real values use the inflation rate above.</p>
+      <div style="overflow-x:auto">
+        <table id="summaryTable">
+          <thead>
+            <tr>
+              <th>Monthly</th>
+              <th>Total contributed</th>
+              <th>Pre-tax final</th>
+              <th>Tax + fees paid</th>
+              <th>Net final (nominal)</th>
+              <th>Net final (real, today's €)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <details>
+        <summary>How the Romanian tax model works</summary>
+        <p><strong>Annual drag (each year):</strong></p>
+        <ul>
+          <li>TER deducted from gross return (e.g., 8% − 0.07% = 7.93% net of fund fee)</li>
+          <li>Dividend yield × (1 − div tax) reinvested; the dividend tax portion is paid out</li>
+        </ul>
+        <p><strong>At exit (final year):</strong></p>
+        <ul>
+          <li>Capital gains tax applied to (final value − total cost basis), where cost basis = starting amount + sum of contributions</li>
+          <li>If gain is negative, no CGT</li>
+        </ul>
+        <p><strong>CASS:</strong> Romanian health contribution, capped flat fee based on annual investment income vs. minimum-wage thresholds. Modeled as €490 (low band) up to €1,960 (cap) per year, applied across the holding period and paid out of returns.</p>
+        <p><strong>What's NOT modeled:</strong> IBKR commissions (small), FX spread (RON ↔ EUR), 15% US dividend WHT (already absorbed at fund level before VUSA pays you), partial-year sells, loss carry-forward, the 1%/3% preferential rate (only applies via Romanian brokers like XTB Romania).</p>
+        <p><strong>Always verify with ANAF or a fiscal consultant before filing.</strong></p>
+      </details>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  Educational tool · Not tax or investment advice · Past performance ≠ future returns
+</footer>
+
+<script>
+  const CONTRIBUTIONS = [200, 500, 1000, 1500, 2000];
+  const COLORS = ['#4f9dff', '#5ee0a4', '#ffb454', '#f06292', '#b388ff'];
+  const SIM_COUNT = 1000;
+
+  const fmtEUR = (v) => '€' + Math.round(v).toLocaleString('en-US');
+  const fmtEURshort = (v) => {
+    if (v >= 1_000_000) return '€' + (v / 1_000_000).toFixed(2) + 'M';
+    if (v >= 1_000) return '€' + (v / 1_000).toFixed(0) + 'k';
+    return '€' + Math.round(v).toLocaleString('en-US');
+  };
+
+  // Read all inputs once into a config object.
+  function getCfg() {
+    return {
+      initial: +document.getElementById('initial').value || 0,
+      rate: +document.getElementById('rate').value || 0,
+      vol: +document.getElementById('vol').value || 0,
+      years: Math.max(1, Math.min(50, +document.getElementById('years').value || 1)),
+      inflation: +document.getElementById('inflation').value || 0,
+      ter: +document.getElementById('ter').value || 0,
+      divYield: +document.getElementById('divYield').value || 0,
+      divTax: +document.getElementById('divTax').value || 0,
+      cgtTax: +document.getElementById('cgtTax').value || 0,
+      cass: document.getElementById('cassToggle').checked,
+    };
+  }
+
+  // CASS: capped flat fee depending on annual investment income.
+  // Min gross wage 2025 ≈ 4050 RON ≈ €814 (at ~4.97 RON/EUR).
+  // Bands: 6 / 12 / 24 wages → €490 / €980 / €1960.
+  function cassForIncome(annualIncomeEUR) {
+    const wage = 814;
+    if (annualIncomeEUR < 6 * wage) return 0;
+    if (annualIncomeEUR < 12 * wage) return 0.10 * 6 * wage;   // ≈ €490
+    if (annualIncomeEUR < 24 * wage) return 0.10 * 12 * wage;  // ≈ €980
+    return 0.10 * 24 * wage;                                    // ≈ €1960 (cap)
+  }
+
+  // Deterministic year-by-year projection with TER + dividend tax + CASS yearly.
+  // Returns array of pre-tax values at end of each year (length years+1).
+  function projectDeterministic(cfg, monthly) {
+    const grossReturn = cfg.rate / 100;
+    const ter = cfg.ter / 100;
+    const div = cfg.divYield / 100;
+    const divTax = cfg.divTax / 100;
+
+    // Capital appreciation rate = total return − dividend yield (since divs are paid separately and reinvested net of tax)
+    // Net annual rate after fund fee = (gross return − TER) − dividend tax drag
+    // Equivalent annual drag from div tax = divYield × divTax
+    // Plus CASS applied annually if enabled (computed from annual investment income proxy).
+    const annualNetRate = grossReturn - ter - (div * divTax);
+
+    let balance = cfg.initial;
+    const values = [balance];
+
+    for (let y = 1; y <= cfg.years; y++) {
+      const startBal = balance;
+      // Monthly compounding within the year
+      const r = annualNetRate / 12;
+      for (let m = 0; m < 12; m++) {
+        balance = balance * (1 + r) + monthly;
+      }
+      // CASS: estimate annual investment income for the year as (gain + dividends received)
+      if (cfg.cass) {
+        const yearGain = balance - startBal - monthly * 12;
+        const dividendsReceived = startBal * div;
+        const investmentIncome = Math.max(0, yearGain + dividendsReceived);
+        balance -= cassForIncome(investmentIncome);
+      }
+      values.push(balance);
+    }
+    return values;
+  }
+
+  // Apply exit CGT on (final − total cost basis). Returns net final value.
+  function applyExitTax(finalValue, totalContributed, initial, cgtPct) {
+    const costBasis = initial + totalContributed;
+    const gain = finalValue - costBasis;
+    if (gain <= 0) return finalValue;
+    return finalValue - gain * (cgtPct / 100);
+  }
+
+  // Box-Muller transform for N(0,1).
+  function gaussian() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  // Monte Carlo: simulate `simCount` paths. Returns 2D: [year][simIndex] = pre-tax balance.
+  function monteCarlo(cfg, monthly, simCount) {
+    const ter = cfg.ter / 100;
+    const div = cfg.divYield / 100;
+    const divTax = cfg.divTax / 100;
+    const meanRate = cfg.rate / 100;
+    const sigma = cfg.vol / 100;
+
+    // Each year: draw yearly return ~ N(mean, sigma), then subtract TER + divTax drag, then compound monthly with that effective rate.
+    const paths = [];
+    for (let s = 0; s < simCount; s++) {
+      let balance = cfg.initial;
+      const path = [balance];
+      for (let y = 1; y <= cfg.years; y++) {
+        const yearlyReturn = meanRate + sigma * gaussian();
+        const effective = yearlyReturn - ter - (div * divTax);
+        const r = effective / 12;
+        for (let m = 0; m < 12; m++) {
+          balance = balance * (1 + r) + monthly;
+        }
+        if (cfg.cass) {
+          const dividendsReceived = path[path.length - 1] * div;
+          const yearGain = balance - path[path.length - 1] - monthly * 12;
+          const investmentIncome = Math.max(0, yearGain + dividendsReceived);
+          balance -= cassForIncome(investmentIncome);
+        }
+        path.push(balance);
+      }
+      paths.push(path);
+    }
+
+    // Transpose: [year][sim]
+    const byYear = [];
+    for (let y = 0; y <= cfg.years; y++) {
+      byYear.push(paths.map((p) => p[y]).sort((a, b) => a - b));
+    }
+    return byYear;
+  }
+
+  function percentile(sortedArr, p) {
+    const idx = Math.min(sortedArr.length - 1, Math.floor(p * sortedArr.length));
+    return sortedArr[idx];
+  }
+
+  // Goal-seek: find monthly contribution to hit pre-tax target value, given the deterministic model.
+  // We need pre-tax target = target / (1 - cgtPct) approximation if all gain. Better: binary search on net final.
+  function solveMonthlyForGoal(cfg, targetNet, targetYears) {
+    const cfgGoal = { ...cfg, years: targetYears };
+    const evalNet = (m) => {
+      const path = projectDeterministic(cfgGoal, m);
+      const finalPre = path[targetYears];
+      const totalContributed = m * 12 * targetYears;
+      return applyExitTax(finalPre, totalContributed, cfgGoal.initial, cfgGoal.cgtTax);
+    };
+
+    // Already there with zero contribution?
+    if (evalNet(0) >= targetNet) return 0;
+
+    // Binary search between 0 and 100,000 €/mo
+    let lo = 0, hi = 100000;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      if (evalNet(mid) < targetNet) lo = mid;
+      else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+  let finalChart, growthChart, milestonesChart;
+
+  function rebuild() {
+    const cfg = getCfg();
+    document.getElementById('finalYears').textContent = cfg.years;
+    document.getElementById('simCount').textContent = SIM_COUNT;
+
+    const projections = CONTRIBUTIONS.map((m) => projectDeterministic(cfg, m));
+    const labels = CONTRIBUTIONS.map((m) => '€' + m + '/mo');
+
+    // ---- Final stacked chart: starting + contributions + net gains
+    const initialArr = CONTRIBUTIONS.map(() => cfg.initial);
+    const contribArr = CONTRIBUTIONS.map((m) => m * 12 * cfg.years);
+    const netFinals = projections.map((p, i) =>
+      applyExitTax(p[cfg.years], contribArr[i], cfg.initial, cfg.cgtTax)
+    );
+    const netGainArr = netFinals.map((nf, i) => Math.max(0, nf - cfg.initial - contribArr[i]));
+
+    if (finalChart) finalChart.destroy();
+    finalChart = new Chart(document.getElementById('finalChart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Starting amount', data: initialArr, backgroundColor: '#4f9dff' },
+          { label: 'Total contributions', data: contribArr, backgroundColor: '#5ee0a4' },
+          { label: 'Net gains (after RO tax)', data: netGainArr, backgroundColor: '#ffb454' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true, ticks: { color: '#9aa3b2' }, grid: { color: '#2a2f3d' } },
+          y: { stacked: true, ticks: { color: '#9aa3b2', callback: fmtEURshort }, grid: { color: '#2a2f3d' } },
+        },
+        plugins: {
+          legend: { labels: { color: '#e7eaf0' } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ctx.dataset.label + ': ' + fmtEUR(ctx.parsed.y),
+              footer: (items) => 'Net final: ' + fmtEUR(items.reduce((s, i) => s + i.parsed.y, 0)),
+            },
+          },
+        },
+      },
+    });
+
+    // ---- Growth fan chart: Monte Carlo for selected scenario
+    const scenario = +document.getElementById('scenario').value;
+    const mc = monteCarlo(cfg, scenario, SIM_COUNT);
+    const yearLabels = Array.from({ length: cfg.years + 1 }, (_, i) => 'Y' + i);
+    const p10 = mc.map((arr) => percentile(arr, 0.10));
+    const p50 = mc.map((arr) => percentile(arr, 0.50));
+    const p90 = mc.map((arr) => percentile(arr, 0.90));
+    const expectedPath = projectDeterministic(cfg, scenario);
+
+    if (growthChart) growthChart.destroy();
+    growthChart = new Chart(document.getElementById('growthChart'), {
+      type: 'line',
+      data: {
+        labels: yearLabels,
+        datasets: [
+          {
+            label: '90th percentile', data: p90,
+            borderColor: 'transparent', backgroundColor: 'rgba(94,224,164,0.18)',
+            pointRadius: 0, fill: '+1', tension: 0.25,
+          },
+          {
+            label: '10th percentile', data: p10,
+            borderColor: 'transparent', backgroundColor: 'rgba(94,224,164,0.18)',
+            pointRadius: 0, fill: false, tension: 0.25,
+          },
+          {
+            label: 'Median (P50)', data: p50,
+            borderColor: '#5ee0a4', borderDash: [4, 4], borderWidth: 2,
+            pointRadius: 0, fill: false, tension: 0.25,
+          },
+          {
+            label: 'Expected (deterministic)', data: expectedPath,
+            borderColor: '#4f9dff', borderWidth: 2.5,
+            pointRadius: 0, pointHoverRadius: 4, fill: false, tension: 0.25,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: { ticks: { color: '#9aa3b2' }, grid: { color: '#2a2f3d' } },
+          y: { ticks: { color: '#9aa3b2', callback: fmtEURshort }, grid: { color: '#2a2f3d' } },
+        },
+        plugins: {
+          legend: { labels: { color: '#e7eaf0', filter: (item) => !item.text.includes('percentile') || item.text === '90th percentile' } },
+          tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + fmtEUR(ctx.parsed.y) } },
+        },
+      },
+    });
+
+    // ---- Milestones bar chart: net values at milestones
+    const desired = [5, 10, 15, 20, 25, 30, 40].filter((y) => y <= cfg.years);
+    const milestones = desired.length ? desired : [cfg.years];
+
+    if (milestonesChart) milestonesChart.destroy();
+    milestonesChart = new Chart(document.getElementById('milestonesChart'), {
+      type: 'bar',
+      data: {
+        labels: milestones.map((y) => 'Year ' + y),
+        datasets: CONTRIBUTIONS.map((m, i) => ({
+          label: '€' + m + '/mo',
+          data: milestones.map((y) => {
+            const pre = projections[i][y];
+            return applyExitTax(pre, m * 12 * y, cfg.initial, cfg.cgtTax);
+          }),
+          backgroundColor: COLORS[i],
+        })),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { color: '#9aa3b2' }, grid: { color: '#2a2f3d' } },
+          y: { ticks: { color: '#9aa3b2', callback: fmtEURshort }, grid: { color: '#2a2f3d' } },
+        },
+        plugins: {
+          legend: { labels: { color: '#e7eaf0' } },
+          tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + fmtEUR(ctx.parsed.y) } },
+        },
+      },
+    });
+
+    // ---- Goal seek
+    const goalTarget = +document.getElementById('goalAmount').value || 0;
+    const goalYears = Math.max(1, Math.min(50, +document.getElementById('goalYears').value || 1));
+    const required = solveMonthlyForGoal(cfg, goalTarget, goalYears);
+    const goalEl = document.getElementById('goalResult');
+    if (required >= 99000) {
+      goalEl.innerHTML =
+        '<span class="warn">Goal not reachable</span> with monthly contribution &lt; €100,000 at the chosen return / horizon. ' +
+        'Try a longer horizon, higher return, or a smaller target.';
+    } else {
+      const totalContrib = required * 12 * goalYears;
+      const realTarget = goalTarget / Math.pow(1 + cfg.inflation / 100, goalYears);
+      goalEl.innerHTML =
+        'To hit <strong>' + fmtEUR(goalTarget) + '</strong> net by year <strong>' + goalYears + '</strong>, contribute:' +
+        '<span class="big">' + fmtEUR(required) + ' / month</span>' +
+        'Total out-of-pocket: ' + fmtEUR(totalContrib) +
+        ' · Target in today\'s € (after ' + cfg.inflation + '% inflation): ' + fmtEUR(realTarget);
+    }
+
+    // ---- Summary table
+    const realFactor = Math.pow(1 + cfg.inflation / 100, cfg.years);
+    const tbody = document.querySelector('#summaryTable tbody');
+    tbody.innerHTML = '';
+    CONTRIBUTIONS.forEach((m, i) => {
+      const preTax = projections[i][cfg.years];
+      const contributed = m * 12 * cfg.years;
+      const netFinal = applyExitTax(preTax, contributed, cfg.initial, cfg.cgtTax);
+      const taxPaid = preTax - netFinal + (cfg.initial > 0 ? 0 : 0);
+      // taxPaid here = exit CGT only; the annual dividend tax + CASS already deducted from preTax in the projection.
+      // To show "total tax & fees", we compare against a hypothetical zero-tax/zero-fee projection:
+      const cfgZero = { ...cfg, ter: 0, divTax: 0, cass: false, cgtTax: 0 };
+      const zeroPath = projectDeterministic(cfgZero, m);
+      const zeroFinal = zeroPath[cfg.years];
+      const totalTaxFees = zeroFinal - netFinal;
+      const real = netFinal / realFactor;
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + COLORS[i] + ';margin-right:8px;"></span>€' + m + '/mo</td>' +
+        '<td>' + fmtEUR(contributed) + '</td>' +
+        '<td>' + fmtEUR(preTax) + '</td>' +
+        '<td>' + fmtEUR(totalTaxFees) + '</td>' +
+        '<td><strong>' + fmtEUR(netFinal) + '</strong></td>' +
+        '<td>' + fmtEUR(real) + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  ['initial', 'rate', 'vol', 'years', 'inflation', 'ter', 'divYield', 'divTax', 'cgtTax', 'goalAmount', 'goalYears'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', rebuild);
+  });
+  document.getElementById('cassToggle').addEventListener('change', rebuild);
+  document.getElementById('scenario').addEventListener('change', rebuild);
+
+  rebuild();
+</script>
+
+</body>
+</html>
